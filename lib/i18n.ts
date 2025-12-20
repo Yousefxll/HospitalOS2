@@ -564,6 +564,8 @@ export const translations: Record<Language, Translations> = {
         success: 'Success',
         successMessage: 'Visit recorded successfully',
         newRecord: 'Record New Visit',
+        autoFilledFromAccount: 'Auto-filled from account',
+        addStaffIdInUsersPage: 'Add Staff ID in Users page',
       },
     },
   },
