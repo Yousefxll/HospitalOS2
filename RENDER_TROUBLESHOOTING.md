@@ -4,6 +4,22 @@
 
 إذا واجهت خطأ 500 عند محاولة تسجيل الدخول، فالمشكلة على الأرجح في أحد الأسباب التالية:
 
+### ⚠️ المشكلة الشائعة: NEXT_PUBLIC_BASE_URL
+
+**تأكد من:**
+- استخدام `https://` وليس `http://` (Render يستخدم HTTPS دائماً)
+- استخدام الـ URL الصحيح للتطبيق على Render (مثل: `https://hospitalos.onrender.com`)
+
+**مثال صحيح:**
+```
+NEXT_PUBLIC_BASE_URL=https://hospitalos.onrender.com
+```
+
+**مثال خاطئ:**
+```
+NEXT_PUBLIC_BASE_URL=http://HMGDASHBOARD.COM  ❌
+```
+
 ### ✅ الحل 1: التحقق من Environment Variables على Render
 
 1. اذهب إلى Render Dashboard
