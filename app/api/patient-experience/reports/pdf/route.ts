@@ -221,7 +221,7 @@ export async function GET(request: NextRequest) {
     // Set up end handler and finalize PDF
     const pdfPromise = new Promise<Buffer>((resolve, reject) => {
       doc.on('end', () => {
-        const pdfBuffer = Buffer.concat(chunks);
+        const pdfBuffer = Buffer.concat(chunks as Buffer[]);
         resolve(pdfBuffer);
       });
       doc.on('error', reject);
