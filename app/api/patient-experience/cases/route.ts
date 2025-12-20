@@ -8,8 +8,8 @@ import { requireRoleAsync, buildScopeFilter } from '@/lib/auth/requireRole';
  */
 async function resolveCaseLabels(cases: any[]): Promise<any[]> {
   // Get all unique visit IDs
-  const visitIds = [...new Set(cases.map(c => c.visitId).filter(Boolean))];
-  const departmentKeys = [...new Set(cases.map(c => c.assignedDeptKey).filter(Boolean))];
+  const visitIds = Array.from(new Set(cases.map(c => c.visitId).filter(Boolean)));
+  const departmentKeys = Array.from(new Set(cases.map(c => c.assignedDeptKey).filter(Boolean)));
 
   // Fetch visits and departments
   const [visits, departments] = await Promise.all([

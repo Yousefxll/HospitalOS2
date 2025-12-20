@@ -7,11 +7,11 @@ import { detectLang } from '@/lib/translate/detectLang';
  */
 async function resolveLabels(records: any[]): Promise<any[]> {
   // Get all unique keys
-  const floorKeys = [...new Set(records.map(r => r.floorKey).filter(Boolean))];
-  const departmentKeys = [...new Set(records.map(r => r.departmentKey).filter(Boolean))];
-  const roomKeys = [...new Set(records.map(r => r.roomKey).filter(Boolean))];
-  const domainKeys = [...new Set(records.map(r => r.domainKey).filter(Boolean))];
-  const typeKeys = [...new Set(records.map(r => r.typeKey).filter(Boolean))];
+  const floorKeys = Array.from(new Set(records.map(r => r.floorKey).filter(Boolean)));
+  const departmentKeys = Array.from(new Set(records.map(r => r.departmentKey).filter(Boolean)));
+  const roomKeys = Array.from(new Set(records.map(r => r.roomKey).filter(Boolean)));
+  const domainKeys = Array.from(new Set(records.map(r => r.domainKey).filter(Boolean)));
+  const typeKeys = Array.from(new Set(records.map(r => r.typeKey).filter(Boolean)));
 
   // Fetch all labels in parallel
   const floorsCollection = await getCollection('floors');
