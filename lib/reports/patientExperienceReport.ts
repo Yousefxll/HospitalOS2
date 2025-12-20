@@ -130,14 +130,14 @@ export async function getPXReportData(params: PXReportParams): Promise<PXReportD
   const cases = await casesCollection.find(caseQuery).toArray();
 
   // Get all unique keys for label resolution
-  const floorKeys = [...new Set(visits.map(v => v.floorKey).filter(Boolean))];
-  const departmentKeys = [...new Set([
+  const floorKeys = Array.from(new Set(visits.map(v => v.floorKey).filter(Boolean)));
+  const departmentKeys = Array.from(new Set([
     ...visits.map(v => v.departmentKey).filter(Boolean),
     ...cases.map(c => c.assignedDeptKey).filter(Boolean),
-  ])];
-  const roomKeys = [...new Set(visits.map(v => v.roomKey).filter(Boolean))];
-  const domainKeys = [...new Set(visits.map(v => v.domainKey).filter(Boolean))];
-  const typeKeys = [...new Set(visits.map(v => v.typeKey).filter(Boolean))];
+  ]));
+  const roomKeys = Array.from(new Set(visits.map(v => v.roomKey).filter(Boolean)));
+  const domainKeys = Array.from(new Set(visits.map(v => v.domainKey).filter(Boolean)));
+  const typeKeys = Array.from(new Set(visits.map(v => v.typeKey).filter(Boolean)));
 
   // Fetch labels in parallel
   const [floors, departments, rooms, domains, types] = await Promise.all([
