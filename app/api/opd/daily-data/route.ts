@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
       employmentType: data.employmentType,
       subspecialty: data.subspecialty,
       isPrimarySpecialty: data.isPrimarySpecialty,
-      rooms: data.rooms,
+      rooms: data.rooms as any,
       slotsPerHour: data.slotsPerHour,
       clinicStartTime: data.clinicStartTime,
       clinicEndTime: data.clinicEndTime,
