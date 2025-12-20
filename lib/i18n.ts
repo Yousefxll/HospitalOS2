@@ -159,6 +159,8 @@ export interface Translations {
       permissionsCount: string;
       active: string;
       inactive: string;
+      staffId: string;
+      staffIdPlaceholder: string;
     };
 
   // Roles
