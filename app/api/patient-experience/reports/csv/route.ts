@@ -3,6 +3,8 @@ import { requireRoleAsync } from '@/lib/auth/requireRole';
 import { getPXReportData } from '@/lib/reports/patientExperienceReport';
 import { format } from 'date-fns';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/patient-experience/reports/csv
  * Export Patient Experience report as CSV

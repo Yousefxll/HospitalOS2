@@ -4,6 +4,8 @@ import { getPXReportData } from '@/lib/reports/patientExperienceReport';
 import ExcelJS from 'exceljs';
 import { format } from 'date-fns';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/patient-experience/reports/xlsx
  * Export Patient Experience report as XLSX (multi-sheet)

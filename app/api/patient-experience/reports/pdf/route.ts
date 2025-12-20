@@ -5,6 +5,8 @@ import { format } from 'date-fns';
 import path from 'path';
 import fs from 'fs';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/patient-experience/reports/pdf
  * Export Patient Experience report as PDF
