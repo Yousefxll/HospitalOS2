@@ -79,15 +79,15 @@ export default function ManpowerManagementPage() {
   }
 
   return (
-    <div className=\"space-y-6\">
-      <div className=\"flex justify-between items-center\">
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className=\"text-3xl font-bold\">OPD Manpower Management</h1>
-          <p className=\"text-muted-foreground\">Add, edit, and manage all staffing data</p>
+          <h1 className="text-3xl font-bold">OPD Manpower Management</h1>
+          <p className="text-muted-foreground">Add, edit, and manage all staffing data</p>
         </div>
-        <div className=\"flex gap-2\">
-          <Button variant=\"outline\" onClick={openWorkforceCalculator}>
-            <Calculator className=\"mr-2 h-4 w-4\" />
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={openWorkforceCalculator}>
+            <Calculator className="mr-2 h-4 w-4" />
             Workforce Calculator
           </Button>
         </div>
@@ -100,7 +100,7 @@ export default function ManpowerManagementPage() {
           <CardDescription>Full editable version coming shortly...</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className=\"text-sm text-muted-foreground\">
+          <p className="text-sm text-muted-foreground">
             This page is being rebuilt with inline editing, side panels, and full CRUD functionality.
           </p>
         </CardContent>
@@ -108,7 +108,7 @@ export default function ManpowerManagementPage() {
 
       {/* Side Panel for Complex Edits */}
       <Sheet open={isPanelOpen} onOpenChange={setIsPanelOpen}>
-        <SheetContent className=\"w-[600px] sm:max-w-[600px] overflow-y-auto\">
+        <SheetContent className="w-[600px] sm:max-w-[600px] overflow-y-auto">
           <SheetHeader>
             <SheetTitle>
               {panelContent === 'doctor-schedule' && 'Edit Doctor Schedule'}
@@ -120,7 +120,7 @@ export default function ManpowerManagementPage() {
             </SheetDescription>
           </SheetHeader>
 
-          <div className=\"mt-6 space-y-6\">
+          <div className="mt-6 space-y-6">
             {panelContent === 'doctor-schedule' && (
               <div>Doctor schedule editor will go here</div>
             )}

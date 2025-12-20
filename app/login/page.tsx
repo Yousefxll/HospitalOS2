@@ -73,7 +73,7 @@ export default function LoginPage() {
               <Input
                 id="email"
                 type="email"
-                placeholder="admin@hospital.com"
+                placeholder={t.auth.email}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -97,10 +97,6 @@ export default function LoginPage() {
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? t.auth.signingIn : t.auth.signIn}
             </Button>
-            
-            <div className="text-sm text-center text-muted-foreground mt-4">
-              {t.auth.defaultCredentials}
-            </div>
           </form>
         </CardContent>
       </Card>
