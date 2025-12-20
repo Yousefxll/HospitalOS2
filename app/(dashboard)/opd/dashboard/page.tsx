@@ -125,8 +125,8 @@ export default function OPDDashboardPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">{t.opd.opdDashboard}</h1>
-          <p className="text-muted-foreground">{t.opd.outpatientDepartmentOverview}</p>
+          <h1 className="text-3xl font-bold">{(t.opd as any).opdDashboard}</h1>
+          <p className="text-muted-foreground">{(t.opd as any).outpatientDepartmentOverview}</p>
         </div>
         <Button
           variant="outline"
@@ -134,7 +134,7 @@ export default function OPDDashboardPage() {
           className="flex items-center gap-2"
         >
           <Filter className="h-4 w-4" />
-          {showFilter ? t.opd.hideFilter : t.opd.showFilter}
+          {showFilter ? (t.opd as any).hideFilter : (t.opd as any).showFilter}
           {showFilter ? (
             <ChevronUp className="h-4 w-4" />
           ) : (
@@ -179,7 +179,7 @@ export default function OPDDashboardPage() {
       <div className="flex flex-row gap-4 w-full">
         <Card className="flex-1 min-w-0">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t.opd.totalVisits}</CardTitle>
+            <CardTitle className="text-sm font-medium">{(t.opd as any).totalVisits}</CardTitle>
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -190,34 +190,34 @@ export default function OPDDashboardPage() {
 
         <Card className="flex-1 min-w-0">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t.opd.newPatients}</CardTitle>
+            <CardTitle className="text-sm font-medium">{(t.opd as any).newPatients}</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.newPatients}</div>
-            <p className="text-xs text-muted-foreground">{t.opd.firstTimeVisits}</p>
+            <p className="text-xs text-muted-foreground">{(t.opd as any).firstTimeVisits}</p>
           </CardContent>
         </Card>
 
         <Card className="flex-1 min-w-0">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t.opd.followUpVisits}</CardTitle>
+            <CardTitle className="text-sm font-medium">{(t.opd as any).followUpVisits}</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.followUpPatients}</div>
-            <p className="text-xs text-muted-foreground">{t.opd.returningPatients}</p>
+            <p className="text-xs text-muted-foreground">{(t.opd as any).returningPatients}</p>
           </CardContent>
         </Card>
 
         <Card className="flex-1 min-w-0">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t.opd.avgUtilization}</CardTitle>
+            <CardTitle className="text-sm font-medium">{(t.opd as any).avgUtilization}</CardTitle>
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.avgUtilization}%</div>
-            <p className="text-xs text-muted-foreground">{t.opd.clinicCapacityUsage}</p>
+            <p className="text-xs text-muted-foreground">{(t.opd as any).clinicCapacityUsage}</p>
           </CardContent>
         </Card>
       </div>
@@ -228,24 +228,24 @@ export default function OPDDashboardPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle>{t.opd.departments || 'Departments'}</CardTitle>
+                <CardTitle>{(t.opd as any).departments || 'Departments'}</CardTitle>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {t.opd.departmentPerformance || 'Department performance overview'}
+                  {(t.opd as any).departmentPerformance || 'Department performance overview'}
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <Label htmlFor="sortBy" className="text-sm">{t.opd.sortBy || 'Sort by:'}</Label>
+                <Label htmlFor="sortBy" className="text-sm">{(t.opd as any).sortBy || 'Sort by:'}</Label>
                 <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger id="sortBy" className="w-[200px]">
+                  <SelectTrigger className="w-[200px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="totalPatients">{t.opd.totalPatients || 'Total Patients'} (High to Low)</SelectItem>
-                    <SelectItem value="booked">{t.opd.booked || 'Booked'} (High to Low)</SelectItem>
-                    <SelectItem value="waiting">{t.opd.waiting || 'Waiting'} (High to Low)</SelectItem>
-                    <SelectItem value="procedures">{t.opd.procedures || 'Procedures'} (High to Low)</SelectItem>
-                    <SelectItem value="utilization">{t.opd.utilization || 'Utilization'} (High to Low)</SelectItem>
-                    <SelectItem value="name">{t.opd.name || 'Name'} (A-Z)</SelectItem>
+                    <SelectItem value="totalPatients">{(t.opd as any).totalPatients || 'Total Patients'} (High to Low)</SelectItem>
+                    <SelectItem value="booked">{(t.opd as any).booked || 'Booked'} (High to Low)</SelectItem>
+                    <SelectItem value="waiting">{(t.opd as any).waiting || 'Waiting'} (High to Low)</SelectItem>
+                    <SelectItem value="procedures">{(t.opd as any).procedures || 'Procedures'} (High to Low)</SelectItem>
+                    <SelectItem value="utilization">{(t.opd as any).utilization || 'Utilization'} (High to Low)</SelectItem>
+                    <SelectItem value="name">{(t.opd as any).name || 'Name'} (A-Z)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -255,12 +255,12 @@ export default function OPDDashboardPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-center">{t.opd.department || 'Department'}</TableHead>
-                  <TableHead className="text-center">{t.opd.totalPatients || 'Total Patients'}</TableHead>
-                  <TableHead className="text-center">{t.opd.booked || 'Booked'}</TableHead>
-                  <TableHead className="text-center">{t.opd.waiting || 'Waiting'}</TableHead>
-                  <TableHead className="text-center">{t.opd.procedures || 'Procedures'}</TableHead>
-                  <TableHead className="text-center">{t.opd.utilization || 'Utilization'}</TableHead>
+                  <TableHead className="text-center">{(t.opd as any).department || 'Department'}</TableHead>
+                  <TableHead className="text-center">{(t.opd as any).totalPatients || 'Total Patients'}</TableHead>
+                  <TableHead className="text-center">{(t.opd as any).booked || 'Booked'}</TableHead>
+                  <TableHead className="text-center">{(t.opd as any).waiting || 'Waiting'}</TableHead>
+                  <TableHead className="text-center">{(t.opd as any).procedures || 'Procedures'}</TableHead>
+                  <TableHead className="text-center">{(t.opd as any).utilization || 'Utilization'}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -307,9 +307,9 @@ export default function OPDDashboardPage() {
         <Link href="/opd/clinic-daily-census">
           <Card className="hover:bg-accent transition-colors cursor-pointer">
             <CardContent className="pt-6">
-              <h3 className="font-semibold mb-2">{t.opd.dailyCensus}</h3>
+              <h3 className="font-semibold mb-2">{(t.opd as any).dailyCensus}</h3>
               <p className="text-sm text-muted-foreground">
-                {t.opd.viewPatientCountsPerClinic}
+                {(t.opd as any).viewPatientCountsPerClinic}
               </p>
             </CardContent>
           </Card>
@@ -318,9 +318,9 @@ export default function OPDDashboardPage() {
         <Link href="/opd/clinic-utilization">
           <Card className="hover:bg-accent transition-colors cursor-pointer">
             <CardContent className="pt-6">
-              <h3 className="font-semibold mb-2">{t.opd.clinicUtilization}</h3>
+              <h3 className="font-semibold mb-2">{(t.opd as any).clinicUtilization}</h3>
               <p className="text-sm text-muted-foreground">
-                {t.opd.analyzeClinicCapacityUsage}
+                {(t.opd as any).analyzeClinicCapacityUsage}
               </p>
             </CardContent>
           </Card>
@@ -329,9 +329,9 @@ export default function OPDDashboardPage() {
         <Link href="/opd/doctors-view">
           <Card className="hover:bg-accent transition-colors cursor-pointer">
             <CardContent className="pt-6">
-              <h3 className="font-semibold mb-2">{t.opd.doctorsView}</h3>
+              <h3 className="font-semibold mb-2">{(t.opd as any).doctorsView}</h3>
               <p className="text-sm text-muted-foreground">
-                {t.opd.doctorSchedulesWorkload}
+                {(t.opd as any).doctorSchedulesWorkload}
               </p>
             </CardContent>
           </Card>
