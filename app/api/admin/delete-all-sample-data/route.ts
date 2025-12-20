@@ -10,11 +10,8 @@ import { requireRoleAsync } from '@/lib/auth/requireRole';
 export async function DELETE(request: NextRequest) {
   try {
     const authResult = await requireRoleAsync(request, ['admin']);
-    if (!authResult.success) {
-      return NextResponse.json(
-        { error: authResult.error },
-        { status: authResult.status }
-      );
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
 
     const deletedCounts: Record<string, number> = {};

@@ -14,11 +14,8 @@ interface DeleteParams {
 export async function POST(request: NextRequest) {
   try {
     const authResult = await requireRoleAsync(request, ['admin']);
-    if (!authResult.success) {
-      return NextResponse.json(
-        { error: authResult.error },
-        { status: authResult.status }
-      );
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
 
     const body: DeleteParams = await request.json();
@@ -140,11 +137,8 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const authResult = await requireRoleAsync(request, ['admin']);
-    if (!authResult.success) {
-      return NextResponse.json(
-        { error: authResult.error },
-        { status: authResult.status }
-      );
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
 
     const { searchParams } = new URL(request.url);
