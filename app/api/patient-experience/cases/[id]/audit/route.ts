@@ -40,7 +40,7 @@ export async function GET(
       .toArray();
 
     // Resolve actor names if possible
-    const userIds = [...new Set(audits.map(a => a.actorUserId).filter(Boolean))];
+    const userIds = Array.from(new Set(audits.map(a => a.actorUserId).filter(Boolean)));
     const usersCollection = await getCollection('users');
     const users = userIds.length > 0
       ? await usersCollection.find({ id: { $in: userIds } }).toArray()
