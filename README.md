@@ -262,3 +262,4 @@ For questions or issues, refer to the system logs or API error messages.
 # HospitalOS
 # HospitalOS
 # HospitalOS
+# HospitalOS
