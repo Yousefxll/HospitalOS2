@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
       booked: data.booked,
       walkIn: data.walkIn,
       noShow: data.noShow,
-      timeDistribution: data.timeDistribution,
+      timeDistribution: data.timeDistribution as any,
       fv: data.fv,
       fcv: data.fcv,
       fuv: data.fuv,
