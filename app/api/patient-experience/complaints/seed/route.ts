@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
             domainKey: classItem.domainKey,
             label_en: classItem.label_en,
             label_ar: classItem.label_ar,
-            defaultSeverity: classItem.defaultSeverity || undefined,
+            defaultSeverity: (classItem as any).defaultSeverity || undefined,
             active: true,
             createdAt: now,
             updatedAt: now,
@@ -215,7 +215,7 @@ export async function POST(request: NextRequest) {
                 active: true,
                 updatedAt: now,
                 updatedBy: authResult.userId,
-                ...(type && { type, typeKey }),
+                ...(type && { type, typeKey: typeKey as string }),
                 ...(subclass.sortOrder !== undefined && { sortOrder: subclass.sortOrder }),
               },
             }
