@@ -29,7 +29,7 @@ if (!fs.existsSync(POLICIES_DIR)) {
 }
 
 function calculateFileHash(buffer: Buffer): string {
-  return crypto.createHash('sha256').update(buffer).digest('hex');
+  return crypto.createHash('sha256').update(buffer as any).digest('hex');
 }
 
 function sanitizeFileName(fileName: string): string {
