@@ -341,13 +341,24 @@ export default function Sidebar() {
     // Fetch unread count
     async function fetchUnreadCount() {
       try {
-        const response = await fetch('/api/notifications?unread=1&limit=1');
+        const response = await fetch('/api/notifications?unread=1&limit=1', {
+          credentials: 'include', // Ensure cookies are sent
+        });
         if (response.ok) {
           const data = await response.json();
           setUnreadCount(data.unreadCount || 0);
+        } else if (response.status === 401) {
+          // User not authenticated, silently fail
+          setUnreadCount(0);
         }
       } catch (error) {
-        console.error('Failed to fetch unread count:', error);
+        // Silently handle network errors (server might be starting up)
+        // Only log if it's not a connection error
+        if (error instanceof TypeError && error.message.includes('fetch')) {
+          // Network error, skip logging
+        } else {
+          console.error('Failed to fetch unread count:', error);
+        }
       }
     }
 
@@ -443,7 +454,7 @@ export default function Sidebar() {
   if (!mounted) {
     return (
       <div 
-        className="h-screen bg-card flex flex-col transition-all duration-300 w-16 border-r"
+        className="h-screen bg-sidebar flex flex-col transition-all duration-300 w-16 border-r"
         style={{ maxHeight: '100vh' }}
       >
         <div className="p-4 border-b flex-shrink-0">
@@ -467,7 +478,7 @@ export default function Sidebar() {
     <div 
       ref={sidebarRef}
       data-sidebar-container
-      className={`h-screen bg-card flex flex-col transition-all duration-300 ${
+      className={`h-screen bg-sidebar flex flex-col transition-all duration-300 ${
         isExpanded ? 'w-64' : 'w-16'
       } ${safeIsRTL ? 'border-l' : 'border-r'}`}
       style={{ maxHeight: '100vh' }}
