@@ -298,6 +298,8 @@ export interface Translations {
       newRecord: string;
       autoFilledFromAccount: string;
       addStaffIdInUsersPage: string;
+      staffNameRequired: string;
+      staffIdRequired: string;
     };
   };
 }
@@ -566,6 +568,8 @@ export const translations: Record<Language, Translations> = {
         newRecord: 'Record New Visit',
         autoFilledFromAccount: 'Auto-filled from account',
         addStaffIdInUsersPage: 'Add Staff ID in Users page',
+        staffNameRequired: 'Staff name is required',
+        staffIdRequired: 'Staff ID is required. Please add it in the Users page.',
       },
     },
   },
