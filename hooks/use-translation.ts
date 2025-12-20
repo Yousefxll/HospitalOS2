@@ -25,10 +25,10 @@ export function useTranslation() {
       console.log('[useTranslation] Translations object:', t);
       console.log('[useTranslation] t.px exists:', !!t.px);
       console.log('[useTranslation] t.px.setup exists:', !!(t.px as any)?.setup);
-      console.log('[useTranslation] t.px.setup.title:', t.px?.setup?.title);
+      console.log('[useTranslation] t.px.setup.title:', (t.px as any)?.setup?.title);
       
       // Test direct translation lookup
-      const testResult = translations.ar?.px?.setup?.title;
+      const testResult = (translations.ar as any)?.px?.setup?.title;
       console.log('[useTranslation] Direct test (ar.px.setup.title):', testResult);
     }
   }, [language, validLanguage, t]);
