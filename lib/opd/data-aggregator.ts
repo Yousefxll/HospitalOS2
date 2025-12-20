@@ -23,7 +23,7 @@ function convertDailyDataToCensus(dailyData: OPDDailyData): any {
     date: dailyData.date,
     departmentId: dailyData.departmentId,
     doctorId: dailyData.doctorId,
-    clinicId: dailyData.rooms[0]?.clinicId || '',
+    clinicId: (dailyData.rooms[0] as any)?.clinicId || '',
     patientCount: dailyData.totalPatients,
     newPatients: dailyData.fv + dailyData.fcv, // First Visit + First Consultation Visit
     followUpPatients: dailyData.fuv + dailyData.rv, // Follow-up Visit + Return Visit
