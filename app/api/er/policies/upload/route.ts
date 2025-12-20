@@ -29,7 +29,7 @@ if (!fs.existsSync(POLICIES_DIR)) {
 }
 
 function calculateFileHash(buffer: Buffer): string {
-  return crypto.createHash('sha256').update(buffer).digest('hex');
+  return crypto.createHash('sha256').update(buffer as any).digest('hex');
 }
 
 function chunkText(text: string): Array<{
@@ -192,7 +192,7 @@ export async function POST(request: NextRequest) {
     const storagePath = path.join(yearDir, storageFileName);
 
     // Save PDF to filesystem
-    fs.writeFileSync(storagePath, buffer);
+    fs.writeFileSync(storagePath, buffer as any);
 
     // Extract title
     const policyTitle = title || file.name.replace('.pdf', '').replace(/_/g, ' ');
