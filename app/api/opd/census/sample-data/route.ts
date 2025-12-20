@@ -24,7 +24,7 @@ export async function POST() {
         updatedAt: new Date(),
         createdBy: 'system',
         updatedBy: 'system',
-      };
+      } as any;
       await departmentsCollection.insertOne(cardioDept);
     }
 
@@ -39,7 +39,7 @@ export async function POST() {
         updatedAt: new Date(),
         createdBy: 'system',
         updatedBy: 'system',
-      };
+      } as any;
       await departmentsCollection.insertOne(orthoDept);
     }
 
@@ -89,7 +89,7 @@ export async function POST() {
           updatedAt: new Date(),
           createdBy: 'system',
           updatedBy: 'system',
-        };
+        } as any;
         await doctorsCollection.insertOne(doctor);
       }
       createdDoctors.push(doctor);
