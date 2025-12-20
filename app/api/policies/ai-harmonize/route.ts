@@ -3,9 +3,13 @@ import { getCollection } from '@/lib/db';
 import { z } from 'zod';
 import OpenAI from 'openai';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+export const dynamic = 'force-dynamic';
+
+function getOpenAIClient() {
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+}
 
 const harmonizeSchema = z.object({
   documentIds: z.array(z.string()).min(2, 'At least 2 documents required for harmonization'),
@@ -94,6 +98,7 @@ Please provide a comprehensive harmonization analysis that includes:
 
 Format your response clearly with sections for each category.`;
 
+    const openai = getOpenAIClient();
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
