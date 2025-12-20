@@ -5,6 +5,8 @@ import { comparePassword, generateToken } from '@/lib/auth';
 import { User } from '@/lib/models/User';
 import { serialize } from 'cookie';
 
+export const dynamic = 'force-dynamic';
+
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
@@ -77,8 +79,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // More detailed error logging
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Login error details:', {
+      message: errorMessage,
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { 
+        error: 'Internal server error',
+        message: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+      },
       { status: 500 }
     );
   }
