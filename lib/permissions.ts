@@ -23,6 +23,7 @@ export const PERMISSIONS: Permission[] = [
   { key: 'opd.performance.view', label: 'Performance Comparison', category: 'OPD' },
   { key: 'opd.utilization.view', label: 'Clinic Utilization', category: 'OPD' },
   { key: 'opd.daily-data-entry', label: 'Daily Data Entry', category: 'OPD' },
+  { key: 'opd.import-data', label: 'OPD Import Data', category: 'OPD' },
   
   // Scheduling
   { key: 'scheduling.view', label: 'View Schedule', category: 'Scheduling' },
@@ -79,6 +80,8 @@ export const PERMISSIONS: Permission[] = [
   // Admin
   { key: 'admin.data-admin', label: 'Data Admin', category: 'Admin' },
   { key: 'admin.users', label: 'User Management', category: 'Admin' },
+  { key: 'admin.structure-management', label: 'Structure Management', category: 'Admin' },
+  { key: 'admin.delete-sample-data', label: 'Delete Sample Data', category: 'Admin' },
   
   // Account
   { key: 'account.view', label: 'View Account', category: 'Account' },
@@ -91,10 +94,12 @@ export const PERMISSIONS: Permission[] = [
 export const ROUTE_PERMISSIONS: Record<string, string> = {
   '/dashboard': 'dashboard.view',
   '/notifications': 'notifications.view',
+  '/opd/dashboard': 'opd.dashboard.view',
   '/opd/clinic-daily-census': 'opd.census.view',
   '/opd/dept-view': 'opd.performance.view',
   '/opd/clinic-utilization': 'opd.utilization.view',
   '/opd/daily-data-entry': 'opd.daily-data-entry',
+  '/opd/import-data': 'opd.import-data',
   '/scheduling/scheduling': 'scheduling.view',
   '/scheduling/availability': 'scheduling.availability.view',
   '/er/register': 'er.register',
@@ -130,6 +135,8 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   '/ai/policy-harmonization': 'policies.harmonization',
   '/admin/data-admin': 'admin.data-admin',
   '/admin/users': 'admin.users',
+  '/admin/structure-management': 'admin.structure-management',
+  '/admin/delete-sample-data': 'admin.delete-sample-data',
   '/account': 'account.view',
 };
 
