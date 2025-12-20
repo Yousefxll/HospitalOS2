@@ -390,7 +390,7 @@ export async function DELETE(
     await auditCollection.insertOne({
       id: uuidv4(),
       caseId: id,
-      actorUserId: userId,
+      actorUserId: authResult.userId,
       actorEmployeeId,
       action: 'DELETED' as AuditAction,
       before: {
