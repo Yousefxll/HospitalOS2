@@ -402,7 +402,7 @@ export const translations: Record<Language, Translations> = {
       password: 'Password',
       signIn: 'Sign In',
       signingIn: 'Signing in...',
-      signInToAccess: 'Sign in to access the platform',
+      signInToAccess: 'Sign In',
       defaultCredentials: 'Default credentials: admin@hospital.com / admin123',
     },
     users: {
@@ -670,7 +670,7 @@ export const translations: Record<Language, Translations> = {
       password: 'كلمة المرور',
       signIn: 'تسجيل الدخول',
       signingIn: 'جاري تسجيل الدخول...',
-      signInToAccess: 'سجل الدخول للوصول إلى المنصة',
+      signInToAccess: 'تسجيل الدخول',
       defaultCredentials: 'بيانات الدخول الافتراضية: admin@hospital.com / admin123',
     },
     users: {

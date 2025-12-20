@@ -48,13 +48,13 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4 relative">
-      <div className="absolute top-4 right-4">
-        <LanguageToggle />
-      </div>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-3xl font-bold text-center">{t.header.hospitalOS}</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-3xl font-bold">{t.header.hospitalOS}</CardTitle>
+            <LanguageToggle />
+          </div>
           <CardDescription className="text-center">
             {t.auth.signInToAccess}
           </CardDescription>
