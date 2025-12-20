@@ -1,6 +1,5 @@
 import { MongoClient, Db } from 'mongodb';
 
-const MONGO_URL = process.env.MONGO_URL!;
 const DB_NAME = process.env.DB_NAME || 'hospital_ops';
 
 let cachedClient: MongoClient | null = null;
@@ -11,7 +10,11 @@ export async function connectDB(): Promise<Db> {
     return cachedDb;
   }
 
+  // Read MONGO_URL at runtime, not at module load time
+  const MONGO_URL = process.env.MONGO_URL;
   if (!MONGO_URL) {
+    console.error('MONGO_URL environment variable is missing');
+    console.error('Available env vars:', Object.keys(process.env).filter(k => k.includes('MONGO')));
     throw new Error('MONGO_URL is not defined in environment variables');
   }
 
