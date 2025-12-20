@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireRoleAsync } from '@/lib/auth/requireRole';
 import { getCollection } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import { pxComplaintTaxonomySeed } from '@/lib/seed/pxComplaintTaxonomySeed';
