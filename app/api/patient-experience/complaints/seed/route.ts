@@ -89,8 +89,8 @@ export async function POST(request: NextRequest) {
             active: true,
             createdAt: now,
             updatedAt: now,
-            createdBy: userId,
-            updatedBy: userId,
+            createdBy: authResult.userId,
+            updatedBy: authResult.userId,
             ...(domain.sortOrder !== undefined && { sortOrder: domain.sortOrder }),
           });
           stats.domains.inserted++;
@@ -151,8 +151,8 @@ export async function POST(request: NextRequest) {
             active: true,
             createdAt: now,
             updatedAt: now,
-            createdBy: userId,
-            updatedBy: userId,
+            createdBy: authResult.userId,
+            updatedBy: authResult.userId,
             ...(classItem.sortOrder !== undefined && { sortOrder: classItem.sortOrder }),
           });
           stats.classes.inserted++;
@@ -235,8 +235,8 @@ export async function POST(request: NextRequest) {
             active: true,
             createdAt: now,
             updatedAt: now,
-            createdBy: userId,
-            updatedBy: userId,
+            createdBy: authResult.userId,
+            updatedBy: authResult.userId,
             ...(subclass.sortOrder !== undefined && { sortOrder: subclass.sortOrder }),
           });
           stats.subclasses.inserted++;
