@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
         createdBy: { 
           $exists: true, 
           $ne: null,
-          $ne: 'system'
+          $nin: ['system']
         }
       })
       .sort({ name: 1 })
