@@ -705,6 +705,8 @@ export const translations: Record<Language, Translations> = {
       permissionsCount: 'صلاحيات',
       active: 'نشط',
       inactive: 'غير نشط',
+      staffId: 'رقم الموظف',
+      staffIdPlaceholder: 'أدخل رقم الموظف/الموظف',
     },
     roles: {
       admin: 'مدير',
