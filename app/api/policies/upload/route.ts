@@ -289,7 +289,7 @@ export async function POST(request: NextRequest) {
 
     // Save PDF to filesystem
     try {
-      fs.writeFileSync(filePath, buffer);
+      fs.writeFileSync(filePath, buffer as any);
       console.log(`PDF saved to: ${filePath}`);
     } catch (writeError: any) {
       console.error('File write error:', writeError);
