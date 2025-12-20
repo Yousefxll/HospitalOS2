@@ -24,7 +24,7 @@ export function useTranslation() {
       console.log('[useTranslation] Hook called. Language:', language, 'validLanguage:', validLanguage);
       console.log('[useTranslation] Translations object:', t);
       console.log('[useTranslation] t.px exists:', !!t.px);
-      console.log('[useTranslation] t.px.setup exists:', !!t.px?.setup);
+      console.log('[useTranslation] t.px.setup exists:', !!(t.px as any)?.setup);
       console.log('[useTranslation] t.px.setup.title:', t.px?.setup?.title);
       
       // Test direct translation lookup
