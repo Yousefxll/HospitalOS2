@@ -1,8 +1,6 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,7 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { AlertCircle, Heart, Thermometer, Activity, Loader2, ArrowRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
-export default function ERTriagePage() {
+function ERTriagePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const erVisitId = searchParams.get('erVisitId');
@@ -349,6 +347,14 @@ export default function ERTriagePage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function ERTriagePage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ERTriagePageContent />
+    </Suspense>
   );
 }
 

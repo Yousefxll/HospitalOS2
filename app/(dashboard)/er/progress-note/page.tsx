@@ -1,8 +1,6 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,7 +19,7 @@ interface PatientAlert {
   severity: string;
 }
 
-export default function ERProgressNotePage() {
+function ERProgressNotePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const erVisitId = searchParams.get('erVisitId');
@@ -286,6 +284,14 @@ export default function ERProgressNotePage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function ERProgressNotePage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ERProgressNotePageContent />
+    </Suspense>
   );
 }
 

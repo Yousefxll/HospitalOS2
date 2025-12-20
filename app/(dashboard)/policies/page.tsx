@@ -1,8 +1,6 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -51,7 +49,7 @@ interface SearchResult {
   }>;
 }
 
-export default function PolicyLibraryPage() {
+function PoliciesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -365,6 +363,14 @@ export default function PolicyLibraryPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function PoliciesPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <PoliciesPageContent />
+    </Suspense>
   );
 }
 

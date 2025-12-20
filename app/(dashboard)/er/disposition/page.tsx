@@ -1,8 +1,6 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,7 +17,7 @@ import {
 import { Bed, Loader2, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
-export default function ERDispositionPage() {
+function ERDispositionPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const erVisitId = searchParams.get('erVisitId');
@@ -258,6 +256,14 @@ export default function ERDispositionPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function ERDispositionPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ERDispositionPageContent />
+    </Suspense>
   );
 }
 
