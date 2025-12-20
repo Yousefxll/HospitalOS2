@@ -91,7 +91,6 @@ export const PERMISSIONS: Permission[] = [
 export const ROUTE_PERMISSIONS: Record<string, string> = {
   '/dashboard': 'dashboard.view',
   '/notifications': 'notifications.view',
-  '/opd/dashboard': 'opd.dashboard.view',
   '/opd/clinic-daily-census': 'opd.census.view',
   '/opd/dept-view': 'opd.performance.view',
   '/opd/clinic-utilization': 'opd.utilization.view',
@@ -177,7 +176,6 @@ export function getDefaultPermissionsForRole(role: string): string[] {
     supervisor: [
       'dashboard.view',
       'notifications.view',
-      'opd.dashboard.view',
       'opd.census.view',
       'opd.performance.view',
       'opd.utilization.view',
@@ -214,7 +212,6 @@ export function getDefaultPermissionsForRole(role: string): string[] {
     staff: [
       'dashboard.view',
       'notifications.view',
-      'opd.dashboard.view',
       'opd.census.view',
       'opd.daily-data-entry',
       'scheduling.view',
@@ -230,7 +227,6 @@ export function getDefaultPermissionsForRole(role: string): string[] {
     ],
     viewer: [
       'dashboard.view',
-      'opd.dashboard.view',
       'opd.census.view',
       'policies.view',
       'account.view',
