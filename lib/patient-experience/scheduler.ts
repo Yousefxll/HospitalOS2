@@ -27,6 +27,7 @@ export function startPxSlaScheduler(enabled: boolean = process.env.NODE_ENV === 
   }
 
   // Dynamic import to avoid bundling node-cron in client
+  // @ts-ignore - node-cron types may not be available
   import('node-cron')
     .then((cron) => {
       // Run every 15 minutes: */15 * * * *
