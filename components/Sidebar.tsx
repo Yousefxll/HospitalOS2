@@ -301,13 +301,11 @@ export default function Sidebar() {
     if (mounted && language && (language === 'ar' || language === 'en')) {
       const langTranslations = translations[language];
       if (langTranslations && langTranslations.nav) {
-        // Debug: Log to verify dailyDataEntry exists
-        console.log(`[Sidebar] Language: ${language}, dailyDataEntry:`, langTranslations.nav.dailyDataEntry);
+    // Debug: Log to verify dailyDataEntry exists (removed for production)
         return langTranslations.nav;
       }
     }
     // Fallback to Arabic if not mounted or language not found
-    console.warn(`[Sidebar] Using fallback Arabic translations, mounted: ${mounted}, language: ${language}`);
     return translations.ar.nav;
   }, [mounted, language]);
 
@@ -410,17 +408,7 @@ export default function Sidebar() {
       nav: navTranslations || currentLangTranslations.nav 
     };
     
-    // Debug: Verify dailyDataEntry in tWithNav
-    console.log(`[Sidebar] getFilteredNavItems - language: ${language}, tWithNav.nav.dailyDataEntry:`, tWithNav.nav?.dailyDataEntry);
-    
     const navItems = getNavItems(tWithNav);
-    
-    // Debug: Check if daily-data-entry is in navItems
-    const opdItem = navItems.find(item => item.title === tWithNav.nav?.opdDashboard);
-    if (opdItem?.children) {
-      const dailyEntry = opdItem.children.find(child => child.href === '/opd/daily-data-entry');
-      console.log(`[Sidebar] Daily Data Entry in navItems:`, dailyEntry ? { title: dailyEntry.title, href: dailyEntry.href } : 'NOT FOUND');
-    }
     return navItems.map(item => {
       // Filter single items (no children)
       if (item.href && !item.children) {
