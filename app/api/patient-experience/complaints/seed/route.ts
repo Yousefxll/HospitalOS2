@@ -192,7 +192,7 @@ export async function POST(request: NextRequest) {
           'medication': 'medication',
           'other': 'other',
         };
-        const type = subclass.type && typeMap[subclass.type] ? subclass.type : 'other';
+        const type = (subclass as any).type && typeMap[(subclass as any).type] ? (subclass as any).type : 'other';
         const typeKeyMap: Record<string, string> = {
           'call_bell': 'CALL_BELL',
           'nursing_error': 'NURSING_ERROR',
