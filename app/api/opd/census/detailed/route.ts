@@ -155,7 +155,7 @@ export async function GET(request: NextRequest) {
       createdBy: { 
         $exists: true, 
         $ne: null,
-        $ne: 'system'
+        $nin: ['system']
       }
     }).toArray();
     const departmentMap = new Map(departments.map((d: any) => [d.id, d]));
