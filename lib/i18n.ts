@@ -334,6 +334,7 @@ export const translations: Record<Language, Translations> = {
       dashboard: 'Dashboard',
       notifications: 'Notifications',
       opdDashboard: 'OPD Dashboard',
+      dailyDataEntry: 'Daily Data Entry',
       scheduling: 'Scheduling',
       er: 'ER',
       patientExperience: 'Patient Experience',
