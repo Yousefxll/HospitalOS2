@@ -71,8 +71,8 @@ export default function PatientExperienceSetupPage() {
     console.log('[PatientExperienceSetupPage] Language:', language);
     console.log('[PatientExperienceSetupPage] Translations object:', t);
     console.log('[PatientExperienceSetupPage] px key exists:', !!t.px);
-    console.log('[PatientExperienceSetupPage] px.setup exists:', !!t.px?.setup);
-    console.log('[PatientExperienceSetupPage] px.setup.title:', t.px?.setup?.title);
+    console.log('[PatientExperienceSetupPage] px.setup exists:', !!(t.px as any)?.setup);
+    console.log('[PatientExperienceSetupPage] px.setup.title:', (t.px as any)?.setup?.title);
     console.log('[PatientExperienceSetupPage] pageTitle:', pageTitle);
   }, [language, t, pageTitle]);
   const [isLoading, setIsLoading] = useState(false);
