@@ -100,7 +100,7 @@ export default function UsersPage() {
     setFormData(prev => {
       if (checked) {
         // Add all category permissions
-        const newPerms = [...new Set([...prev.permissions, ...permKeys])];
+        const newPerms = Array.from(new Set([...prev.permissions, ...permKeys]));
         return { ...prev, permissions: newPerms };
       } else {
         // Remove all category permissions
@@ -395,8 +395,8 @@ export default function UsersPage() {
                             <Checkbox
                               checked={allSelected}
                               ref={(el) => {
-                                if (el) {
-                                  el.indeterminate = someSelected && !allSelected;
+                                if (el && 'indeterminate' in el) {
+                                  (el as any).indeterminate = someSelected && !allSelected;
                                 }
                               }}
                               onCheckedChange={(checked) =>
@@ -487,14 +487,14 @@ export default function UsersPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-staffId">{t.users.staffId}</Label>
+                <Label htmlFor="edit-staffId">{(t.users as any).staffId || 'Staff ID'}</Label>
                 <Input
                   id="edit-staffId"
                   value={formData.staffId}
                   onChange={(e) =>
                     setFormData({ ...formData, staffId: e.target.value })
                   }
-                  placeholder={t.users.staffIdPlaceholder}
+                  placeholder={(t.users as any).staffIdPlaceholder || 'Enter staff ID'}
                 />
               </div>
               
@@ -529,8 +529,8 @@ export default function UsersPage() {
                             <Checkbox
                               checked={allSelected}
                               ref={(el) => {
-                                if (el) {
-                                  el.indeterminate = someSelected && !allSelected;
+                                if (el && 'indeterminate' in el) {
+                                  (el as any).indeterminate = someSelected && !allSelected;
                                 }
                               }}
                               onCheckedChange={(checked) =>

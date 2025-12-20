@@ -185,7 +185,7 @@ export default function DeleteSampleDataPage() {
       if (response.ok) {
         const data = await response.json();
         const collectionsWithData = Object.entries(data.deletedCounts || {})
-          .filter(([_, count]) => count > 0)
+          .filter(([_, count]) => (count as number) > 0)
           .map(([name, count]) => `${name}: ${count}`)
           .join(', ');
         
