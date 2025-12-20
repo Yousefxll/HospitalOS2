@@ -99,6 +99,7 @@ export interface Translations {
     policyHarmonization: string;
     // Admin Submenu
     dataAdmin: string;
+    deleteSampleData: string;
     users: string;
   };
 
