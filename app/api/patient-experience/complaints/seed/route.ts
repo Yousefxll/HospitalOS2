@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
                 active: true,
                 updatedAt: now,
                 updatedBy: authResult.userId,
-                ...(classItem.defaultSeverity && { defaultSeverity: classItem.defaultSeverity }),
+                ...((classItem as any).defaultSeverity && { defaultSeverity: (classItem as any).defaultSeverity }),
                 ...(classItem.sortOrder !== undefined && { sortOrder: classItem.sortOrder }),
               },
             }
