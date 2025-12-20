@@ -118,7 +118,7 @@ export async function POST() {
         updatedAt: new Date(),
         createdBy: 'system',
         updatedBy: 'system',
-      };
+      } as any;
       await clinicsCollection.insertOne(clinic1);
     }
 
@@ -141,7 +141,7 @@ export async function POST() {
         updatedAt: new Date(),
         createdBy: 'system',
         updatedBy: 'system',
-      };
+      } as any;
       await clinicsCollection.insertOne(clinic2);
     }
 
@@ -164,7 +164,7 @@ export async function POST() {
         updatedAt: new Date(),
         createdBy: 'system',
         updatedBy: 'system',
-      };
+      } as any;
       await clinicsCollection.insertOne(clinic3);
     }
 
