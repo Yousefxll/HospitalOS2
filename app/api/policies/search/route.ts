@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
 
     // Get matching chunks with score
     const matchingChunks = await chunksCollection
-      .find(chunksQuery, { score: { $meta: 'textScore' } })
+      .find(chunksQuery, { projection: { score: { $meta: 'textScore' } } } as any)
       .sort({ score: { $meta: 'textScore' } })
       .limit(limit * 5) // Get more chunks, then group
       .toArray();
