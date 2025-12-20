@@ -162,9 +162,9 @@ export async function GET(request: NextRequest) {
     // Only include records where createdBy exists, is not null, and is not 'system'
     const excludeSampleData = {
       createdBy: { 
-        $exists: true, 
+        $exists: true,
         $ne: null,
-        $ne: 'system'
+        $nin: ['system']
       }
     };
     
