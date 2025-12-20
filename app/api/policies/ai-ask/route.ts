@@ -267,7 +267,7 @@ export async function POST(request: NextRequest) {
     
     // Filter out chunks that don't have matching documents
     const validDocumentIds = new Set(documents.map(d => d.documentId));
-    for (const [docId, chunks] of chunksByDocument.entries()) {
+    for (const [docId, chunks] of Array.from(chunksByDocument.entries())) {
       if (!validDocumentIds.has(docId)) {
         console.warn(`Removing chunks for document ${docId} (document not found or inactive)`);
         chunksByDocument.delete(docId);
