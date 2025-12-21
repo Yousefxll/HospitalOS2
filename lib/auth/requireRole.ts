@@ -3,7 +3,7 @@ import { Role, requireRole as checkRole } from '@/lib/rbac';
 import { getCollection } from '@/lib/db';
 import { User } from '@/lib/models/User';
 import { validateSession } from '@/lib/auth/sessions';
-import { verifyTokenEdge } from '@/lib/auth';
+import { verifyTokenEdge } from '@/lib/auth/edge';
 
 export interface AuthContext {
   userId: string;

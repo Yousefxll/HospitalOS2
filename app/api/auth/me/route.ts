@@ -3,7 +3,7 @@ import { getCollection } from '@/lib/db';
 import { User } from '@/lib/models/User';
 import { getDefaultPermissionsForRole } from '@/lib/permissions';
 import { validateSession } from '@/lib/auth/sessions';
-import { verifyTokenEdge } from '@/lib/auth';
+import { verifyTokenEdge } from '@/lib/auth/edge';
 
 export async function GET(request: NextRequest) {
   try {

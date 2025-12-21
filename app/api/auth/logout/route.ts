@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { serialize } from 'cookie';
-import { verifyTokenEdge } from '@/lib/auth';
+import { verifyTokenEdge } from '@/lib/auth/edge';
 import { deleteSession } from '@/lib/auth/sessions';
 
 export async function POST(request: NextRequest) {
