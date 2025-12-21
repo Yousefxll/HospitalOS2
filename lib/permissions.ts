@@ -80,6 +80,9 @@ export const PERMISSIONS: Permission[] = [
   // Admin
   { key: 'admin.data-admin', label: 'Data Admin', category: 'Admin' },
   { key: 'admin.users', label: 'User Management', category: 'Admin' },
+  { key: 'admin.users.create', label: 'Create Users', category: 'Admin' },
+  { key: 'admin.users.edit', label: 'Edit Users', category: 'Admin' },
+  { key: 'admin.users.delete', label: 'Delete Users', category: 'Admin' },
   { key: 'admin.structure-management', label: 'Structure Management', category: 'Admin' },
   { key: 'admin.delete-sample-data', label: 'Delete Sample Data', category: 'Admin' },
   
