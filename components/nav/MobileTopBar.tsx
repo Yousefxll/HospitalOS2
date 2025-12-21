@@ -30,6 +30,7 @@ export function MobileTopBar({
   backUrl,
   actionButton,
   actions,
+  onMenuClick,
   className,
 }: MobileTopBarProps) {
   const router = useRouter();
@@ -58,9 +59,9 @@ export function MobileTopBar({
         paddingTop: 'env(safe-area-inset-top)',
       }}
     >
-      {/* Left: Back button or empty space */}
+      {/* Left: Menu button or Back button */}
       <div className="flex items-center min-w-[40px]">
-        {shouldShowBack && (
+        {shouldShowBack ? (
           <Button
             variant="ghost"
             size="icon"
@@ -70,7 +71,17 @@ export function MobileTopBar({
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-        )}
+        ) : onMenuClick ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onMenuClick}
+            className="h-9 w-9"
+            aria-label="Menu"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+        ) : null}
       </div>
 
       {/* Center: Title */}

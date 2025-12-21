@@ -5,7 +5,8 @@ import { MobileTopBar } from '@/components/nav/MobileTopBar';
 import { MobileBottomNav } from '@/components/nav/MobileBottomNav';
 import { Toaster } from '@/components/ui/toaster';
 import { useTranslation } from '@/hooks/use-translation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import Sidebar from '@/components/Sidebar';
 
 interface MobileShellProps {
   children: React.ReactNode;
@@ -41,6 +42,7 @@ function getPageTitle(pathname: string, t: any): string {
 export function MobileShell({ children }: MobileShellProps) {
   const pathname = usePathname();
   const { t } = useTranslation();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Scroll restoration
   useEffect(() => {
@@ -75,8 +77,18 @@ export function MobileShell({ children }: MobileShellProps) {
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
+      {/* Mobile Sidebar - Sheet/Drawer */}
+      <Sidebar 
+        onLinkClick={() => setSidebarOpen(false)} 
+        sidebarOpen={sidebarOpen} 
+        setSidebarOpen={setSidebarOpen} 
+      />
+
       {/* Top App Bar */}
-      <MobileTopBar title={pageTitle} />
+      <MobileTopBar 
+        title={pageTitle}
+        onMenuClick={() => setSidebarOpen(true)}
+      />
 
       {/* Content Area with safe area padding */}
       <main
