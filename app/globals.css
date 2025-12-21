@@ -375,4 +375,11 @@ code {
     margin-bottom: 0 !important;
     inset: auto !important;
   }
+
+  /* Ensure Select dropdown has scrollable viewport */
+  [data-radix-select-viewport] {
+    max-height: 200px !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
 }
