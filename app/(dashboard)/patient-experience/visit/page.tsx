@@ -30,6 +30,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useLang } from '@/hooks/use-lang';
 import { useTranslation } from '@/hooks/use-translation';
 import { LanguageToggle } from '@/components/LanguageToggle';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 type Step = 'staff' | 'visit' | 'patient' | 'complaint' | 'details' | 'summary';
 
@@ -907,6 +908,32 @@ export default function PatientExperienceVisitPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Case Closure Dialog */}
+      <AlertDialog open={showCaseClosureDialog} onOpenChange={setShowCaseClosureDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {language === 'ar' ? 'إدارة الشكوى' : 'Manage Complaint'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === 'ar' 
+                ? 'هل تريد إغلاق الشكوى الآن أم سيتم متابعتها لاحقاً؟'
+                : 'Do you want to close this complaint now or will it be followed up later?'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleContinueCase} disabled={isClosingCase}>
+              {language === 'ar' ? 'سيتم متابعتها' : 'Will be followed up'}
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleCloseCase} disabled={isClosingCase}>
+              {isClosingCase 
+                ? (language === 'ar' ? 'جاري الإغلاق...' : 'Closing...')
+                : (language === 'ar' ? 'إغلاق الشكوى الآن' : 'Close Complaint Now')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
