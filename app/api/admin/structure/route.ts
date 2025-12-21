@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCollection } from '@/lib/db';
-import { requireRole, Role } from '@/lib/rbac';
+import { requireRoleAsync } from '@/lib/auth/requireRole';
 import { v4 as uuidv4 } from 'uuid';
 
 // Schemas
@@ -31,9 +31,19 @@ const createRoomSchema = z.object({
 // GET - Fetch all floors, departments, and rooms
 export async function GET(request: NextRequest) {
   try {
-    const userRole = request.headers.get('x-user-role') as Role | null;
-    if (!requireRole(userRole, ['admin', 'supervisor'])) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    const authResult = await requireRoleAsync(request, ['admin', 'supervisor', 'staff', 'viewer']);
+    if (authResult instanceof NextResponse) {
+      return authResult;
+    }
+
+    // Check permission: admin.structure-management.view
+    const usersCollection = await getCollection('users');
+    const user = await usersCollection.findOne({ id: authResult.userId });
+    const userPermissions = user?.permissions || [];
+    
+    // Allow if user has admin.structure-management.view or admin.users (admin access)
+    if (!userPermissions.includes('admin.structure-management.view') && !userPermissions.includes('admin.users.view')) {
+      return NextResponse.json({ error: 'Forbidden: Insufficient permissions' }, { status: 403 });
     }
 
     const floorsCollection = await getCollection('floors');
@@ -57,11 +67,19 @@ export async function GET(request: NextRequest) {
 // POST - Create floor, department, or room
 export async function POST(request: NextRequest) {
   try {
-    const userRole = request.headers.get('x-user-role') as Role | null;
-    const userId = request.headers.get('x-user-id');
+    const authResult = await requireRoleAsync(request, ['admin', 'supervisor', 'staff']);
+    if (authResult instanceof NextResponse) {
+      return authResult;
+    }
 
-    if (!requireRole(userRole, ['admin'])) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // Check permission: admin.structure-management.create
+    const usersCollection = await getCollection('users');
+    const user = await usersCollection.findOne({ id: authResult.userId });
+    const userPermissions = user?.permissions || [];
+    
+    // Allow if user has admin.structure-management.create or admin.users (admin access)
+    if (!userPermissions.includes('admin.structure-management.create') && !userPermissions.includes('admin.users.view')) {
+      return NextResponse.json({ error: 'Forbidden: Insufficient permissions to create' }, { status: 403 });
     }
 
     const body = await request.json();
@@ -81,8 +99,8 @@ export async function POST(request: NextRequest) {
         active: true,
         createdAt: new Date(),
         updatedAt: new Date(),
-        createdBy: userId || '',
-        updatedBy: userId || '',
+        createdBy: authResult.userId,
+        updatedBy: authResult.userId,
       };
 
       await floorsCollection.insertOne(floor);
@@ -112,8 +130,8 @@ export async function POST(request: NextRequest) {
         isActive: true,
         createdAt: new Date(),
         updatedAt: new Date(),
-        createdBy: userId || '',
-        updatedBy: userId || '',
+        createdBy: authResult.userId,
+        updatedBy: authResult.userId,
       };
 
       await departmentsCollection.insertOne(department);
@@ -152,8 +170,8 @@ export async function POST(request: NextRequest) {
         active: true,
         createdAt: new Date(),
         updatedAt: new Date(),
-        createdBy: userId || '',
-        updatedBy: userId || '',
+        createdBy: authResult.userId,
+        updatedBy: authResult.userId,
       };
 
       await roomsCollection.insertOne(room);
@@ -204,7 +222,7 @@ export async function DELETE(request: NextRequest) {
       const floorsCollection = await getCollection('floors');
       await floorsCollection.updateOne(
         { id },
-        { $set: { active: false, updatedAt: new Date(), updatedBy: userId || '' } }
+        { $set: { active: false, updatedAt: new Date(), updatedBy: authResult.userId } }
       );
       return NextResponse.json({ success: true });
     }
@@ -213,7 +231,7 @@ export async function DELETE(request: NextRequest) {
       const departmentsCollection = await getCollection('departments');
       await departmentsCollection.updateOne(
         { id },
-        { $set: { isActive: false, updatedAt: new Date(), updatedBy: userId || '' } }
+        { $set: { isActive: false, updatedAt: new Date(), updatedBy: authResult.userId } }
       );
       return NextResponse.json({ success: true });
     }
@@ -222,7 +240,7 @@ export async function DELETE(request: NextRequest) {
       const roomsCollection = await getCollection('rooms');
       await roomsCollection.updateOne(
         { id },
-        { $set: { active: false, updatedAt: new Date(), updatedBy: userId || '' } }
+        { $set: { active: false, updatedAt: new Date(), updatedBy: authResult.userId } }
       );
       return NextResponse.json({ success: true });
     }
