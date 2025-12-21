@@ -37,9 +37,9 @@ interface DashboardStats {
 export default function DashboardPage() {
   const { t, language } = useTranslation();
   const { isRTL } = useLang();
-  const router = useRouter();
   const [userPermissions, setUserPermissions] = useState<string[]>([]);
   const [mounted, setMounted] = useState(false);
+  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [stats, setStats] = useState<DashboardStats>({
     totalVisits: 0,
     activePatients: 0,
@@ -70,29 +70,33 @@ export default function DashboardPage() {
         const response = await fetch('/api/auth/me');
         if (response.ok) {
           const data = await response.json();
-          setUserPermissions(data.user?.permissions || []);
+          const permissions = data.user?.permissions || [];
+          setUserPermissions(permissions);
           
           // Check if user has dashboard.view permission
-          if (!hasRoutePermission(data.user?.permissions || [], '/dashboard')) {
-            // Redirect to account page if no permission
-            router.push('/account');
-            return;
+          const hasAccess = hasRoutePermission(permissions, '/dashboard');
+          setHasPermission(hasAccess);
+          
+          // Only fetch data if user has permission
+          if (hasAccess) {
+            fetchDashboardStats();
           }
         }
       } catch (error) {
         console.error('Failed to fetch user permissions:', error);
+        setHasPermission(false);
       }
     }
     
     fetchUserPermissions();
-  }, [router]);
+  }, []);
 
   useEffect(() => {
-    if (!mounted) return;
+    if (!mounted || hasPermission === null) return;
     
-    // Don't fetch data if user doesn't have permission
-    if (!hasRoutePermission(userPermissions, '/dashboard')) {
-      return;
+    // Only fetch data if user has permission
+    if (hasPermission) {
+      fetchDashboardStats();
     }
     
     // Set current date and time
@@ -116,9 +120,6 @@ export default function DashboardPage() {
     
     updateDateTime();
     const interval = setInterval(updateDateTime, 1000);
-    
-    // Fetch today's data
-    fetchDashboardStats();
     
     return () => clearInterval(interval);
   }, [language, mounted]);
@@ -232,9 +233,32 @@ export default function DashboardPage() {
     },
   ];
 
-  // Don't render content if user doesn't have permission (will redirect)
-  if (!mounted || !hasRoutePermission(userPermissions, '/dashboard')) {
-    return null;
+  // Show message if user doesn't have permission
+  if (!mounted || hasPermission === null) {
+    return null; // Still loading
+  }
+
+  if (!hasPermission) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold">{t.dashboard.home}</h1>
+          {currentDateTime && (
+            <p className="text-muted-foreground">{currentDateTime}</p>
+          )}
+        </div>
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <p className="text-muted-foreground text-center">
+              {t.common?.accessDenied || 'You do not have permission to view this page.'}
+            </p>
+            <p className="text-sm text-muted-foreground mt-2">
+              {t.common?.contactAdmin || 'Please contact your administrator to request access.'}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   return (
