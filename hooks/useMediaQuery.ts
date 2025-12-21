@@ -3,18 +3,15 @@
 import { useState, useEffect } from 'react';
 
 /**
- * Custom hook to detect if the viewport matches a media query
+ * Custom hook to detect if viewport matches a media query
  * @param query - Media query string (e.g., '(max-width: 767px)')
  * @returns boolean indicating if the query matches
  */
 export function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const [matches, setMatches] = useState<boolean>(false);
 
   useEffect(() => {
-    setMounted(true);
-    
-    // Check if window is available (client-side only)
+    // Only run on client
     if (typeof window === 'undefined') {
       return;
     }
@@ -24,12 +21,12 @@ export function useMediaQuery(query: string): boolean {
     // Set initial value
     setMatches(mediaQuery.matches);
 
-    // Create event listener
+    // Create handler
     const handler = (event: MediaQueryListEvent) => {
       setMatches(event.matches);
     };
 
-    // Add listener (modern browsers)
+    // Modern browsers
     if (mediaQuery.addEventListener) {
       mediaQuery.addEventListener('change', handler);
       return () => mediaQuery.removeEventListener('change', handler);
@@ -40,7 +37,6 @@ export function useMediaQuery(query: string): boolean {
     }
   }, [query]);
 
-  // Return false during SSR to prevent hydration mismatch
-  return mounted ? matches : false;
+  return matches;
 }
 

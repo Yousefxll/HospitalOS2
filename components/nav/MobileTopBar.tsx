@@ -2,15 +2,25 @@
 
 import { useRouter, usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, MoreVertical } from 'lucide-react';
+import { ArrowLeft, MoreVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useLang } from '@/hooks/use-lang';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface MobileTopBarProps {
   title: string;
   showBack?: boolean;
   backUrl?: string;
   actionButton?: React.ReactNode;
+  actions?: Array<{
+    label: string;
+    onClick: () => void;
+    icon?: React.ReactNode;
+  }>;
   className?: string;
 }
 
@@ -19,11 +29,11 @@ export function MobileTopBar({
   showBack = false,
   backUrl,
   actionButton,
+  actions,
   className,
 }: MobileTopBarProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { isRTL } = useLang();
 
   const handleBack = () => {
     if (backUrl) {
@@ -33,48 +43,67 @@ export function MobileTopBar({
     }
   };
 
-  // Hide back button on dashboard/home page
-  const shouldShowBack = showBack && pathname !== '/dashboard';
+  // Show back button if showBack is true or if we're not on a root path
+  const shouldShowBack = showBack || (pathname !== '/dashboard' && pathname !== '/');
 
   return (
     <header
       className={cn(
-        'sticky top-0 z-50 flex h-14 items-center justify-between border-b bg-background px-4',
-        'safe-area-top', // For iPhone notch support
+        'sticky top-0 z-50 flex items-center justify-between h-14 px-4',
+        'bg-card border-b border-border',
+        'safe-area-top', // For iPhone notch
         className
       )}
       style={{
         paddingTop: 'env(safe-area-inset-top)',
       }}
     >
-      <div className="flex items-center gap-2 flex-1 min-w-0">
+      {/* Left: Back button or empty space */}
+      <div className="flex items-center min-w-[40px]">
         {shouldShowBack && (
           <Button
             variant="ghost"
             size="icon"
             onClick={handleBack}
-            className="h-9 w-9 shrink-0"
+            className="h-9 w-9"
+            aria-label="Back"
           >
-            <ChevronLeft className={cn('h-5 w-5', isRTL && 'rotate-180')} />
+            <ArrowLeft className="h-5 w-5" />
           </Button>
         )}
-        <h1
-          className={cn(
-            'text-lg font-semibold truncate',
-            !shouldShowBack && isRTL && 'ml-auto',
-            !shouldShowBack && !isRTL && 'mr-auto'
-          )}
-          dir={isRTL ? 'rtl' : 'ltr'}
-        >
-          {title}
-        </h1>
       </div>
-      
-      {actionButton && (
-        <div className="flex items-center shrink-0">
-          {actionButton}
-        </div>
-      )}
+
+      {/* Center: Title */}
+      <h1 className="flex-1 text-center text-base font-semibold truncate px-2">
+        {title}
+      </h1>
+
+      {/* Right: Action button or menu */}
+      <div className="flex items-center min-w-[40px] justify-end">
+        {actions && actions.length > 0 ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-9 w-9">
+                <MoreVertical className="h-5 w-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {actions.map((action, index) => (
+                <DropdownMenuItem
+                  key={index}
+                  onClick={action.onClick}
+                  className="flex items-center gap-2"
+                >
+                  {action.icon}
+                  {action.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          actionButton
+        )}
+      </div>
     </header>
   );
 }

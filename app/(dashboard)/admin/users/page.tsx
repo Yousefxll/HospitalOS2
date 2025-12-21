@@ -40,9 +40,6 @@ import { Plus, Edit, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { PERMISSIONS, getPermissionsByCategory, getDefaultPermissionsForRole } from '@/lib/permissions';
 import { useTranslation } from '@/hooks/use-translation';
-import { useMediaQuery } from '@/hooks/useMediaQuery';
-import { UserCard } from '@/components/mobile/UserCard';
-import { UserDetailsSheet } from '@/components/mobile/UserDetailsSheet';
 
 interface User {
   id: string;
@@ -61,12 +58,9 @@ export default function UsersPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [isDetailsSheetOpen, setIsDetailsSheetOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const { t } = useTranslation();
-  const isMobile = useMediaQuery('(max-width: 767px)');
 
   const [formData, setFormData] = useState({
     email: '',
@@ -607,43 +601,7 @@ export default function UsersPage() {
           <CardDescription>{t.users.viewManageUsers}</CardDescription>
         </CardHeader>
         <CardContent>
-          {/* Mobile: Card List */}
-          {isMobile ? (
-            <div className="space-y-3">
-              {isLoading && users.length === 0 ? (
-                // Loading skeletons
-                Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="h-24 bg-muted animate-pulse rounded-lg" />
-                ))
-              ) : (
-                <>
-              {users.map((user) => (
-                <UserCard
-                  key={user.id}
-                  user={user}
-                  onEdit={(user) => {
-                    setEditingUser(user);
-                    setIsEditDialogOpen(true);
-                  }}
-                  onDelete={handleDelete}
-                  onViewDetails={(user) => {
-                    setSelectedUser(user);
-                    setIsDetailsSheetOpen(true);
-                  }}
-                  t={t}
-                />
-              ))}
-              {users.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  {t.users.noUsers || 'No users found'}
-                </div>
-              )}
-                </>
-              )}
-            </div>
-          ) : (
-            /* Desktop: Table */
-            <Table>
+          <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>{t.users.name}</TableHead>
@@ -704,19 +662,8 @@ export default function UsersPage() {
               ))}
             </TableBody>
           </Table>
-          )}
         </CardContent>
       </Card>
-
-      {/* Mobile: User Details Sheet */}
-      {isMobile && (
-        <UserDetailsSheet
-          user={selectedUser}
-          open={isDetailsSheetOpen}
-          onOpenChange={setIsDetailsSheetOpen}
-          t={t}
-        />
-      )}
     </div>
   );
 }

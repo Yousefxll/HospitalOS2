@@ -3,29 +3,19 @@
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { DesktopShell } from './DesktopShell';
 import { MobileShell } from './MobileShell';
-import { useEffect, useState } from 'react';
 
 interface ClientLayoutSwitcherProps {
   children: React.ReactNode;
 }
 
+/**
+ * Client-side layout switcher that chooses between DesktopShell and MobileShell
+ * based on viewport width (mobile: < 768px)
+ */
 export function ClientLayoutSwitcher({ children }: ClientLayoutSwitcherProps) {
   const isMobile = useMediaQuery('(max-width: 767px)');
-  const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // Prevent hydration mismatch by not rendering until mounted
-  if (!mounted) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
-    );
-  }
-
+  // Render appropriate shell based on viewport
   if (isMobile) {
     return <MobileShell>{children}</MobileShell>;
   }

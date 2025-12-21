@@ -7,5 +7,9 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <ClientLayoutSwitcher>{children}</ClientLayoutSwitcher>;
+  return (
+    <ClientLayoutSwitcher>
+      {children}
+    </ClientLayoutSwitcher>
+  );
 }

@@ -4,7 +4,6 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { Toaster } from '@/components/ui/toaster';
 import { useLang } from '@/hooks/use-lang';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { useState } from 'react';
 
 interface DesktopShellProps {
@@ -13,14 +12,8 @@ interface DesktopShellProps {
 
 export function DesktopShell({ children }: DesktopShellProps) {
   const { isRTL } = useLang();
-  const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const sidebarWidth = 64;
-
-  // If mobile, return null (MobileShell will handle it)
-  if (isMobile) {
-    return null;
-  }
 
   return (
     <div className="flex min-h-screen">

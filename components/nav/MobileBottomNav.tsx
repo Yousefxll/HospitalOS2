@@ -2,40 +2,23 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Search, Bell, User } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Home, Search, Bell, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useEffect, useState } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { useState, useEffect } from 'react';
 
 interface NavItem {
   href: string;
-  label: string;
   icon: React.ComponentType<{ className?: string }>;
+  label: string;
   badge?: number;
 }
 
 const navItems: NavItem[] = [
-  {
-    href: '/dashboard',
-    label: 'Home',
-    icon: LayoutDashboard,
-  },
-  {
-    href: '/policies',
-    label: 'Explore',
-    icon: Search,
-  },
-  {
-    href: '/notifications',
-    label: 'Alerts',
-    icon: Bell,
-  },
-  {
-    href: '/account',
-    label: 'Profile',
-    icon: User,
-  },
+  { href: '/dashboard', icon: Home, label: 'Home' },
+  { href: '/policies', icon: Search, label: 'Explore' },
+  { href: '/notifications', icon: Bell, label: 'Alerts' },
+  { href: '/account', icon: User, label: 'Profile' },
 ];
 
 export function MobileBottomNav() {
@@ -64,47 +47,62 @@ export function MobileBottomNav() {
     return () => clearInterval(interval);
   }, []);
 
+  const getNavItemsWithBadges = (): NavItem[] => {
+    return navItems.map((item) => {
+      if (item.href === '/notifications' && unreadCount > 0) {
+        return { ...item, badge: unreadCount };
+      }
+      return item;
+    });
+  };
+
   return (
     <nav
       className={cn(
-        'fixed bottom-0 left-0 right-0 z-50 border-t bg-background',
+        'fixed bottom-0 left-0 right-0 z-50',
+        'bg-card border-t border-border',
         'safe-area-bottom' // For iPhone home indicator
       )}
       style={{
         paddingBottom: 'env(safe-area-inset-bottom)',
       }}
     >
-      <div className="flex h-16 items-center justify-around px-2">
-        {navItems.map((item) => {
+      <div className="flex items-center justify-around h-16 px-2">
+        {getNavItemsWithBadges().map((item) => {
           const Icon = item.icon;
-          const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-          const badgeCount = item.href === '/notifications' ? unreadCount : item.badge;
-
+          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+          
           return (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
-                'flex flex-col items-center justify-center gap-1 flex-1 h-full',
+                'flex flex-col items-center justify-center',
+                'flex-1 h-full min-w-0',
                 'transition-colors',
-                isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+                isActive
+                  ? 'text-primary'
+                  : 'text-muted-foreground hover:text-foreground'
               )}
             >
               <div className="relative">
-                <Icon className={cn('h-5 w-5', isActive && 'text-primary')} />
-                {badgeCount && badgeCount > 0 && (
+                <Icon className="h-5 w-5" />
+                {item.badge && item.badge > 0 && (
                   <Badge
                     variant="destructive"
                     className={cn(
-                      'absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs',
-                      badgeCount > 99 && 'px-1 w-auto'
+                      'absolute -top-2 -right-2 h-5 w-5',
+                      'flex items-center justify-center p-0',
+                      'text-xs font-semibold'
                     )}
                   >
-                    {badgeCount > 99 ? '99+' : badgeCount}
+                    {item.badge > 99 ? '99+' : item.badge}
                   </Badge>
                 )}
               </div>
-              <span className="text-xs font-medium">{item.label}</span>
+              <span className="text-xs mt-0.5 truncate w-full text-center">
+                {item.label}
+              </span>
             </Link>
           );
         })}
