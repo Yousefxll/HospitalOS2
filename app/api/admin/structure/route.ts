@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
     const userPermissions = user?.permissions || [];
     
     // Allow if user has admin.structure-management.view or admin.users (admin access)
-    if (!userPermissions.includes('admin.structure-management.view') && !userPermissions.includes('admin.users.view')) {
+    if (!userPermissions.includes('admin.structure-management.view') && !userPermissions.includes('admin.users.view') && !userPermissions.includes('admin.users')) {
       return NextResponse.json({ error: 'Forbidden: Insufficient permissions' }, { status: 403 });
     }
 
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
     const userPermissions = user?.permissions || [];
     
     // Allow if user has admin.structure-management.create or admin.users (admin access)
-    if (!userPermissions.includes('admin.structure-management.create') && !userPermissions.includes('admin.users.view')) {
+    if (!userPermissions.includes('admin.structure-management.create') && !userPermissions.includes('admin.users.view') && !userPermissions.includes('admin.users')) {
       return NextResponse.json({ error: 'Forbidden: Insufficient permissions to create' }, { status: 403 });
     }
 
@@ -211,7 +211,7 @@ export async function DELETE(request: NextRequest) {
     const userPermissions = user?.permissions || [];
     
     // Allow if user has admin.structure-management.delete or admin.users (admin access)
-    if (!userPermissions.includes('admin.structure-management.delete') && !userPermissions.includes('admin.users.view')) {
+    if (!userPermissions.includes('admin.structure-management.delete') && !userPermissions.includes('admin.users.view') && !userPermissions.includes('admin.users')) {
       return NextResponse.json({ error: 'Forbidden: Insufficient permissions to delete' }, { status: 403 });
     }
 
