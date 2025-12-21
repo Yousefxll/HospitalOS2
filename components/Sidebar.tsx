@@ -555,11 +555,12 @@ export default function Sidebar({ onLinkClick, sidebarOpen, setSidebarOpen }: Si
   }
 
   // Mobile: Use Sheet/Drawer
+  // Always open from right side (same side as menu button in MobileTopBar)
   if (isMobile && setSidebarOpen !== undefined) {
     return (
       <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
         <SheetContent 
-          side={safeIsRTL ? 'right' : 'left'} 
+          side="right"
           className="w-[280px] p-0 bg-sidebar"
         >
           <div className="h-full flex flex-col">
