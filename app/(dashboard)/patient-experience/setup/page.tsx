@@ -307,6 +307,7 @@ export default function PatientExperienceSetupPage() {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
+        credentials: 'include', // Include cookies for authentication
       });
 
       console.log('Response status:', response.status, response.statusText);
