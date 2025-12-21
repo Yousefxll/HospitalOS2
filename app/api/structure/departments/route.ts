@@ -70,7 +70,12 @@ export async function POST(request: NextRequest) {
     const validatedData = createDepartmentSchema.parse(body);
 
     const department = await structureService.createDepartment({
-      ...validatedData,
+      floorId: validatedData.floorId,
+      floorKey: validatedData.floorKey,
+      departmentKey: validatedData.departmentKey,
+      departmentName: validatedData.departmentName,
+      label_en: validatedData.label_en,
+      label_ar: validatedData.label_ar,
       createdBy: authResult.userId,
     });
 
