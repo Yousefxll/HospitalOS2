@@ -36,7 +36,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Plus, Edit, Trash2 } from 'lucide-react';
+import { Plus, Edit, Trash2, User, Key, Shield } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { PERMISSIONS, getPermissionsByCategory, getDefaultPermissionsForRole } from '@/lib/permissions';
 import { useTranslation } from '@/hooks/use-translation';
@@ -456,51 +456,76 @@ export default function UsersPage() {
               </DialogDescription>
             </DialogHeader>
             <div className="overflow-y-auto overflow-x-hidden px-6" style={{ maxHeight: 'calc(90vh - 180px)' }}>
-            <form id="edit-user-form" onSubmit={handleUpdate} className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>{t.users.name}</Label>
-                  <Input
-                    value={`${editingUser?.firstName} ${editingUser?.lastName}`}
-                    disabled
-                  />
+            <form id="edit-user-form" onSubmit={handleUpdate} className="space-y-6 py-6">
+              {/* User Information Section */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 pb-2 border-b">
+                  <User className="h-5 w-5 text-muted-foreground" />
+                  <h3 className="text-lg font-semibold">User Information</h3>
                 </div>
-                <div className="space-y-2">
-                  <Label>{t.auth.email}</Label>
-                  <Input
-                    value={editingUser?.email}
-                    disabled
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">{t.users.name}</Label>
+                    <Input
+                      value={`${editingUser?.firstName} ${editingUser?.lastName}`}
+                      disabled
+                      className="bg-muted"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">{t.auth.email}</Label>
+                    <Input
+                      value={editingUser?.email}
+                      disabled
+                      className="bg-muted"
+                    />
+                  </div>
                 </div>
               </div>
               
-              <div className="space-y-2">
-                <Label htmlFor="edit-password">{t.users.newPasswordOptional}</Label>
-                <Input
-                  id="edit-password"
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) =>
-                    setFormData({ ...formData, password: e.target.value })
-                  }
-                  placeholder={t.users.leaveEmptyToKeep}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-staffId">{(t.users as any).staffId || 'Staff ID'}</Label>
-                <Input
-                  id="edit-staffId"
-                  value={formData.staffId}
-                  onChange={(e) =>
-                    setFormData({ ...formData, staffId: e.target.value })
-                  }
-                  placeholder={(t.users as any).staffIdPlaceholder || 'Enter staff ID'}
-                />
+              {/* Security Settings Section */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 pb-2 border-b">
+                  <Key className="h-5 w-5 text-muted-foreground" />
+                  <h3 className="text-lg font-semibold">Security Settings</h3>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-password" className="text-sm font-medium">{t.users.newPasswordOptional}</Label>
+                    <Input
+                      id="edit-password"
+                      type="password"
+                      value={formData.password}
+                      onChange={(e) =>
+                        setFormData({ ...formData, password: e.target.value })
+                      }
+                      placeholder={t.users.leaveEmptyToKeep}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-staffId" className="text-sm font-medium">{(t.users as any).staffId || 'Staff ID'}</Label>
+                    <Input
+                      id="edit-staffId"
+                      value={formData.staffId}
+                      onChange={(e) =>
+                        setFormData({ ...formData, staffId: e.target.value })
+                      }
+                      placeholder={(t.users as any).staffIdPlaceholder || 'Enter staff ID'}
+                    />
+                  </div>
+                </div>
               </div>
               
-              <div className="space-y-4 border-t pt-4">
-                <div className="flex items-center justify-between">
-                  <Label>{t.users.permissions}</Label>
+              {/* Permissions Section */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between pb-2 border-b">
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-muted-foreground" />
+                    <h3 className="text-lg font-semibold">{t.users.permissions}</h3>
+                    <span className="text-sm text-muted-foreground font-normal">
+                      ({formData.permissions.length} / {PERMISSIONS.length} selected)
+                    </span>
+                  </div>
                   <Button
                     type="button"
                     variant="outline"
@@ -516,16 +541,17 @@ export default function UsersPage() {
                   </Button>
                 </div>
                 
-                <Accordion type="multiple" className="w-full">
+                <Accordion type="multiple" className="w-full border rounded-lg">
                   {Object.entries(permissionsByCategory).map(([category, permissions]) => {
                     const categoryPerms = permissions.map(p => p.key);
                     const allSelected = categoryPerms.every(key => formData.permissions.includes(key));
                     const someSelected = categoryPerms.some(key => formData.permissions.includes(key));
+                    const selectedCount = categoryPerms.filter(k => formData.permissions.includes(k)).length;
                     
                     return (
-                      <AccordionItem key={category} value={category}>
-                        <AccordionTrigger className="text-sm">
-                          <div className="flex items-center gap-2">
+                      <AccordionItem key={category} value={category} className="border-b last:border-b-0 px-4">
+                        <AccordionTrigger className="text-sm hover:no-underline py-3">
+                          <div className="flex items-center gap-3 flex-1">
                             <Checkbox
                               checked={allSelected}
                               ref={(el) => {
@@ -537,27 +563,38 @@ export default function UsersPage() {
                                 handleSelectAllCategory(category, checked === true)
                               }
                               onClick={(e) => e.stopPropagation()}
+                              className="shrink-0"
                             />
-                            <span className="font-medium">{category}</span>
-                            <span className="text-xs text-muted-foreground">
-                              ({categoryPerms.filter(k => formData.permissions.includes(k)).length}/{categoryPerms.length})
+                            <span className="font-semibold text-base flex-1 text-left">{category}</span>
+                            <span className={`text-xs font-medium px-2 py-1 rounded ${
+                              selectedCount === categoryPerms.length
+                                ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                                : selectedCount > 0
+                                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                                : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                            }`}>
+                              {selectedCount}/{categoryPerms.length}
                             </span>
                           </div>
                         </AccordionTrigger>
-                        <AccordionContent>
-                          <div className="grid grid-cols-2 gap-3 pl-6">
+                        <AccordionContent className="pt-2 pb-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-8 bg-muted/30 p-4 rounded-md">
                             {permissions.map((permission) => (
-                              <div key={permission.key} className="flex items-center space-x-2">
+                              <div 
+                                key={permission.key} 
+                                className="flex items-center space-x-2 p-2 rounded hover:bg-background transition-colors"
+                              >
                                 <Checkbox
                                   id={`edit-perm-${permission.key}`}
                                   checked={formData.permissions.includes(permission.key)}
                                   onCheckedChange={(checked) =>
                                     handlePermissionToggle(permission.key, checked === true)
                                   }
+                                  className="shrink-0"
                                 />
                                 <Label
                                   htmlFor={`edit-perm-${permission.key}`}
-                                  className="text-sm font-normal cursor-pointer"
+                                  className="text-sm font-normal cursor-pointer flex-1 leading-tight"
                                 >
                                   {permission.label}
                                 </Label>
