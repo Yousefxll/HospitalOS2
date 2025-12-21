@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Activity, Users, Bed, PackagePlus, TrendingUp, AlertCircle, Scissors, Scan, Heart, Baby, Skull, Pill, Dumbbell } from 'lucide-react';
 import { useTranslation } from '@/hooks/use-translation';
 import { useLang } from '@/hooks/use-lang';
+import { hasRoutePermission } from '@/lib/permissions';
 
 interface KPI {
   title: string;
@@ -35,6 +37,9 @@ interface DashboardStats {
 export default function DashboardPage() {
   const { t, language } = useTranslation();
   const { isRTL } = useLang();
+  const router = useRouter();
+  const [userPermissions, setUserPermissions] = useState<string[]>([]);
+  const [mounted, setMounted] = useState(false);
   const [stats, setStats] = useState<DashboardStats>({
     totalVisits: 0,
     activePatients: 0,
@@ -55,14 +60,40 @@ export default function DashboardPage() {
   
   const [isLoading, setIsLoading] = useState(false);
   const [currentDateTime, setCurrentDateTime] = useState<string>('');
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    
+    // Fetch user permissions
+    async function fetchUserPermissions() {
+      try {
+        const response = await fetch('/api/auth/me');
+        if (response.ok) {
+          const data = await response.json();
+          setUserPermissions(data.user?.permissions || []);
+          
+          // Check if user has dashboard.view permission
+          if (!hasRoutePermission(data.user?.permissions || [], '/dashboard')) {
+            // Redirect to account page if no permission
+            router.push('/account');
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch user permissions:', error);
+      }
+    }
+    
+    fetchUserPermissions();
+  }, [router]);
 
   useEffect(() => {
     if (!mounted) return;
+    
+    // Don't fetch data if user doesn't have permission
+    if (!hasRoutePermission(userPermissions, '/dashboard')) {
+      return;
+    }
     
     // Set current date and time
     const updateDateTime = () => {
@@ -200,6 +231,11 @@ export default function DashboardPage() {
       trend: stats.pharmacyVisits > 0 ? '+20%' : undefined,
     },
   ];
+
+  // Don't render content if user doesn't have permission (will redirect)
+  if (!mounted || !hasRoutePermission(userPermissions, '/dashboard')) {
+    return null;
+  }
 
   return (
     <div className="space-y-6">
