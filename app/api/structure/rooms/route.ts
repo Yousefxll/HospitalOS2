@@ -73,7 +73,14 @@ export async function POST(request: NextRequest) {
     const validatedData = createRoomSchema.parse(body);
 
     const room = await structureService.createRoom({
-      ...validatedData,
+      floorId: validatedData.floorId,
+      floorKey: validatedData.floorKey,
+      departmentId: validatedData.departmentId,
+      departmentKey: validatedData.departmentKey,
+      roomNumber: validatedData.roomNumber,
+      roomName: validatedData.roomName,
+      label_en: validatedData.label_en,
+      label_ar: validatedData.label_ar,
       createdBy: authResult.userId,
     });
 

@@ -61,7 +61,10 @@ export async function POST(request: NextRequest) {
     const validatedData = createFloorSchema.parse(body);
 
     const floor = await structureService.createFloor({
-      ...validatedData,
+      number: validatedData.number,
+      name: validatedData.name,
+      label_en: validatedData.label_en,
+      label_ar: validatedData.label_ar,
       createdBy: authResult.userId,
     });
 
