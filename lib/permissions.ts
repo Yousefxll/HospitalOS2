@@ -10,13 +10,13 @@ export interface Permission {
   category: string;
 }
 
-// Helper function to generate CRUD permissions for a page
-function createPagePermissions(pageKey: string, pageLabel: string, category: string): Permission[] {
+// Helper function to generate CRUD permissions for a page/module
+function createCRUDPermissions(prefix: string, label: string, category: string): Permission[] {
   return [
-    { key: `${pageKey}.view`, label: `View ${pageLabel}`, category },
-    { key: `${pageKey}.create`, label: `Create ${pageLabel}`, category },
-    { key: `${pageKey}.edit`, label: `Edit ${pageLabel}`, category },
-    { key: `${pageKey}.delete`, label: `Delete ${pageLabel}`, category },
+    { key: `${prefix}.view`, label: `View ${label}`, category },
+    { key: `${prefix}.create`, label: `Create ${label}`, category },
+    { key: `${prefix}.edit`, label: `Edit ${label}`, category },
+    { key: `${prefix}.delete`, label: `Delete ${label}`, category },
   ];
 }
 
@@ -25,72 +25,72 @@ export const PERMISSIONS: Permission[] = [
   { key: 'dashboard.view', label: 'View Dashboard', category: 'Dashboard' },
   
   // Notifications
-  ...createPagePermissions('notifications', 'Notifications', 'Notifications'),
+  ...createCRUDPermissions('notifications', 'Notifications', 'Notifications'),
   
   // OPD
-  ...createPagePermissions('opd.dashboard', 'OPD Dashboard', 'OPD'),
-  ...createPagePermissions('opd.census', 'Clinic Census', 'OPD'),
-  ...createPagePermissions('opd.performance', 'Performance Comparison', 'OPD'),
-  ...createPagePermissions('opd.utilization', 'Clinic Utilization', 'OPD'),
-  ...createPagePermissions('opd.daily-data-entry', 'Daily Data Entry', 'OPD'),
-  ...createPagePermissions('opd.import-data', 'OPD Import Data', 'OPD'),
+  ...createCRUDPermissions('opd.dashboard', 'OPD Dashboard', 'OPD'),
+  ...createCRUDPermissions('opd.census', 'Clinic Census', 'OPD'),
+  ...createCRUDPermissions('opd.performance', 'Performance Comparison', 'OPD'),
+  ...createCRUDPermissions('opd.utilization', 'Clinic Utilization', 'OPD'),
+  ...createCRUDPermissions('opd.daily-data-entry', 'Daily Data Entry', 'OPD'),
+  ...createCRUDPermissions('opd.import-data', 'OPD Import Data', 'OPD'),
   
   // Scheduling
-  ...createPagePermissions('scheduling', 'Schedule', 'Scheduling'),
-  ...createPagePermissions('scheduling.availability', 'Availability', 'Scheduling'),
+  ...createCRUDPermissions('scheduling', 'Schedule', 'Scheduling'),
+  ...createCRUDPermissions('scheduling.availability', 'Availability', 'Scheduling'),
   
   // ER
-  ...createPagePermissions('er.register', 'ER Patient Registration', 'ER'),
-  ...createPagePermissions('er.triage', 'ER Triage', 'ER'),
-  ...createPagePermissions('er.disposition', 'ER Disposition', 'ER'),
-  ...createPagePermissions('er.progress-note', 'ER Progress Note', 'ER'),
+  ...createCRUDPermissions('er.register', 'ER Patient Registration', 'ER'),
+  ...createCRUDPermissions('er.triage', 'ER Triage', 'ER'),
+  ...createCRUDPermissions('er.disposition', 'ER Disposition', 'ER'),
+  ...createCRUDPermissions('er.progress-note', 'ER Progress Note', 'ER'),
   
   // Patient Experience
-  ...createPagePermissions('px.dashboard', 'PX Dashboard', 'Patient Experience'),
-  ...createPagePermissions('px.analytics', 'PX Analytics', 'Patient Experience'),
-  ...createPagePermissions('px.reports', 'PX Reports', 'Patient Experience'),
-  ...createPagePermissions('px.visits', 'PX Visits', 'Patient Experience'),
-  ...createPagePermissions('px.cases', 'PX Cases', 'Patient Experience'),
-  ...createPagePermissions('px.setup', 'PX Setup', 'Patient Experience'),
+  ...createCRUDPermissions('px.dashboard', 'PX Dashboard', 'Patient Experience'),
+  ...createCRUDPermissions('px.analytics', 'PX Analytics', 'Patient Experience'),
+  ...createCRUDPermissions('px.reports', 'PX Reports', 'Patient Experience'),
+  ...createCRUDPermissions('px.visits', 'PX Visits', 'Patient Experience'),
+  ...createCRUDPermissions('px.cases', 'PX Cases', 'Patient Experience'),
+  ...createCRUDPermissions('px.setup', 'PX Setup', 'Patient Experience'),
   { key: 'px.seed-data', label: 'PX Seed Data', category: 'Patient Experience' },
   { key: 'px.delete-data', label: 'PX Delete Data', category: 'Patient Experience' },
   
   // IPD
-  ...createPagePermissions('ipd.bed-setup', 'IPD Bed Setup', 'IPD'),
-  ...createPagePermissions('ipd.live-beds', 'IPD Live Beds', 'IPD'),
-  ...createPagePermissions('ipd.dept-input', 'IPD Department Input', 'IPD'),
+  ...createCRUDPermissions('ipd.bed-setup', 'IPD Bed Setup', 'IPD'),
+  ...createCRUDPermissions('ipd.live-beds', 'IPD Live Beds', 'IPD'),
+  ...createCRUDPermissions('ipd.dept-input', 'IPD Department Input', 'IPD'),
   
   // Equipment (OPD)
-  ...createPagePermissions('equipment.opd.master', 'Equipment Master', 'Equipment (OPD)'),
-  ...createPagePermissions('equipment.opd.clinic-map', 'Equipment Clinic Map', 'Equipment (OPD)'),
-  ...createPagePermissions('equipment.opd.checklist', 'Equipment Checklist', 'Equipment (OPD)'),
-  ...createPagePermissions('equipment.opd.movements', 'Equipment Movements', 'Equipment (OPD)'),
+  ...createCRUDPermissions('equipment.opd.master', 'Equipment Master', 'Equipment (OPD)'),
+  ...createCRUDPermissions('equipment.opd.clinic-map', 'Equipment Clinic Map', 'Equipment (OPD)'),
+  ...createCRUDPermissions('equipment.opd.checklist', 'Equipment Checklist', 'Equipment (OPD)'),
+  ...createCRUDPermissions('equipment.opd.movements', 'Equipment Movements', 'Equipment (OPD)'),
   
   // Equipment (IPD)
-  ...createPagePermissions('equipment.ipd.map', 'IPD Equipment Map', 'Equipment (IPD)'),
-  ...createPagePermissions('equipment.ipd.checklist', 'IPD Daily Checklist', 'Equipment (IPD)'),
+  ...createCRUDPermissions('equipment.ipd.map', 'IPD Equipment Map', 'Equipment (IPD)'),
+  ...createCRUDPermissions('equipment.ipd.checklist', 'IPD Daily Checklist', 'Equipment (IPD)'),
   
   // Manpower & Nursing
-  ...createPagePermissions('manpower.overview', 'Manpower Overview', 'Manpower & Nursing'),
-  ...createPagePermissions('manpower.edit', 'Manpower Edit', 'Manpower & Nursing'),
-  ...createPagePermissions('nursing.scheduling', 'Nursing Scheduling', 'Manpower & Nursing'),
-  ...createPagePermissions('nursing.operations', 'Nursing Operations', 'Manpower & Nursing'),
+  ...createCRUDPermissions('manpower.overview', 'Manpower Overview', 'Manpower & Nursing'),
+  ...createCRUDPermissions('manpower.edit', 'Manpower Edit', 'Manpower & Nursing'),
+  ...createCRUDPermissions('nursing.scheduling', 'Nursing Scheduling', 'Manpower & Nursing'),
+  ...createCRUDPermissions('nursing.operations', 'Nursing Operations', 'Manpower & Nursing'),
   
   // Policy System
-  ...createPagePermissions('policies.upload', 'Upload Policy', 'Policy System'),
-  ...createPagePermissions('policies', 'Policy Library', 'Policy System'),
-  ...createPagePermissions('policies.assistant', 'Policy Assistant', 'Policy System'),
-  ...createPagePermissions('policies.create', 'New Policy Creator', 'Policy System'),
-  ...createPagePermissions('policies.harmonization', 'Policy Harmonization', 'Policy System'),
+  ...createCRUDPermissions('policies.upload', 'Upload Policy', 'Policy System'),
+  ...createCRUDPermissions('policies', 'Policy Library', 'Policy System'),
+  ...createCRUDPermissions('policies.assistant', 'Policy Assistant', 'Policy System'),
+  ...createCRUDPermissions('policies.create', 'New Policy Creator', 'Policy System'),
+  ...createCRUDPermissions('policies.harmonization', 'Policy Harmonization', 'Policy System'),
   
   // Admin
-  ...createPagePermissions('admin.data-admin', 'Data Admin', 'Admin'),
-  ...createPagePermissions('admin.users', 'User Management', 'Admin'),
-  ...createPagePermissions('admin.structure-management', 'Structure Management', 'Admin'),
+  ...createCRUDPermissions('admin.data-admin', 'Data Admin', 'Admin'),
+  ...createCRUDPermissions('admin.users', 'User Management', 'Admin'),
+  ...createCRUDPermissions('admin.structure-management', 'Structure Management', 'Admin'),
   { key: 'admin.delete-sample-data', label: 'Delete Sample Data', category: 'Admin' },
   
   // Account
-  ...createPagePermissions('account', 'Account', 'Account'),
+  ...createCRUDPermissions('account', 'Account', 'Account'),
 ];
 
 /**
@@ -103,14 +103,14 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   '/opd/clinic-daily-census': 'opd.census.view',
   '/opd/dept-view': 'opd.performance.view',
   '/opd/clinic-utilization': 'opd.utilization.view',
-  '/opd/daily-data-entry': 'opd.daily-data-entry.view',
-  '/opd/import-data': 'opd.import-data.view',
+  '/opd/daily-data-entry': 'opd.daily-data-entry',
+  '/opd/import-data': 'opd.import-data',
   '/scheduling/scheduling': 'scheduling.view',
   '/scheduling/availability': 'scheduling.availability.view',
-  '/er/register': 'er.register.view',
-  '/er/triage': 'er.triage.view',
-  '/er/disposition': 'er.disposition.view',
-  '/er/progress-note': 'er.progress-note.view',
+  '/er/register': 'er.register',
+  '/er/triage': 'er.triage',
+  '/er/disposition': 'er.disposition',
+  '/er/progress-note': 'er.progress-note',
   '/patient-experience/dashboard': 'px.dashboard.view',
   '/patient-experience/analytics': 'px.analytics.view',
   '/patient-experience/reports': 'px.reports.view',
@@ -186,82 +186,61 @@ export function getDefaultPermissionsForRole(role: string): string[] {
   const defaults: Record<string, string[]> = {
     admin: PERMISSIONS.map(p => p.key), // Admin gets all permissions
     supervisor: [
-      // Dashboard
       'dashboard.view',
-      // Notifications
-      'notifications.view', 'notifications.create', 'notifications.edit', 'notifications.delete',
-      // OPD
-      'opd.census.view', 'opd.census.create', 'opd.census.edit', 'opd.census.delete',
+      'notifications.view',
+      'opd.census.view',
       'opd.performance.view',
       'opd.utilization.view',
-      'opd.daily-data-entry.view', 'opd.daily-data-entry.create', 'opd.daily-data-entry.edit',
-      // Scheduling
-      'scheduling.view', 'scheduling.create', 'scheduling.edit', 'scheduling.delete',
-      'scheduling.availability.view', 'scheduling.availability.create', 'scheduling.availability.edit',
-      // ER
-      'er.register.view', 'er.register.create', 'er.register.edit',
-      'er.triage.view', 'er.triage.create', 'er.triage.edit',
-      'er.disposition.view', 'er.disposition.create', 'er.disposition.edit',
-      'er.progress-note.view', 'er.progress-note.create', 'er.progress-note.edit',
-      // Patient Experience
+      'opd.daily-data-entry',
+      'scheduling.view',
+      'scheduling.availability.view',
+      'er.register',
+      'er.triage',
+      'er.disposition',
+      'er.progress-note',
       'px.dashboard.view',
       'px.analytics.view',
       'px.reports.view',
-      'px.visits.view', 'px.visits.create', 'px.visits.edit', 'px.visits.delete',
-      'px.cases.view', 'px.cases.create', 'px.cases.edit', 'px.cases.delete',
-      'px.setup.view', 'px.setup.edit',
-      // IPD
-      'ipd.bed-setup.view', 'ipd.bed-setup.create', 'ipd.bed-setup.edit',
-      'ipd.live-beds.view',
-      'ipd.dept-input.view', 'ipd.dept-input.create', 'ipd.dept-input.edit',
-      // Equipment
-      'equipment.opd.master.view', 'equipment.opd.master.create', 'equipment.opd.master.edit',
-      'equipment.opd.clinic-map.view', 'equipment.opd.clinic-map.edit',
-      'equipment.opd.checklist.view', 'equipment.opd.checklist.create', 'equipment.opd.checklist.edit',
-      'equipment.opd.movements.view', 'equipment.opd.movements.create',
-      'equipment.ipd.map.view', 'equipment.ipd.map.edit',
-      'equipment.ipd.checklist.view', 'equipment.ipd.checklist.create', 'equipment.ipd.checklist.edit',
-      // Manpower & Nursing
-      'manpower.overview.view',
-      'manpower.edit.view', 'manpower.edit.create', 'manpower.edit.edit',
-      'nursing.scheduling.view', 'nursing.scheduling.create', 'nursing.scheduling.edit',
-      'nursing.operations.view', 'nursing.operations.create', 'nursing.operations.edit',
-      // Policies
+      'px.visits.view',
+      'px.visits.create',
+      'px.cases.view',
+      'px.cases.edit',
+      'ipd.bed-setup',
+      'ipd.live-beds',
+      'ipd.dept-input',
+      'equipment.opd.master',
+      'equipment.opd.clinic-map',
+      'equipment.opd.checklist',
+      'equipment.opd.movements',
+      'equipment.ipd.map',
+      'equipment.ipd.checklist',
+      'manpower.overview',
+      'nursing.scheduling',
+      'nursing.operations',
       'policies.view',
-      // Account
-      'account.view', 'account.edit',
+      'account.view',
+      'account.edit',
     ],
     staff: [
-      // Dashboard
       'dashboard.view',
-      // Notifications
       'notifications.view',
-      // OPD
       'opd.census.view',
-      'opd.daily-data-entry.view', 'opd.daily-data-entry.create',
-      // Scheduling
+      'opd.daily-data-entry',
       'scheduling.view',
-      // ER
-      'er.register.view', 'er.register.create',
-      'er.triage.view', 'er.triage.create',
-      // Patient Experience
-      'px.visits.view', 'px.visits.create',
-      // Equipment
-      'equipment.opd.checklist.view', 'equipment.opd.checklist.create',
-      'equipment.ipd.checklist.view', 'equipment.ipd.checklist.create',
-      // Policies
+      'er.register',
+      'er.triage',
+      'px.visits.create',
+      'px.visits.view',
+      'equipment.opd.checklist',
+      'equipment.ipd.checklist',
       'policies.view',
-      // Account
-      'account.view', 'account.edit',
+      'account.view',
+      'account.edit',
     ],
     viewer: [
-      // Dashboard
       'dashboard.view',
-      // OPD
       'opd.census.view',
-      // Policies
       'policies.view',
-      // Account
       'account.view',
     ],
   };
