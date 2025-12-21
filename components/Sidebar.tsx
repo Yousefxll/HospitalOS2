@@ -26,6 +26,7 @@ import {
   Trash2,
   Building2,
   Upload,
+  X,
 } from 'lucide-react';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
@@ -34,6 +35,13 @@ import { hasRoutePermission, ROUTE_PERMISSIONS } from '@/lib/permissions';
 import { useLang } from '@/hooks/use-lang';
 import { useTranslation } from '@/hooks/use-translation';
 import { translations } from '@/lib/i18n';
+import { useIsMobile } from '@/hooks/use-mobile';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 
 export interface NavItem {
   title: string;
@@ -280,7 +288,13 @@ function NavItemComponent({
   );
 }
 
-export default function Sidebar() {
+interface SidebarProps {
+  onLinkClick?: () => void;
+  sidebarOpen?: boolean;
+  setSidebarOpen?: (open: boolean) => void;
+}
+
+export default function Sidebar({ onLinkClick, sidebarOpen, setSidebarOpen }: SidebarProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -289,6 +303,7 @@ export default function Sidebar() {
   const sidebarRef = useRef<HTMLDivElement>(null);
   const { isRTL, language } = useLang();
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
   
   // Use default 'ar' translations until mounted to prevent hydration mismatch
   const safeT = mounted ? t : translations.ar;
@@ -438,9 +453,86 @@ export default function Sidebar() {
     }).filter((item): item is NavItem => item !== null);
   };
 
+  // Sidebar content component (used in both desktop and mobile)
+  const SidebarContent = ({ isMobileView = false }: { isMobileView?: boolean }) => (
+    <>
+      <div className={`p-6 border-b flex-shrink-0 ${isExpanded || isMobileView ? '' : 'p-4'} relative`}>
+        {isExpanded || isMobileView ? (
+          <>
+            <h2 className="text-xl font-bold">HOS</h2>
+          </>
+        ) : (
+          <h2 className="text-xl font-bold text-center">H</h2>
+        )}
+        {/* Toggle Button - Desktop only */}
+        {!isMobileView && (
+          <Button
+            variant="ghost"
+            size="icon"
+            data-sidebar-trigger
+            className={`absolute top-2 ${safeIsRTL ? 'left-2' : 'right-2'} h-8 w-8`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsExpanded(!isExpanded);
+            }}
+            title={isExpanded ? (safeIsRTL ? 'إخفاء القائمة' : 'Hide menu') : (safeIsRTL ? 'إظهار القائمة' : 'Show menu')}
+            type="button"
+          >
+            {safeIsRTL ? (
+              isExpanded ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />
+            ) : (
+              isExpanded ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />
+            )}
+          </Button>
+        )}
+        {/* Close Button - Mobile only */}
+        {isMobileView && setSidebarOpen && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className={`absolute top-2 ${safeIsRTL ? 'left-2' : 'right-2'} h-8 w-8`}
+            onClick={() => setSidebarOpen(false)}
+            type="button"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+      
+      <nav 
+        className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-2"
+        style={{ 
+          minHeight: 0,
+          maxHeight: 'calc(100vh - 80px)',
+          WebkitOverflowScrolling: 'touch'
+        }}
+      >
+        {getFilteredNavItems().map((item, index) => (
+          <NavItemComponent 
+            key={item.href || `${item.title}-${index}`} 
+            item={item} 
+            isExpanded={isExpanded || isMobileView}
+            onIconClick={() => {
+              if (isMobileView) return;
+              setIsExpanded(true);
+            }}
+            onLinkClick={() => {
+              if (isMobileView && onLinkClick) {
+                onLinkClick();
+              } else {
+                setIsExpanded(false);
+              }
+            }}
+            unreadCount={unreadCount}
+          />
+        ))}
+      </nav>
+    </>
+  );
+
   // Prevent hydration mismatch - use default RTL to match server
   if (!mounted) {
-    return (
+    return isMobile ? null : (
       <div 
         className="h-screen bg-sidebar flex flex-col transition-all duration-300 w-16 border-r"
         style={{ maxHeight: '100vh' }}
@@ -462,6 +554,23 @@ export default function Sidebar() {
     );
   }
 
+  // Mobile: Use Sheet/Drawer
+  if (isMobile && setSidebarOpen !== undefined) {
+    return (
+      <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+        <SheetContent 
+          side={safeIsRTL ? 'right' : 'left'} 
+          className="w-[280px] p-0 bg-sidebar"
+        >
+          <div className="h-full flex flex-col">
+            <SidebarContent isMobileView={true} />
+          </div>
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
+  // Desktop: Fixed sidebar
   return (
     <div 
       ref={sidebarRef}
@@ -471,54 +580,7 @@ export default function Sidebar() {
       } ${safeIsRTL ? 'border-l' : 'border-r'}`}
       style={{ maxHeight: '100vh' }}
     >
-      <div className={`p-6 border-b flex-shrink-0 ${isExpanded ? '' : 'p-4'} relative`}>
-        {isExpanded ? (
-          <>
-            <h2 className="text-xl font-bold">HOS</h2>
-          </>
-        ) : (
-          <h2 className="text-xl font-bold text-center">H</h2>
-        )}
-        {/* Toggle Button */}
-        <Button
-          variant="ghost"
-          size="icon"
-          data-sidebar-trigger
-          className={`absolute top-2 ${safeIsRTL ? 'left-2' : 'right-2'} h-8 w-8`}
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsExpanded(!isExpanded);
-          }}
-          title={isExpanded ? (safeIsRTL ? 'إخفاء القائمة' : 'Hide menu') : (safeIsRTL ? 'إظهار القائمة' : 'Show menu')}
-          type="button"
-        >
-          {safeIsRTL ? (
-            isExpanded ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />
-          ) : (
-            isExpanded ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />
-          )}
-        </Button>
-      </div>
-      
-      <nav 
-        className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-2"
-        style={{ 
-          minHeight: 0,
-          maxHeight: 'calc(100vh - 80px)',
-          WebkitOverflowScrolling: 'touch'
-        }}
-      >
-        {getFilteredNavItems().map((item, index) => (
-          <NavItemComponent 
-            key={item.href || `${item.title}-${index}`} 
-            item={item} 
-            isExpanded={isExpanded}
-            onIconClick={() => setIsExpanded(true)}
-            onLinkClick={() => setIsExpanded(false)}
-            unreadCount={unreadCount}
-          />
-        ))}
-      </nav>
+      <SidebarContent isMobileView={false} />
     </div>
   );
 }

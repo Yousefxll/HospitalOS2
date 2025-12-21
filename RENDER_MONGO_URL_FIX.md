@@ -88,3 +88,4 @@ mongodb+srv://...@hospitalos-cluster.hqilxpu.mongodb.net/?retryWrites=true&w=maj
 
 **ملاحظة مهمة**: تأكد من عدم وجود مسافات في البداية أو النهاية في `MONGO_URL`
 
+

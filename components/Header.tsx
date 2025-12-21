@@ -2,10 +2,11 @@
 
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { LogOut, User } from 'lucide-react';
+import { LogOut, User, Menu } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { useTranslation } from '@/hooks/use-translation';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface UserInfo {
   firstName: string;
@@ -14,10 +15,15 @@ interface UserInfo {
   email: string;
 }
 
-export default function Header() {
+interface HeaderProps {
+  onMenuClick?: () => void;
+}
+
+export default function Header({ onMenuClick }: HeaderProps) {
   const router = useRouter();
   const [user, setUser] = useState<UserInfo | null>(null);
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     async function fetchUser() {
@@ -45,15 +51,36 @@ export default function Header() {
   }
 
   return (
-    <header className="h-16 border-b bg-card flex items-center justify-between px-6">
-      <div className="flex-1"></div>
-      <div className="flex-1 flex justify-center">
-        <h1 className="text-lg font-semibold">{t.header.hospitalOS}</h1>
+    <header className="h-16 border-b bg-card flex items-center justify-between px-3 md:px-6">
+      {/* Mobile Menu Button */}
+      <div className="flex items-center gap-2">
+        {isMobile && onMenuClick && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onMenuClick}
+            className="md:hidden"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+        )}
+        {isMobile && (
+          <h1 className="text-base font-semibold md:hidden">{t.header.hospitalOS}</h1>
+        )}
       </div>
-      <div className="flex-1 flex items-center justify-end gap-4">
+
+      {/* Desktop Title */}
+      {!isMobile && (
+        <div className="flex-1 flex justify-center">
+          <h1 className="text-lg font-semibold">{t.header.hospitalOS}</h1>
+        </div>
+      )}
+
+      {/* Right Side - Actions */}
+      <div className="flex items-center justify-end gap-2 md:gap-4">
         <LanguageToggle />
-        {user && (
-          <div className="flex items-center gap-2 text-sm">
+        {user && !isMobile && (
+          <div className="hidden md:flex items-center gap-2 text-sm">
             <User className="h-4 w-4" />
             <div>
               <div className="font-medium">
@@ -65,9 +92,9 @@ export default function Header() {
             </div>
           </div>
         )}
-        <Button variant="outline" size="sm" onClick={handleLogout}>
-          <LogOut className="h-4 w-4 mr-2" />
-          {t.header.logout}
+        <Button variant="outline" size="sm" onClick={handleLogout} className="text-xs md:text-sm">
+          {!isMobile && <LogOut className="h-4 w-4 mr-2" />}
+          {isMobile ? <LogOut className="h-4 w-4" /> : t.header.logout}
         </Button>
       </div>
     </header>

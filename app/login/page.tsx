@@ -48,18 +48,18 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-3 md:p-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-3xl font-bold">{t.header.hospitalOS}</CardTitle>
+        <CardHeader className="space-y-1 p-4 md:p-6">
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle className="text-2xl md:text-3xl font-bold">{t.header.hospitalOS}</CardTitle>
             <LanguageToggle />
           </div>
-          <CardDescription className="text-center">
+          <CardDescription className="text-center text-sm md:text-base">
             {t.auth.signInToAccess}
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 md:p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
               <Alert variant="destructive">
