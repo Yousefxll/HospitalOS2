@@ -2,8 +2,9 @@
 
 import { useRouter, usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, MoreVertical, Menu } from 'lucide-react';
+import { ArrowLeft, MoreVertical, Menu, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTranslation } from '@/hooks/use-translation';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,6 +36,7 @@ export function MobileTopBar({
 }: MobileTopBarProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const { t } = useTranslation();
 
   const handleBack = () => {
     if (backUrl) {
@@ -43,6 +45,16 @@ export function MobileTopBar({
       router.back();
     }
   };
+
+  async function handleLogout() {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      router.push('/login');
+      router.refresh();
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  }
 
   // Show back button if showBack is true or if we're not on a root path
   const shouldShowBack = showBack || (pathname !== '/dashboard' && pathname !== '/');
@@ -79,8 +91,19 @@ export function MobileTopBar({
         {title}
       </h1>
 
-      {/* Right: Menu button (always) or Actions */}
+      {/* Right: Menu button (always) and Logout button */}
       <div className="flex items-center min-w-[40px] justify-end gap-2">
+        {/* Logout Button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleLogout}
+          className="h-9 w-9"
+          aria-label={t.header.logout}
+        >
+          <LogOut className="h-5 w-5" />
+        </Button>
+        {/* Menu Button */}
         {onMenuClick && (
           <Button
             variant="ghost"
