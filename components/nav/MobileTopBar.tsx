@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, MoreVertical, Menu, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslation } from '@/hooks/use-translation';
+import { LanguageToggle } from '@/components/LanguageToggle';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -91,8 +92,10 @@ export function MobileTopBar({
         {title}
       </h1>
 
-      {/* Right: Menu button (always) and Logout button */}
+      {/* Right: Language Toggle, Logout, and Menu buttons */}
       <div className="flex items-center min-w-[40px] justify-end gap-2">
+        {/* Language Toggle Button */}
+        <LanguageToggle />
         {/* Logout Button */}
         <Button
           variant="ghost"

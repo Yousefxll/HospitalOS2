@@ -40,13 +40,13 @@ export function LanguageToggle() {
 
   return (
     <Button
-      variant="outline"
-      size="sm"
+      variant="ghost"
+      size="icon"
       onClick={handleLanguageChange}
-      className={cn('gap-2')}
+      className={cn('h-9 w-9')}
+      aria-label="Toggle language"
     >
-      <Languages className="h-4 w-4" />
-      <span suppressHydrationWarning>{displayLanguage === 'ar' ? 'EN' : 'AR'}</span>
+      <Languages className="h-5 w-5" />
     </Button>
   );
 }
