@@ -81,7 +81,8 @@ export function MobileShell({ children }: MobileShellProps) {
   }
 
   const pageTitle = getPageTitle(pathname, t);
-  const showBack = pathname !== '/dashboard' && pathname !== '/account' && pathname !== '/notifications';
+  // Show back button on all pages except main navigation pages
+  const showBack = !['/dashboard', '/account', '/notifications', '/policies'].includes(pathname);
 
   return (
     <div className="flex flex-col min-h-screen bg-background">

@@ -610,6 +610,13 @@ export default function UsersPage() {
           {/* Mobile: Card List */}
           {isMobile ? (
             <div className="space-y-3">
+              {isLoading && users.length === 0 ? (
+                // Loading skeletons
+                Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="h-24 bg-muted animate-pulse rounded-lg" />
+                ))
+              ) : (
+                <>
               {users.map((user) => (
                 <UserCard
                   key={user.id}
