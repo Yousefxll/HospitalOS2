@@ -525,10 +525,10 @@ export default function PatientExperiencePage() {
         }
         return true;
       case 'patient':
-        if (!formData.patientName || !formData.patientFileNumber) {
+        if (!formData.patientFileNumber) {
           toast({
             title: 'خطأ في التحقق',
-            description: 'يرجى إدخال اسم المريض ورقم ملفه',
+            description: 'يرجى إدخال رقم ملف المريض',
             variant: 'destructive',
           });
           return false;
@@ -1465,13 +1465,12 @@ export default function PatientExperiencePage() {
           {currentStep === 'patient' && (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="patientName">{t('px.visit.patientName', language)} *</Label>
+                <Label htmlFor="patientName">{t('px.visit.patientName', language)}</Label>
                 <Input
                   id="patientName"
                   value={formData.patientName}
                   onChange={(e) => setFormData({ ...formData, patientName: e.target.value })}
                   placeholder="أدخل اسم المريض"
-                  required
                 />
               </div>
               <div className="space-y-2">

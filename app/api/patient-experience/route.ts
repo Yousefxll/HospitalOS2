@@ -71,9 +71,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!patientName || !patientFileNumber) {
+    if (!patientFileNumber) {
       return NextResponse.json(
-        { error: 'اسم المريض ورقم ملفه مطلوبان' },
+        { error: 'رقم ملف المريض مطلوب' },
         { status: 400 }
       );
     }

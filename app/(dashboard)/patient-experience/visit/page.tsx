@@ -250,10 +250,10 @@ export default function PatientExperienceVisitPage() {
         }
         return true;
       case 'patient':
-        if (!formData.patientName || !formData.patientFileNumber) {
+        if (!formData.patientFileNumber) {
           toast({
             title: t.common.error,
-            description: language === 'ar' ? 'يرجى إدخال اسم المريض ورقم ملفه' : 'Please enter patient name and file number',
+            description: language === 'ar' ? 'يرجى إدخال رقم ملف المريض' : 'Please enter patient file number',
             variant: 'destructive',
           });
           return false;
@@ -611,13 +611,12 @@ export default function PatientExperienceVisitPage() {
           {currentStep === 'patient' && (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="patientName">{t.px.visit.patientName} *</Label>
+                <Label htmlFor="patientName">{t.px.visit.patientName}</Label>
                 <Input
                   id="patientName"
                   value={formData.patientName}
                   onChange={(e) => setFormData({ ...formData, patientName: e.target.value })}
                   placeholder={language === 'ar' ? 'أدخل اسم المريض' : 'Enter patient name'}
-                  required
                 />
               </div>
               <div className="space-y-2">
