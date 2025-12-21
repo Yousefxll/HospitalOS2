@@ -200,11 +200,19 @@ export async function POST(request: NextRequest) {
 // DELETE - Delete floor, department, or room
 export async function DELETE(request: NextRequest) {
   try {
-    const userRole = request.headers.get('x-user-role') as Role | null;
-    const userId = request.headers.get('x-user-id');
+    const authResult = await requireRoleAsync(request, ['admin', 'supervisor', 'staff']);
+    if (authResult instanceof NextResponse) {
+      return authResult;
+    }
 
-    if (!requireRole(userRole, ['admin'])) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // Check permission: admin.structure-management.delete
+    const usersCollection = await getCollection('users');
+    const user = await usersCollection.findOne({ id: authResult.userId });
+    const userPermissions = user?.permissions || [];
+    
+    // Allow if user has admin.structure-management.delete or admin.users (admin access)
+    if (!userPermissions.includes('admin.structure-management.delete') && !userPermissions.includes('admin.users.view')) {
+      return NextResponse.json({ error: 'Forbidden: Insufficient permissions to delete' }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);
