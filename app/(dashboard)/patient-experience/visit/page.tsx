@@ -885,12 +885,11 @@ export default function PatientExperienceVisitPage() {
                 {formData.isPatientSatisfied && (
                   <div className="space-y-3 pl-6">
                     <div className="space-y-2">
-                      <Label htmlFor="satisfactionPercentage">
+                      <Label>
                         {language === 'ar' ? 'نسبة الرضا' : 'Satisfaction Percentage'}: {formData.satisfactionPercentage}%
                       </Label>
                       <div className="px-2">
                         <Slider
-                          id="satisfactionPercentage"
                           min={0}
                           max={100}
                           step={1}
