@@ -10,85 +10,87 @@ export interface Permission {
   category: string;
 }
 
+// Helper function to generate CRUD permissions for a page
+function createPagePermissions(pageKey: string, pageLabel: string, category: string): Permission[] {
+  return [
+    { key: `${pageKey}.view`, label: `View ${pageLabel}`, category },
+    { key: `${pageKey}.create`, label: `Create ${pageLabel}`, category },
+    { key: `${pageKey}.edit`, label: `Edit ${pageLabel}`, category },
+    { key: `${pageKey}.delete`, label: `Delete ${pageLabel}`, category },
+  ];
+}
+
 export const PERMISSIONS: Permission[] = [
   // Dashboard
   { key: 'dashboard.view', label: 'View Dashboard', category: 'Dashboard' },
   
   // Notifications
-  { key: 'notifications.view', label: 'View Notifications', category: 'Notifications' },
+  ...createPagePermissions('notifications', 'Notifications', 'Notifications'),
   
   // OPD
-  { key: 'opd.dashboard.view', label: 'OPD Dashboard', category: 'OPD' },
-  { key: 'opd.census.view', label: 'Clinic Census', category: 'OPD' },
-  { key: 'opd.performance.view', label: 'Performance Comparison', category: 'OPD' },
-  { key: 'opd.utilization.view', label: 'Clinic Utilization', category: 'OPD' },
-  { key: 'opd.daily-data-entry', label: 'Daily Data Entry', category: 'OPD' },
-  { key: 'opd.import-data', label: 'OPD Import Data', category: 'OPD' },
+  ...createPagePermissions('opd.dashboard', 'OPD Dashboard', 'OPD'),
+  ...createPagePermissions('opd.census', 'Clinic Census', 'OPD'),
+  ...createPagePermissions('opd.performance', 'Performance Comparison', 'OPD'),
+  ...createPagePermissions('opd.utilization', 'Clinic Utilization', 'OPD'),
+  ...createPagePermissions('opd.daily-data-entry', 'Daily Data Entry', 'OPD'),
+  ...createPagePermissions('opd.import-data', 'OPD Import Data', 'OPD'),
   
   // Scheduling
-  { key: 'scheduling.view', label: 'View Schedule', category: 'Scheduling' },
-  { key: 'scheduling.edit', label: 'Edit Schedule', category: 'Scheduling' },
-  { key: 'scheduling.availability.view', label: 'View Availability', category: 'Scheduling' },
+  ...createPagePermissions('scheduling', 'Schedule', 'Scheduling'),
+  ...createPagePermissions('scheduling.availability', 'Availability', 'Scheduling'),
   
   // ER
-  { key: 'er.register', label: 'ER Patient Registration', category: 'ER' },
-  { key: 'er.triage', label: 'ER Triage', category: 'ER' },
-  { key: 'er.disposition', label: 'ER Disposition', category: 'ER' },
-  { key: 'er.progress-note', label: 'ER Progress Note', category: 'ER' },
+  ...createPagePermissions('er.register', 'ER Patient Registration', 'ER'),
+  ...createPagePermissions('er.triage', 'ER Triage', 'ER'),
+  ...createPagePermissions('er.disposition', 'ER Disposition', 'ER'),
+  ...createPagePermissions('er.progress-note', 'ER Progress Note', 'ER'),
   
   // Patient Experience
-  { key: 'px.dashboard.view', label: 'PX Dashboard', category: 'Patient Experience' },
-  { key: 'px.analytics.view', label: 'PX Analytics', category: 'Patient Experience' },
-  { key: 'px.reports.view', label: 'PX Reports', category: 'Patient Experience' },
-  { key: 'px.visits.view', label: 'PX All Visits', category: 'Patient Experience' },
-  { key: 'px.visits.create', label: 'PX Create Visit', category: 'Patient Experience' },
-  { key: 'px.cases.view', label: 'PX Cases Management', category: 'Patient Experience' },
-  { key: 'px.cases.edit', label: 'PX Cases Edit', category: 'Patient Experience' },
-  { key: 'px.setup.view', label: 'PX Setup', category: 'Patient Experience' },
-  { key: 'px.setup.edit', label: 'PX Setup Edit', category: 'Patient Experience' },
+  ...createPagePermissions('px.dashboard', 'PX Dashboard', 'Patient Experience'),
+  ...createPagePermissions('px.analytics', 'PX Analytics', 'Patient Experience'),
+  ...createPagePermissions('px.reports', 'PX Reports', 'Patient Experience'),
+  ...createPagePermissions('px.visits', 'PX Visits', 'Patient Experience'),
+  ...createPagePermissions('px.cases', 'PX Cases', 'Patient Experience'),
+  ...createPagePermissions('px.setup', 'PX Setup', 'Patient Experience'),
   { key: 'px.seed-data', label: 'PX Seed Data', category: 'Patient Experience' },
   { key: 'px.delete-data', label: 'PX Delete Data', category: 'Patient Experience' },
   
   // IPD
-  { key: 'ipd.bed-setup', label: 'IPD Bed Setup', category: 'IPD' },
-  { key: 'ipd.live-beds', label: 'IPD Live Beds', category: 'IPD' },
-  { key: 'ipd.dept-input', label: 'IPD Department Input', category: 'IPD' },
+  ...createPagePermissions('ipd.bed-setup', 'IPD Bed Setup', 'IPD'),
+  ...createPagePermissions('ipd.live-beds', 'IPD Live Beds', 'IPD'),
+  ...createPagePermissions('ipd.dept-input', 'IPD Department Input', 'IPD'),
   
   // Equipment (OPD)
-  { key: 'equipment.opd.master', label: 'Equipment Master', category: 'Equipment (OPD)' },
-  { key: 'equipment.opd.clinic-map', label: 'Equipment Clinic Map', category: 'Equipment (OPD)' },
-  { key: 'equipment.opd.checklist', label: 'Equipment Checklist', category: 'Equipment (OPD)' },
-  { key: 'equipment.opd.movements', label: 'Equipment Movements', category: 'Equipment (OPD)' },
+  ...createPagePermissions('equipment.opd.master', 'Equipment Master', 'Equipment (OPD)'),
+  ...createPagePermissions('equipment.opd.clinic-map', 'Equipment Clinic Map', 'Equipment (OPD)'),
+  ...createPagePermissions('equipment.opd.checklist', 'Equipment Checklist', 'Equipment (OPD)'),
+  ...createPagePermissions('equipment.opd.movements', 'Equipment Movements', 'Equipment (OPD)'),
   
   // Equipment (IPD)
-  { key: 'equipment.ipd.map', label: 'IPD Equipment Map', category: 'Equipment (IPD)' },
-  { key: 'equipment.ipd.checklist', label: 'IPD Daily Checklist', category: 'Equipment (IPD)' },
+  ...createPagePermissions('equipment.ipd.map', 'IPD Equipment Map', 'Equipment (IPD)'),
+  ...createPagePermissions('equipment.ipd.checklist', 'IPD Daily Checklist', 'Equipment (IPD)'),
   
   // Manpower & Nursing
-  { key: 'manpower.overview', label: 'Manpower Overview', category: 'Manpower & Nursing' },
-  { key: 'manpower.edit', label: 'Manpower Edit', category: 'Manpower & Nursing' },
-  { key: 'nursing.scheduling', label: 'Nursing Scheduling', category: 'Manpower & Nursing' },
-  { key: 'nursing.operations', label: 'Nursing Operations', category: 'Manpower & Nursing' },
+  ...createPagePermissions('manpower.overview', 'Manpower Overview', 'Manpower & Nursing'),
+  ...createPagePermissions('manpower.edit', 'Manpower Edit', 'Manpower & Nursing'),
+  ...createPagePermissions('nursing.scheduling', 'Nursing Scheduling', 'Manpower & Nursing'),
+  ...createPagePermissions('nursing.operations', 'Nursing Operations', 'Manpower & Nursing'),
   
   // Policy System
-  { key: 'policies.upload', label: 'Upload Policy', category: 'Policy System' },
-  { key: 'policies.view', label: 'Policy Library', category: 'Policy System' },
-  { key: 'policies.assistant', label: 'Policy Assistant', category: 'Policy System' },
-  { key: 'policies.create', label: 'New Policy Creator', category: 'Policy System' },
-  { key: 'policies.harmonization', label: 'Policy Harmonization', category: 'Policy System' },
+  ...createPagePermissions('policies.upload', 'Upload Policy', 'Policy System'),
+  ...createPagePermissions('policies', 'Policy Library', 'Policy System'),
+  ...createPagePermissions('policies.assistant', 'Policy Assistant', 'Policy System'),
+  ...createPagePermissions('policies.create', 'New Policy Creator', 'Policy System'),
+  ...createPagePermissions('policies.harmonization', 'Policy Harmonization', 'Policy System'),
   
   // Admin
-  { key: 'admin.data-admin', label: 'Data Admin', category: 'Admin' },
-  { key: 'admin.users', label: 'User Management', category: 'Admin' },
-  { key: 'admin.users.create', label: 'Create Users', category: 'Admin' },
-  { key: 'admin.users.edit', label: 'Edit Users', category: 'Admin' },
-  { key: 'admin.users.delete', label: 'Delete Users', category: 'Admin' },
-  { key: 'admin.structure-management', label: 'Structure Management', category: 'Admin' },
+  ...createPagePermissions('admin.data-admin', 'Data Admin', 'Admin'),
+  ...createPagePermissions('admin.users', 'User Management', 'Admin'),
+  ...createPagePermissions('admin.structure-management', 'Structure Management', 'Admin'),
   { key: 'admin.delete-sample-data', label: 'Delete Sample Data', category: 'Admin' },
   
   // Account
-  { key: 'account.view', label: 'View Account', category: 'Account' },
-  { key: 'account.edit', label: 'Edit Account', category: 'Account' },
+  ...createPagePermissions('account', 'Account', 'Account'),
 ];
 
 /**
@@ -101,14 +103,14 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   '/opd/clinic-daily-census': 'opd.census.view',
   '/opd/dept-view': 'opd.performance.view',
   '/opd/clinic-utilization': 'opd.utilization.view',
-  '/opd/daily-data-entry': 'opd.daily-data-entry',
-  '/opd/import-data': 'opd.import-data',
+  '/opd/daily-data-entry': 'opd.daily-data-entry.view',
+  '/opd/import-data': 'opd.import-data.view',
   '/scheduling/scheduling': 'scheduling.view',
   '/scheduling/availability': 'scheduling.availability.view',
-  '/er/register': 'er.register',
-  '/er/triage': 'er.triage',
-  '/er/disposition': 'er.disposition',
-  '/er/progress-note': 'er.progress-note',
+  '/er/register': 'er.register.view',
+  '/er/triage': 'er.triage.view',
+  '/er/disposition': 'er.disposition.view',
+  '/er/progress-note': 'er.progress-note.view',
   '/patient-experience/dashboard': 'px.dashboard.view',
   '/patient-experience/analytics': 'px.analytics.view',
   '/patient-experience/reports': 'px.reports.view',
@@ -118,27 +120,27 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   '/patient-experience/setup': 'px.setup.view',
   '/patient-experience/seed-data': 'px.seed-data',
   '/patient-experience/delete-all-data': 'px.delete-data',
-  '/ipd/bed-setup': 'ipd.bed-setup',
-  '/ipd/live-beds': 'ipd.live-beds',
-  '/ipd/inpatient-dept-input': 'ipd.dept-input',
-  '/equipment/master': 'equipment.opd.master',
-  '/equipment/clinic-map': 'equipment.opd.clinic-map',
-  '/equipment/checklist': 'equipment.opd.checklist',
-  '/equipment/movements': 'equipment.opd.movements',
-  '/ipd-equipment/map': 'equipment.ipd.map',
-  '/ipd-equipment/daily-checklist': 'equipment.ipd.checklist',
-  '/opd/manpower-overview': 'manpower.overview',
-  '/opd/manpower-edit': 'manpower.edit',
-  '/opd/nursing-scheduling': 'nursing.scheduling',
-  '/nursing/operations': 'nursing.operations',
-  '/policies/upload': 'policies.upload',
+  '/ipd/bed-setup': 'ipd.bed-setup.view',
+  '/ipd/live-beds': 'ipd.live-beds.view',
+  '/ipd/inpatient-dept-input': 'ipd.dept-input.view',
+  '/equipment/master': 'equipment.opd.master.view',
+  '/equipment/clinic-map': 'equipment.opd.clinic-map.view',
+  '/equipment/checklist': 'equipment.opd.checklist.view',
+  '/equipment/movements': 'equipment.opd.movements.view',
+  '/ipd-equipment/map': 'equipment.ipd.map.view',
+  '/ipd-equipment/daily-checklist': 'equipment.ipd.checklist.view',
+  '/opd/manpower-overview': 'manpower.overview.view',
+  '/opd/manpower-edit': 'manpower.edit.view',
+  '/opd/nursing-scheduling': 'nursing.scheduling.view',
+  '/nursing/operations': 'nursing.operations.view',
+  '/policies/upload': 'policies.upload.view',
   '/policies': 'policies.view',
-  '/ai/policy-assistant': 'policies.assistant',
-  '/ai/new-policy-from-scratch': 'policies.create',
-  '/ai/policy-harmonization': 'policies.harmonization',
-  '/admin/data-admin': 'admin.data-admin',
-  '/admin/users': 'admin.users',
-  '/admin/structure-management': 'admin.structure-management',
+  '/ai/policy-assistant': 'policies.assistant.view',
+  '/ai/new-policy-from-scratch': 'policies.create.view',
+  '/ai/policy-harmonization': 'policies.harmonization.view',
+  '/admin/data-admin': 'admin.data-admin.view',
+  '/admin/users': 'admin.users.view',
+  '/admin/structure-management': 'admin.structure-management.view',
   '/admin/delete-sample-data': 'admin.delete-sample-data',
   '/account': 'account.view',
 };
@@ -184,61 +186,82 @@ export function getDefaultPermissionsForRole(role: string): string[] {
   const defaults: Record<string, string[]> = {
     admin: PERMISSIONS.map(p => p.key), // Admin gets all permissions
     supervisor: [
+      // Dashboard
       'dashboard.view',
-      'notifications.view',
-      'opd.census.view',
+      // Notifications
+      'notifications.view', 'notifications.create', 'notifications.edit', 'notifications.delete',
+      // OPD
+      'opd.census.view', 'opd.census.create', 'opd.census.edit', 'opd.census.delete',
       'opd.performance.view',
       'opd.utilization.view',
-      'opd.daily-data-entry',
-      'scheduling.view',
-      'scheduling.availability.view',
-      'er.register',
-      'er.triage',
-      'er.disposition',
-      'er.progress-note',
+      'opd.daily-data-entry.view', 'opd.daily-data-entry.create', 'opd.daily-data-entry.edit',
+      // Scheduling
+      'scheduling.view', 'scheduling.create', 'scheduling.edit', 'scheduling.delete',
+      'scheduling.availability.view', 'scheduling.availability.create', 'scheduling.availability.edit',
+      // ER
+      'er.register.view', 'er.register.create', 'er.register.edit',
+      'er.triage.view', 'er.triage.create', 'er.triage.edit',
+      'er.disposition.view', 'er.disposition.create', 'er.disposition.edit',
+      'er.progress-note.view', 'er.progress-note.create', 'er.progress-note.edit',
+      // Patient Experience
       'px.dashboard.view',
       'px.analytics.view',
       'px.reports.view',
-      'px.visits.view',
-      'px.visits.create',
-      'px.cases.view',
-      'px.cases.edit',
-      'ipd.bed-setup',
-      'ipd.live-beds',
-      'ipd.dept-input',
-      'equipment.opd.master',
-      'equipment.opd.clinic-map',
-      'equipment.opd.checklist',
-      'equipment.opd.movements',
-      'equipment.ipd.map',
-      'equipment.ipd.checklist',
-      'manpower.overview',
-      'nursing.scheduling',
-      'nursing.operations',
+      'px.visits.view', 'px.visits.create', 'px.visits.edit', 'px.visits.delete',
+      'px.cases.view', 'px.cases.create', 'px.cases.edit', 'px.cases.delete',
+      'px.setup.view', 'px.setup.edit',
+      // IPD
+      'ipd.bed-setup.view', 'ipd.bed-setup.create', 'ipd.bed-setup.edit',
+      'ipd.live-beds.view',
+      'ipd.dept-input.view', 'ipd.dept-input.create', 'ipd.dept-input.edit',
+      // Equipment
+      'equipment.opd.master.view', 'equipment.opd.master.create', 'equipment.opd.master.edit',
+      'equipment.opd.clinic-map.view', 'equipment.opd.clinic-map.edit',
+      'equipment.opd.checklist.view', 'equipment.opd.checklist.create', 'equipment.opd.checklist.edit',
+      'equipment.opd.movements.view', 'equipment.opd.movements.create',
+      'equipment.ipd.map.view', 'equipment.ipd.map.edit',
+      'equipment.ipd.checklist.view', 'equipment.ipd.checklist.create', 'equipment.ipd.checklist.edit',
+      // Manpower & Nursing
+      'manpower.overview.view',
+      'manpower.edit.view', 'manpower.edit.create', 'manpower.edit.edit',
+      'nursing.scheduling.view', 'nursing.scheduling.create', 'nursing.scheduling.edit',
+      'nursing.operations.view', 'nursing.operations.create', 'nursing.operations.edit',
+      // Policies
       'policies.view',
-      'account.view',
-      'account.edit',
+      // Account
+      'account.view', 'account.edit',
     ],
     staff: [
+      // Dashboard
       'dashboard.view',
+      // Notifications
       'notifications.view',
+      // OPD
       'opd.census.view',
-      'opd.daily-data-entry',
+      'opd.daily-data-entry.view', 'opd.daily-data-entry.create',
+      // Scheduling
       'scheduling.view',
-      'er.register',
-      'er.triage',
-      'px.visits.create',
-      'px.visits.view',
-      'equipment.opd.checklist',
-      'equipment.ipd.checklist',
+      // ER
+      'er.register.view', 'er.register.create',
+      'er.triage.view', 'er.triage.create',
+      // Patient Experience
+      'px.visits.view', 'px.visits.create',
+      // Equipment
+      'equipment.opd.checklist.view', 'equipment.opd.checklist.create',
+      'equipment.ipd.checklist.view', 'equipment.ipd.checklist.create',
+      // Policies
       'policies.view',
-      'account.view',
-      'account.edit',
+      // Account
+      'account.view', 'account.edit',
     ],
     viewer: [
+      // Dashboard
       'dashboard.view',
+      // OPD
       'opd.census.view',
+      // Policies
       'policies.view',
+      // Account
       'account.view',
     ],
   };
