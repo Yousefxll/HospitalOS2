@@ -344,7 +344,16 @@ export default function PatientExperienceVisitPage() {
           title: t.px.visit.success,
           description: t.px.visit.successMessage,
         });
-        setIsSubmitted(true);
+        // Store visit data for case closure option
+        setCreatedVisitData(data.record);
+        // Check if it's a complaint (not praise) to show closure option
+        const isComplaint = !formData.typeKey.toUpperCase().includes('PRAISE');
+        if (isComplaint && data.caseId) {
+          setCreatedCaseId(data.caseId);
+          setShowCaseClosureDialog(true);
+        } else {
+          setIsSubmitted(true);
+        }
       } else {
         throw new Error(data.error || 'فشل في حفظ البيانات');
       }

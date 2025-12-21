@@ -209,6 +209,9 @@ export async function POST(request: NextRequest) {
 
       await casesCollection.insertOne(pxCase);
 
+      // Return case ID in response for potential immediate closure
+      const caseId = pxCase.id;
+
       // Create notification for case creation
       // Notify the department where the complaint occurred
       const notificationsCollection = await getCollection('notifications');
