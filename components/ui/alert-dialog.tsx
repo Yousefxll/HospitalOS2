@@ -26,13 +26,9 @@ const AlertDialogOverlay = React.forwardRef<
 ))
 AlertDialogOverlay.displayName = AlertDialogPrimitive.Overlay.displayName
 
-interface AlertDialogContentProps extends React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content> {
-  children?: React.ReactNode;
-}
-
 const AlertDialogContent = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Content>,
-  AlertDialogContentProps
+  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content>
 >(({ className, children, ...props }, ref) => (
   <AlertDialogPortal>
     <AlertDialogOverlay />
@@ -49,37 +45,23 @@ const AlertDialogContent = React.forwardRef<
 ))
 AlertDialogContent.displayName = AlertDialogPrimitive.Content.displayName
 
-interface AlertDialogHeaderProps extends React.HTMLAttributes<HTMLDivElement> {
-  children?: React.ReactNode;
-}
-
 const AlertDialogHeader = ({
   className,
-  children,
   ...props
-}: AlertDialogHeaderProps) => (
+}: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn("flex flex-col space-y-2 text-center sm:text-left", className)}
-    {...props}>
-    {children}
-  </div>
+    {...props} />
 )
 AlertDialogHeader.displayName = "AlertDialogHeader"
 
-interface AlertDialogFooterProps extends React.HTMLAttributes<HTMLDivElement> {
-  children?: React.ReactNode;
-}
-
 const AlertDialogFooter = ({
   className,
-  children,
   ...props
-}: AlertDialogFooterProps) => (
+}: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2", className)}
-    {...props}>
-    {children}
-  </div>
+    {...props} />
 )
 AlertDialogFooter.displayName = "AlertDialogFooter"
 
