@@ -279,10 +279,21 @@ export async function GET(request: NextRequest) {
 // POST - إضافة بيانات جديدة
 export async function POST(request: NextRequest) {
   try {
-    // RBAC: admin only (setup access)
-    const authResult = await requireRoleAsync(request, ['admin']);
+    // RBAC: Check permissions for structure management
+    const authResult = await requireRoleAsync(request, ['admin', 'supervisor', 'staff']);
     if (authResult instanceof NextResponse) {
       return authResult; // Returns 401 or 403
+    }
+
+    // Check permission: admin.structure-management.create
+    const { getCollection } = await import('@/lib/db');
+    const usersCollection = await getCollection('users');
+    const user = await usersCollection.findOne({ id: authResult.userId });
+    const userPermissions = user?.permissions || [];
+    
+    // Allow if user has admin.structure-management.create or admin.users (admin access)
+    if (!userPermissions.includes('admin.structure-management.create') && !userPermissions.includes('admin.users.view') && !userPermissions.includes('admin.users')) {
+      return NextResponse.json({ error: 'Forbidden: Insufficient permissions to create' }, { status: 403 });
     }
 
     const body = await request.json();
@@ -762,10 +773,20 @@ export async function POST(request: NextRequest) {
 // PUT - تعديل بيانات موجودة
 export async function PUT(request: NextRequest) {
   try {
-    // RBAC: admin only (setup access)
-    const authResult = await requireRoleAsync(request, ['admin']);
+    // RBAC: Check permissions for structure management
+    const authResult = await requireRoleAsync(request, ['admin', 'supervisor', 'staff']);
     if (authResult instanceof NextResponse) {
       return authResult; // Returns 401 or 403
+    }
+
+    // Check permission: admin.structure-management.edit
+    const usersCollection = await getCollection('users');
+    const user = await usersCollection.findOne({ id: authResult.userId });
+    const userPermissions = user?.permissions || [];
+    
+    // Allow if user has admin.structure-management.edit or admin.users (admin access)
+    if (!userPermissions.includes('admin.structure-management.edit') && !userPermissions.includes('admin.users.view') && !userPermissions.includes('admin.users')) {
+      return NextResponse.json({ error: 'Forbidden: Insufficient permissions to edit' }, { status: 403 });
     }
 
     const body = await request.json();
@@ -1174,10 +1195,20 @@ export async function PUT(request: NextRequest) {
 // DELETE - حذف بيانات
 export async function DELETE(request: NextRequest) {
   try {
-    // RBAC: admin only (setup access)
-    const authResult = await requireRoleAsync(request, ['admin']);
+    // RBAC: Check permissions for structure management
+    const authResult = await requireRoleAsync(request, ['admin', 'supervisor', 'staff']);
     if (authResult instanceof NextResponse) {
       return authResult; // Returns 401 or 403
+    }
+
+    // Check permission: admin.structure-management.delete
+    const usersCollection = await getCollection('users');
+    const user = await usersCollection.findOne({ id: authResult.userId });
+    const userPermissions = user?.permissions || [];
+    
+    // Allow if user has admin.structure-management.delete or admin.users (admin access)
+    if (!userPermissions.includes('admin.structure-management.delete') && !userPermissions.includes('admin.users.view') && !userPermissions.includes('admin.users')) {
+      return NextResponse.json({ error: 'Forbidden: Insufficient permissions to delete' }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);
