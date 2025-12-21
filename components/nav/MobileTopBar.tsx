@@ -59,7 +59,7 @@ export function MobileTopBar({
         paddingTop: 'env(safe-area-inset-top)',
       }}
     >
-      {/* Left: Back button */}
+      {/* Left: Back button (if needed) */}
       <div className="flex items-center min-w-[40px]">
         {shouldShowBack && (
           <Button
@@ -79,9 +79,9 @@ export function MobileTopBar({
         {title}
       </h1>
 
-      {/* Right: Menu button (when no back) or Actions */}
+      {/* Right: Menu button (always) or Actions */}
       <div className="flex items-center min-w-[40px] justify-end gap-2">
-        {!shouldShowBack && onMenuClick && (
+        {onMenuClick && (
           <Button
             variant="ghost"
             size="icon"
