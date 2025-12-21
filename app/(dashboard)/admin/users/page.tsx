@@ -450,8 +450,8 @@ export default function UsersPage() {
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent className="max-w-4xl max-h-[90vh] !grid !grid-rows-[auto_1fr_auto] !p-0 !gap-0 overflow-hidden">
             <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b relative z-10 bg-background">
-              <DialogTitle>{t.users.editUserPermissions}</DialogTitle>
-              <DialogDescription>
+              <DialogTitle className="text-2xl font-bold">{t.users.editUserPermissions}</DialogTitle>
+              <DialogDescription className="text-base mt-2">
                 {t.users.updatePermissions} {editingUser?.firstName} {editingUser?.lastName}
               </DialogDescription>
             </DialogHeader>
