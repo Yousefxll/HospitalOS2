@@ -40,6 +40,10 @@ export default function PatientExperienceVisitPage() {
   const [currentStep, setCurrentStep] = useState<Step>('staff');
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [showCaseClosureDialog, setShowCaseClosureDialog] = useState(false);
+  const [createdCaseId, setCreatedCaseId] = useState<string | null>(null);
+  const [createdVisitData, setCreatedVisitData] = useState<any>(null);
+  const [isClosingCase, setIsClosingCase] = useState(false);
   const [mounted, setMounted] = useState(false);
   
   // Data for dropdowns
@@ -368,6 +372,48 @@ export default function PatientExperienceVisitPage() {
     }
   }
 
+  async function handleCloseCase() {
+    if (!createdCaseId) return;
+
+    setIsClosingCase(true);
+    try {
+      const response = await fetch(`/api/patient-experience/cases/${createdCaseId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'CLOSED',
+          resolutionNotesOriginal: language === 'ar' ? 'تم إغلاق الشكوى فوراً بعد التسجيل' : 'Case closed immediately after registration',
+          resolutionNotesLang: language,
+        }),
+      });
+
+      if (response.ok) {
+        toast({
+          title: language === 'ar' ? 'نجح' : 'Success',
+          description: language === 'ar' ? 'تم إغلاق الشكوى بنجاح' : 'Complaint closed successfully',
+        });
+        setShowCaseClosureDialog(false);
+        setIsSubmitted(true);
+      } else {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to close case');
+      }
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message || (language === 'ar' ? 'فشل في إغلاق الشكوى' : 'Failed to close case'),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsClosingCase(false);
+    }
+  }
+
+  function handleContinueCase() {
+    setShowCaseClosureDialog(false);
+    setIsSubmitted(true);
+  }
+
   function handleReset() {
     setFormData({
       staffName: '',
@@ -385,6 +431,9 @@ export default function PatientExperienceVisitPage() {
     });
     setCurrentStep('staff');
     setIsSubmitted(false);
+    setShowCaseClosureDialog(false);
+    setCreatedCaseId(null);
+    setCreatedVisitData(null);
   }
 
   // Prevent hydration mismatch by not rendering until mounted

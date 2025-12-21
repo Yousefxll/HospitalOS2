@@ -232,6 +232,19 @@ export async function POST(request: NextRequest) {
         },
       };
       await notificationsCollection.insertOne(notification);
+      
+      // Return case ID in response for potential immediate closure
+      return NextResponse.json({
+        success: true,
+        record: {
+          id: record.id,
+          staffName,
+          patientName,
+          complaintType,
+          visitDate: record.visitDate,
+        },
+        caseId: pxCase.id, // Include case ID for closure option
+      });
     }
 
     return NextResponse.json({
