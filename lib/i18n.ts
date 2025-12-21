@@ -33,6 +33,8 @@ export interface Translations {
     yes: string;
     no: string;
     ok: string;
+    accessDenied: string;
+    contactAdmin: string;
   };
 
   // Navigation
@@ -333,6 +335,8 @@ export const translations: Record<Language, Translations> = {
       yes: 'Yes',
       no: 'No',
       ok: 'OK',
+      accessDenied: 'You do not have permission to view this page.',
+      contactAdmin: 'Please contact your administrator to request access.',
     },
     nav: {
       dashboard: 'Dashboard',
@@ -601,6 +605,8 @@ export const translations: Record<Language, Translations> = {
       yes: 'نعم',
       no: 'لا',
       ok: 'موافق',
+      accessDenied: 'ليس لديك صلاحية لعرض هذه الصفحة.',
+      contactAdmin: 'يرجى الاتصال بالمسؤول لطلب الوصول.',
     },
     nav: {
       dashboard: 'لوحة التحكم',

@@ -250,10 +250,10 @@ export default function DashboardPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <p className="text-muted-foreground text-center">
-              {t.common?.accessDenied || 'You do not have permission to view this page.'}
+              {t.common.accessDenied}
             </p>
             <p className="text-sm text-muted-foreground mt-2">
-              {t.common?.contactAdmin || 'Please contact your administrator to request access.'}
+              {t.common.contactAdmin}
             </p>
           </CardContent>
         </Card>
