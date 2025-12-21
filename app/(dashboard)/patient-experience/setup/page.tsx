@@ -301,13 +301,18 @@ export default function PatientExperienceSetupPage() {
         payload.id = editingItem.id;
       }
 
+      console.log('Sending request to:', url, 'with payload:', payload);
+      
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
+      console.log('Response status:', response.status, response.statusText);
+
       const data = await response.json();
+      console.log('Response data:', data);
 
       if (response.ok) {
         toast({
@@ -363,9 +368,12 @@ export default function PatientExperienceSetupPage() {
           }
         }
       } else {
-        throw new Error(data.error || 'فشل في العملية');
+        const errorMsg = data.error || data.message || 'فشل في العملية';
+        console.error('API Error:', errorMsg, data);
+        throw new Error(errorMsg);
       }
     } catch (error: any) {
+      console.error('handleAddData error:', error);
       toast({
         title: 'خطأ',
         description: error.message || 'فشل في العملية',

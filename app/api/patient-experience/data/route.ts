@@ -286,7 +286,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Check permission: admin.structure-management.create
-    const { getCollection } = await import('@/lib/db');
     const usersCollection = await getCollection('users');
     const user = await usersCollection.findOne({ id: authResult.userId });
     const userPermissions = user?.permissions || [];
