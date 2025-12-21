@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Role, requireRole as checkRole } from '@/lib/rbac';
 import { getCollection } from '@/lib/db';
 import { User } from '@/lib/models/User';
+import { validateSession } from '@/lib/auth/sessions';
+import { verifyTokenEdge } from '@/lib/auth';
 
 export interface AuthContext {
   userId: string;
@@ -14,6 +16,7 @@ export interface AuthContext {
 
 /**
  * Extract auth context from request headers
+ * Also validates session for single active session enforcement
  */
 export async function getAuthContext(request: NextRequest): Promise<AuthContext | null> {
   const userId = request.headers.get('x-user-id');
@@ -22,6 +25,19 @@ export async function getAuthContext(request: NextRequest): Promise<AuthContext 
 
   if (!userId || !userRole) {
     return null;
+  }
+
+  // Validate session if token is present (for single active session enforcement)
+  const token = request.cookies.get('auth-token')?.value;
+  if (token) {
+    const payload = await verifyTokenEdge(token);
+    if (payload?.sessionId && payload.userId) {
+      const sessionValidation = await validateSession(payload.userId, payload.sessionId);
+      if (!sessionValidation.valid) {
+        // Session is invalid - return null to trigger 401
+        return null;
+      }
+    }
   }
 
   // Fetch user details for employeeId and department

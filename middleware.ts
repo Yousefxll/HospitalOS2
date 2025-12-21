@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { verifyTokenEdge } from '@/lib/auth';
-import { validateSession } from '@/lib/auth/sessions';
 
 const publicPaths = ['/login', '/api/auth/login', '/api/init'];
 const apiPrefix = '/api';
@@ -35,24 +34,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   }
 
-  // Validate session (single active session enforcement)
-  if (payload.sessionId && payload.userId) {
-    const sessionValidation = await validateSession(payload.userId, payload.sessionId);
-    if (!sessionValidation.valid) {
-      if (!pathname.startsWith(apiPrefix)) {
-        const loginUrl = new URL('/login', request.url);
-        loginUrl.searchParams.set('sessionExpired', 'true');
-        return NextResponse.redirect(loginUrl);
-      }
-      return NextResponse.json(
-        { 
-          error: 'Session expired',
-          message: sessionValidation.message || 'Session expired (logged in elsewhere)'
-        },
-        { status: 401 }
-      );
-    }
-  }
+  // Note: Session validation against database is done in API routes
+  // Middleware only checks JWT token validity. The actual session validation
+  // happens in /api/auth/me and other protected API routes to avoid MongoDB
+  // usage in Edge Runtime
 
   // Add user info to headers for API routes
   const requestHeaders = new Headers(request.headers);
