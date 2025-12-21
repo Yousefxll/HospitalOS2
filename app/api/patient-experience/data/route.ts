@@ -33,8 +33,9 @@ function normalizeLabels(item: any): any {
 // GET - جلب جميع البيانات
 export async function GET(request: NextRequest) {
   try {
-    // RBAC: admin only (setup access)
-    const authResult = await requireRoleAsync(request, ['admin']);
+    // RBAC: Allow all authenticated users to read structure data (floors, departments, rooms)
+    // Only admin can modify via /api/admin/structure
+    const authResult = await requireRoleAsync(request, ['admin', 'supervisor', 'staff', 'viewer']);
     if (authResult instanceof NextResponse) {
       return authResult; // Returns 401 or 403
     }
