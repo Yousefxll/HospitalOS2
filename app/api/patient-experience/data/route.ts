@@ -290,9 +290,21 @@ export async function POST(request: NextRequest) {
     const user = await usersCollection.findOne({ id: authResult.userId });
     const userPermissions = user?.permissions || [];
     
+    console.log('[POST /api/patient-experience/data] User permissions:', userPermissions);
+    console.log('[POST /api/patient-experience/data] Checking for: admin.structure-management.create');
+    
     // Allow if user has admin.structure-management.create or admin.users (admin access)
-    if (!userPermissions.includes('admin.structure-management.create') && !userPermissions.includes('admin.users.view') && !userPermissions.includes('admin.users')) {
-      return NextResponse.json({ error: 'Forbidden: Insufficient permissions to create' }, { status: 403 });
+    const hasPermission = 
+      userPermissions.includes('admin.structure-management.create') ||
+      userPermissions.includes('admin.users.view') ||
+      userPermissions.includes('admin.users');
+    
+    if (!hasPermission) {
+      console.log('[POST /api/patient-experience/data] Permission denied. User permissions:', userPermissions);
+      return NextResponse.json({ 
+        error: 'Forbidden: Insufficient permissions to create. Required: admin.structure-management.create',
+        userPermissions 
+      }, { status: 403 });
     }
 
     const body = await request.json();
