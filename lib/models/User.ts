@@ -13,6 +13,7 @@ export interface User {
   staffId?: string; // Employee/Staff ID number
   permissions?: string[]; // Array of permission keys (e.g., ['dashboard.view', 'opd.dashboard.view'])
   isActive: boolean;
+  activeSessionId?: string; // Current active session ID (for single session enforcement)
   createdAt: Date;
   updatedAt: Date;
   createdBy?: string;

@@ -9,6 +9,7 @@ export interface TokenPayload {
   userId: string;
   email: string;
   role: 'admin' | 'supervisor' | 'staff' | 'viewer';
+  sessionId?: string; // Session ID for single active session enforcement
 }
 
 export function generateToken(payload: TokenPayload): string {

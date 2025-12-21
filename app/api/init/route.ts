@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
 import { hashPassword } from '@/lib/auth';
+import { ensureSessionIndexes } from '@/lib/auth/sessions';
 import { v4 as uuidv4 } from 'uuid';
 
 export async function POST() {
   try {
+    // Ensure sessions collection has indexes
+    await ensureSessionIndexes();
+    
     const usersCollection = await getCollection('users');
     
     // Check if admin exists

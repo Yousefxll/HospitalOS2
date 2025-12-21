@@ -5,6 +5,7 @@ import { MobileTopBar } from '@/components/nav/MobileTopBar';
 import { MobileBottomNav } from '@/components/nav/MobileBottomNav';
 import { Toaster } from '@/components/ui/toaster';
 import { useTranslation } from '@/hooks/use-translation';
+import { useApiError } from '@/lib/hooks/useApiError';
 import { useEffect, useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 
@@ -43,6 +44,9 @@ export function MobileShell({ children }: MobileShellProps) {
   const pathname = usePathname();
   const { t } = useTranslation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  
+  // Handle API errors globally (including session expiration)
+  useApiError();
 
   // Scroll restoration
   useEffect(() => {

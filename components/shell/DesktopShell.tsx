@@ -4,6 +4,7 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { Toaster } from '@/components/ui/toaster';
 import { useLang } from '@/hooks/use-lang';
+import { useApiError } from '@/lib/hooks/useApiError';
 import { useState } from 'react';
 
 interface DesktopShellProps {
@@ -14,6 +15,9 @@ export function DesktopShell({ children }: DesktopShellProps) {
   const { isRTL } = useLang();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const sidebarWidth = 64;
+  
+  // Handle API errors globally (including session expiration)
+  useApiError();
 
   return (
     <div className="flex min-h-screen">

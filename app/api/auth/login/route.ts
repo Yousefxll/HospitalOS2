@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCollection } from '@/lib/db';
 import { comparePassword, generateToken } from '@/lib/auth';
+import { createSession, deleteUserSessions } from '@/lib/auth/sessions';
 import { User } from '@/lib/models/User';
 import { serialize } from 'cookie';
 
@@ -37,11 +38,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate token
+    // Invalidate all previous sessions (single active session enforcement)
+    await deleteUserSessions(user.id);
+
+    // Get user agent and IP for session tracking
+    const userAgent = request.headers.get('user-agent') || undefined;
+    const ip = request.headers.get('x-forwarded-for') || 
+               request.headers.get('x-real-ip') || 
+               undefined;
+
+    // Create new session
+    const sessionId = await createSession(user.id, userAgent, ip);
+
+    // Generate token with sessionId
     const token = generateToken({
       userId: user.id,
       email: user.email,
       role: user.role,
+      sessionId,
     });
 
     // Create response with cookie

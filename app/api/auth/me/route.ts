@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
 import { User } from '@/lib/models/User';
 import { getDefaultPermissionsForRole } from '@/lib/permissions';
+import { validateSession } from '@/lib/auth/sessions';
+import { verifyTokenEdge } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,6 +13,24 @@ export async function GET(request: NextRequest) {
 
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Validate session if token is present
+    const token = request.cookies.get('auth-token')?.value;
+    if (token) {
+      const payload = await verifyTokenEdge(token);
+      if (payload?.sessionId && payload.userId) {
+        const sessionValidation = await validateSession(payload.userId, payload.sessionId);
+        if (!sessionValidation.valid) {
+          return NextResponse.json(
+            { 
+              error: 'Session expired',
+              message: sessionValidation.message || 'Session expired (logged in elsewhere)'
+            },
+            { status: 401 }
+          );
+        }
+      }
     }
 
     // Get user details from database

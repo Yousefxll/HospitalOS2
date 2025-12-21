@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, FormEvent, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,14 +10,33 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { useTranslation } from '@/hooks/use-translation';
+import { useToast } from '@/hooks/use-toast';
 
-export default function LoginPage() {
+function LoginPageContent() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-  const { t } = useTranslation();
+  const searchParams = useSearchParams();
+  const { t, language } = useTranslation();
+  const { toast } = useToast();
+
+  // Check for session expired parameter
+  useEffect(() => {
+    const sessionExpired = searchParams.get('sessionExpired');
+    if (sessionExpired === 'true') {
+      toast({
+        title: language === 'ar' ? 'تم تسجيل الخروج' : 'Logged Out',
+        description: language === 'ar' 
+          ? 'تم تسجيل خروجك لأنك سجلت الدخول من جهاز آخر.' 
+          : 'You were logged out because you signed in on another device.',
+        variant: 'default',
+      });
+      // Clean URL
+      router.replace('/login');
+    }
+  }, [searchParams, toast, language, router]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -48,18 +67,18 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-3 md:p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1 p-4 md:p-6">
-          <div className="flex items-center justify-between gap-2">
-            <CardTitle className="text-2xl md:text-3xl font-bold">{t.header.hospitalOS}</CardTitle>
+        <CardHeader className="space-y-1">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-3xl font-bold">{t.header.hospitalOS}</CardTitle>
             <LanguageToggle />
           </div>
-          <CardDescription className="text-center text-sm md:text-base">
+          <CardDescription className="text-center">
             {t.auth.signInToAccess}
           </CardDescription>
         </CardHeader>
-        <CardContent className="p-4 md:p-6">
+        <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
               <Alert variant="destructive">
@@ -101,5 +120,13 @@ export default function LoginPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <LoginPageContent />
+    </Suspense>
   );
 }
