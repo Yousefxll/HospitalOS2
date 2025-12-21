@@ -51,7 +51,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
   }
 
   return (
-    <header className="h-16 border-b bg-card flex items-center justify-between px-3 md:px-6">
+    <header className="sticky top-0 z-40 h-16 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 flex items-center justify-between px-3 md:px-6 shadow-elevation-1">
       {/* Mobile Menu Button */}
       <div className="flex items-center gap-2">
         {isMobile && onMenuClick && (
@@ -59,7 +59,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             variant="ghost"
             size="icon"
             onClick={onMenuClick}
-            className="md:hidden"
+            className="md:hidden hover:bg-accent transition-colors"
           >
             <Menu className="h-5 w-5" />
           </Button>
@@ -80,10 +80,10 @@ export default function Header({ onMenuClick }: HeaderProps) {
       <div className="flex items-center justify-end gap-2 md:gap-4">
         <LanguageToggle />
         {user && !isMobile && (
-          <div className="hidden md:flex items-center gap-2 text-sm">
-            <User className="h-4 w-4" />
+          <div className="hidden md:flex items-center gap-2 text-sm px-3 py-1.5 rounded-md hover:bg-accent/50 transition-colors">
+            <User className="h-4 w-4 text-muted-foreground" />
             <div>
-              <div className="font-medium">
+              <div className="font-medium text-foreground">
                 {user.firstName} {user.lastName}
               </div>
               <div className="text-xs text-muted-foreground capitalize">
@@ -92,7 +92,12 @@ export default function Header({ onMenuClick }: HeaderProps) {
             </div>
           </div>
         )}
-        <Button variant="outline" size="sm" onClick={handleLogout} className="text-xs md:text-sm">
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={handleLogout} 
+          className="text-xs md:text-sm hover:bg-accent transition-colors"
+        >
           {!isMobile && <LogOut className="h-4 w-4 mr-2" />}
           {isMobile ? <LogOut className="h-4 w-4" /> : t.header.logout}
         </Button>

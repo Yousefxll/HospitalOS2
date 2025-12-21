@@ -282,19 +282,21 @@ export default function DashboardPage() {
           {kpis.slice(0, 4).map((kpi) => {
             const Icon = kpi.icon;
             return (
-              <Card key={kpi.title} className="flex-1">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">{kpi.title}</CardTitle>
-                  <Icon className="h-4 w-4 text-muted-foreground" />
+              <Card key={kpi.title} className="flex-1 hover-lift group">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <Icon className="h-5 w-5 text-muted-foreground transition-colors group-hover:text-primary" />
+                    <CardTitle className="text-sm font-medium">{kpi.title}</CardTitle>
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{kpi.value}</div>
-                  <p className="text-xs text-muted-foreground">{kpi.description}</p>
+                  <div className="text-3xl font-bold mb-2">{kpi.value}</div>
+                  <p className="text-xs text-muted-foreground mb-2">{kpi.description}</p>
                   {kpi.trend && (
-                    <div className="flex items-center mt-2 text-xs">
-                      <TrendingUp className="h-3 w-3 mr-1 text-green-500" />
+                    <div className="flex items-center justify-center gap-1 text-xs">
+                      <TrendingUp className="h-3 w-3 text-green-500" />
                       <span className="text-green-500">{kpi.trend}</span>
-                      <span className="text-muted-foreground ml-1">{t.dashboard.fromLastPeriod}</span>
+                      <span className="text-muted-foreground">{t.dashboard.fromLastPeriod}</span>
                     </div>
                   )}
                 </CardContent>
@@ -308,19 +310,21 @@ export default function DashboardPage() {
           {kpis.slice(4, 8).map((kpi) => {
             const Icon = kpi.icon;
             return (
-              <Card key={kpi.title} className="flex-1">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">{kpi.title}</CardTitle>
-                  <Icon className="h-4 w-4 text-muted-foreground" />
+              <Card key={kpi.title} className="flex-1 hover-lift group">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <Icon className="h-5 w-5 text-muted-foreground transition-colors group-hover:text-primary" />
+                    <CardTitle className="text-sm font-medium">{kpi.title}</CardTitle>
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{kpi.value}</div>
-                  <p className="text-xs text-muted-foreground">{kpi.description}</p>
+                  <div className="text-3xl font-bold mb-2">{kpi.value}</div>
+                  <p className="text-xs text-muted-foreground mb-2">{kpi.description}</p>
                   {kpi.trend && (
-                    <div className="flex items-center mt-2 text-xs">
-                      <TrendingUp className="h-3 w-3 mr-1 text-green-500" />
+                    <div className="flex items-center justify-center gap-1 text-xs">
+                      <TrendingUp className="h-3 w-3 text-green-500" />
                       <span className="text-green-500">{kpi.trend}</span>
-                      <span className="text-muted-foreground ml-1">{t.dashboard.fromLastPeriod}</span>
+                      <span className="text-muted-foreground">{t.dashboard.fromLastPeriod}</span>
                     </div>
                   )}
                 </CardContent>
@@ -334,19 +338,21 @@ export default function DashboardPage() {
           {kpis.slice(8, 12).map((kpi) => {
             const Icon = kpi.icon;
             return (
-              <Card key={kpi.title} className="flex-1">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">{kpi.title}</CardTitle>
-                  <Icon className="h-4 w-4 text-muted-foreground" />
+              <Card key={kpi.title} className="flex-1 hover-lift group">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <Icon className="h-5 w-5 text-muted-foreground transition-colors group-hover:text-primary" />
+                    <CardTitle className="text-sm font-medium">{kpi.title}</CardTitle>
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{kpi.value}</div>
-                  <p className="text-xs text-muted-foreground">{kpi.description}</p>
+                  <div className="text-3xl font-bold mb-2">{kpi.value}</div>
+                  <p className="text-xs text-muted-foreground mb-2">{kpi.description}</p>
                   {kpi.trend && (
-                    <div className="flex items-center mt-2 text-xs">
-                      <TrendingUp className="h-3 w-3 mr-1 text-green-500" />
+                    <div className="flex items-center justify-center gap-1 text-xs">
+                      <TrendingUp className="h-3 w-3 text-green-500" />
                       <span className="text-green-500">{kpi.trend}</span>
-                      <span className="text-muted-foreground ml-1">{t.dashboard.fromLastPeriod}</span>
+                      <span className="text-muted-foreground">{t.dashboard.fromLastPeriod}</span>
                     </div>
                   )}
                 </CardContent>

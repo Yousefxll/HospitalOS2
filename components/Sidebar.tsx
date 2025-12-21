@@ -208,8 +208,8 @@ function NavItemComponent({
             }
           }}
           className={cn(
-            'flex items-center justify-between w-full py-2 text-sm rounded-lg transition-colors',
-            'hover:bg-accent hover:text-accent-foreground',
+            'flex items-center justify-between w-full py-2 text-sm rounded-xl transition-all duration-200',
+            'hover:bg-accent hover:text-accent-foreground active:scale-[0.98]',
             isExpanded ? 'px-3' : 'px-2 justify-center',
             level > 0 && isExpanded && 'pl-6'
           )}
@@ -222,7 +222,7 @@ function NavItemComponent({
           {isExpanded && (
             <ChevronDown
               className={cn(
-                'h-4 w-4 transition-transform flex-shrink-0',
+                'h-4 w-4 transition-transform duration-200 flex-shrink-0',
                 isOpen && 'transform rotate-180'
               )}
             />
@@ -262,10 +262,10 @@ function NavItemComponent({
         }
       }}
       className={cn(
-        'flex items-center gap-3 py-2 text-sm rounded-lg transition-colors relative',
+        'flex items-center gap-3 py-2 text-sm rounded-xl transition-all duration-200 relative',
         isActive
-          ? 'bg-primary text-primary-foreground'
-          : 'hover:bg-accent hover:text-accent-foreground',
+          ? 'bg-primary text-primary-foreground shadow-sm'
+          : 'hover:bg-accent hover:text-accent-foreground active:scale-[0.98]',
         isExpanded ? 'px-3' : 'px-2 justify-center',
         level > 0 && isExpanded && 'pl-6'
       )}
@@ -456,21 +456,14 @@ export default function Sidebar({ onLinkClick, sidebarOpen, setSidebarOpen }: Si
   // Sidebar content component (used in both desktop and mobile)
   const SidebarContent = ({ isMobileView = false }: { isMobileView?: boolean }) => (
     <>
-      <div className={`p-6 border-b flex-shrink-0 ${isExpanded || isMobileView ? '' : 'p-4'} relative`}>
-        {isExpanded || isMobileView ? (
-          <>
-            <h2 className="text-xl font-bold">HOS</h2>
-          </>
-        ) : (
-          <h2 className="text-xl font-bold text-center">H</h2>
-        )}
-        {/* Toggle Button - Desktop only */}
-        {!isMobileView && (
+      {/* Toggle Button - Desktop only */}
+      {!isMobileView && (
+        <div className="p-2 border-b flex-shrink-0 relative">
           <Button
             variant="ghost"
             size="icon"
             data-sidebar-trigger
-            className={`absolute top-2 ${safeIsRTL ? 'left-2' : 'right-2'} h-8 w-8`}
+            className={`w-full h-10 ${safeIsRTL ? 'left-2' : 'right-2'}`}
             onClick={(e) => {
               e.stopPropagation();
               setIsExpanded(!isExpanded);
@@ -484,9 +477,11 @@ export default function Sidebar({ onLinkClick, sidebarOpen, setSidebarOpen }: Si
               isExpanded ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />
             )}
           </Button>
-        )}
-        {/* Close Button - Mobile only */}
-        {isMobileView && setSidebarOpen && (
+        </div>
+      )}
+      {/* Close Button - Mobile only */}
+      {isMobileView && setSidebarOpen && (
+        <div className="p-2 border-b flex-shrink-0 relative">
           <Button
             variant="ghost"
             size="icon"
@@ -496,14 +491,14 @@ export default function Sidebar({ onLinkClick, sidebarOpen, setSidebarOpen }: Si
           >
             <X className="h-4 w-4" />
           </Button>
-        )}
-      </div>
+        </div>
+      )}
       
       <nav 
         className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-2"
         style={{ 
           minHeight: 0,
-          maxHeight: 'calc(100vh - 80px)',
+          maxHeight: 'calc(100vh - 64px)',
           WebkitOverflowScrolling: 'touch'
         }}
       >
@@ -537,14 +532,11 @@ export default function Sidebar({ onLinkClick, sidebarOpen, setSidebarOpen }: Si
         className="h-screen bg-sidebar flex flex-col transition-all duration-300 w-16 border-r"
         style={{ maxHeight: '100vh' }}
       >
-        <div className="p-4 border-b flex-shrink-0">
-          <h2 className="text-xl font-bold text-center">H</h2>
-        </div>
         <nav 
           className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-2"
           style={{ 
             minHeight: 0,
-            maxHeight: 'calc(100vh - 80px)',
+            maxHeight: '100vh',
             WebkitOverflowScrolling: 'touch'
           }}
         >

@@ -59,8 +59,8 @@ export function MobileBottomNav() {
     <nav
       className={cn(
         'fixed bottom-0 left-0 right-0 z-50',
-        'bg-card border-t border-border',
-        'safe-area-bottom' // For iPhone home indicator
+        'bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 border-t border-border',
+        'shadow-elevation-2 safe-area-bottom' // For iPhone home indicator
       )}
       style={{
         paddingBottom: 'env(safe-area-inset-bottom)',
@@ -78,7 +78,7 @@ export function MobileBottomNav() {
               className={cn(
                 'flex flex-col items-center justify-center',
                 'flex-1 h-full min-w-0',
-                'transition-colors',
+                'transition-all duration-200 active:scale-95',
                 isActive
                   ? 'text-primary'
                   : 'text-muted-foreground hover:text-foreground'

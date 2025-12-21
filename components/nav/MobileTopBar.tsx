@@ -65,8 +65,8 @@ export function MobileTopBar({
     <header
       className={cn(
         'sticky top-0 z-50 flex items-center justify-between h-14 px-4',
-        'bg-card border-b border-border',
-        'safe-area-top', // For iPhone notch
+        'bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 border-b border-border',
+        'shadow-elevation-1 safe-area-top', // For iPhone notch
         className
       )}
       style={{
@@ -80,7 +80,7 @@ export function MobileTopBar({
             variant="ghost"
             size="icon"
             onClick={handleBack}
-            className="h-9 w-9"
+            className="h-9 w-9 hover:bg-accent transition-colors"
             aria-label="Back"
           >
             <ArrowLeft className="h-5 w-5" />
@@ -102,7 +102,7 @@ export function MobileTopBar({
           variant="ghost"
           size="icon"
           onClick={handleLogout}
-          className="h-9 w-9"
+          className="h-9 w-9 hover:bg-accent transition-colors"
           aria-label={t.header.logout}
         >
           <LogOut className="h-5 w-5" />
@@ -113,7 +113,7 @@ export function MobileTopBar({
             variant="ghost"
             size="icon"
             onClick={onMenuClick}
-            className="h-9 w-9"
+            className="h-9 w-9 hover:bg-accent transition-colors"
             aria-label="Menu"
           >
             <Menu className="h-5 w-5" />

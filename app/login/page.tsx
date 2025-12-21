@@ -66,15 +66,15 @@ function LoginPageContent() {
     }
   }
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-3xl font-bold">{t.header.hospitalOS}</CardTitle>
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-4">
+          <Card className="w-full max-w-md shadow-elevation-4">
+        <CardHeader className="space-y-3">
+          <div className="flex items-center justify-center gap-3">
+            <CardTitle className="text-3xl font-bold text-center">{t.header.hospitalOS}</CardTitle>
             <LanguageToggle />
           </div>
-          <CardDescription className="text-center">
+          <CardDescription>
             {t.auth.signInToAccess}
           </CardDescription>
         </CardHeader>

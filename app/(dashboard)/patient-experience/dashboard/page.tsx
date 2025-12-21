@@ -448,45 +448,51 @@ export default function PatientExperienceDashboardPage() {
               </Card>
 
               <Card className="flex-1">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium" suppressHydrationWarning>
-                    {displayLanguage === 'ar' ? 'الشكر' : 'Praises'}
-                  </CardTitle>
-                  <Heart className="h-4 w-4 text-green-500" />
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <Heart className="h-5 w-5 text-green-500" />
+                    <CardTitle className="text-sm font-medium" suppressHydrationWarning>
+                      {displayLanguage === 'ar' ? 'الشكر' : 'Praises'}
+                    </CardTitle>
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{kpis.praises}</div>
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <div className="text-3xl font-bold mb-2">{kpis.praises}</div>
+                  <p className="text-xs text-muted-foreground">
                     {displayLanguage === 'ar' ? 'ردود إيجابية' : 'Positive feedback'}
                   </p>
                 </CardContent>
               </Card>
 
               <Card className="flex-1">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium" suppressHydrationWarning>
-                    {displayLanguage === 'ar' ? 'الشكاوى' : 'Complaints'}
-                  </CardTitle>
-                  <AlertCircle className="h-4 w-4 text-red-500" />
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <AlertCircle className="h-5 w-5 text-red-500" />
+                    <CardTitle className="text-sm font-medium" suppressHydrationWarning>
+                      {displayLanguage === 'ar' ? 'الشكاوى' : 'Complaints'}
+                    </CardTitle>
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{kpis.complaints}</div>
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <div className="text-3xl font-bold mb-2">{kpis.complaints}</div>
+                  <p className="text-xs text-muted-foreground">
                     {kpis.unresolvedComplaints} {displayLanguage === 'ar' ? 'غير محلولة' : 'unresolved'}
                   </p>
                 </CardContent>
               </Card>
 
               <Card className="flex-1">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium" suppressHydrationWarning>
-                    {displayLanguage === 'ar' ? 'متوسط الرضا' : 'Avg Satisfaction'}
-                  </CardTitle>
-                  <TrendingUp className="h-4 w-4 text-blue-500" />
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <TrendingUp className="h-5 w-5 text-blue-500" />
+                    <CardTitle className="text-sm font-medium" suppressHydrationWarning>
+                      {displayLanguage === 'ar' ? 'متوسط الرضا' : 'Avg Satisfaction'}
+                    </CardTitle>
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{kpis.avgSatisfaction.toFixed(1)}%</div>
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <div className="text-3xl font-bold mb-2">{kpis.avgSatisfaction.toFixed(1)}%</div>
+                  <p className="text-xs text-muted-foreground">
                     {displayLanguage === 'ar' ? 'نسبة المدائح' : 'Praise ratio'}
                   </p>
                 </CardContent>
@@ -496,15 +502,17 @@ export default function PatientExperienceDashboardPage() {
             {/* Row 2 - 1 card (centered or can add more later) */}
             <div className="flex flex-row gap-4">
               <Card className="flex-1">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium" suppressHydrationWarning>
-                    {displayLanguage === 'ar' ? 'شكاوى غير محلولة' : 'Unresolved Complaints'}
-                  </CardTitle>
-                  <Clock className="h-4 w-4 text-orange-500" />
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <Clock className="h-5 w-5 text-orange-500" />
+                    <CardTitle className="text-sm font-medium" suppressHydrationWarning>
+                      {displayLanguage === 'ar' ? 'شكاوى غير محلولة' : 'Unresolved Complaints'}
+                    </CardTitle>
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{kpis.unresolvedComplaints}</div>
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <div className="text-3xl font-bold mb-2">{kpis.unresolvedComplaints}</div>
+                  <p className="text-xs text-muted-foreground">
                     {displayLanguage === 'ar' ? 'تحتاج متابعة' : 'Requires follow-up'}
                   </p>
                 </CardContent>

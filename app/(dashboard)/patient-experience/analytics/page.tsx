@@ -575,12 +575,14 @@ export default function PatientExperienceAnalyticsPage() {
           {/* KPI Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle suppressHydrationWarning className="text-sm font-medium">{displayLanguage === 'ar' ? 'إجمالي الزيارات' : 'Total Visits'}</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <Users className="h-5 w-5 text-muted-foreground" />
+                  <CardTitle suppressHydrationWarning className="text-sm font-medium">{displayLanguage === 'ar' ? 'إجمالي الزيارات' : 'Total Visits'}</CardTitle>
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{summary.totalVisits}</div>
+                <div className="text-3xl font-bold mb-2">{summary.totalVisits}</div>
                 <p suppressHydrationWarning className="text-xs text-muted-foreground">
                   {summary.totalComplaints} {displayLanguage === 'ar' ? 'شكوى' : 'complaints'} • {summary.totalPraise} {displayLanguage === 'ar' ? 'مديح' : 'praise'}
                 </p>
@@ -588,12 +590,14 @@ export default function PatientExperienceAnalyticsPage() {
             </Card>
 
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle suppressHydrationWarning className="text-sm font-medium">{displayLanguage === 'ar' ? 'متوسط الرضا' : 'Avg Satisfaction'}</CardTitle>
-                <Heart className="h-4 w-4 text-muted-foreground" />
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <Heart className="h-5 w-5 text-muted-foreground" />
+                  <CardTitle suppressHydrationWarning className="text-sm font-medium">{displayLanguage === 'ar' ? 'متوسط الرضا' : 'Avg Satisfaction'}</CardTitle>
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{summary.avgSatisfaction.toFixed(1)}%</div>
+                <div className="text-3xl font-bold mb-2">{summary.avgSatisfaction.toFixed(1)}%</div>
                 <p suppressHydrationWarning className="text-xs text-muted-foreground">
                   {displayLanguage === 'ar' ? 'نسبة المدائح' : 'Praise ratio'}
                 </p>
@@ -601,12 +605,14 @@ export default function PatientExperienceAnalyticsPage() {
             </Card>
 
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle suppressHydrationWarning className="text-sm font-medium">{displayLanguage === 'ar' ? 'الحالات المفتوحة' : 'Open Cases'}</CardTitle>
-                <AlertCircle className="h-4 w-4 text-muted-foreground" />
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <AlertCircle className="h-5 w-5 text-muted-foreground" />
+                  <CardTitle suppressHydrationWarning className="text-sm font-medium">{displayLanguage === 'ar' ? 'الحالات المفتوحة' : 'Open Cases'}</CardTitle>
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{summary.openCases}</div>
+                <div className="text-3xl font-bold mb-2">{summary.openCases}</div>
                 <p suppressHydrationWarning className="text-xs text-muted-foreground">
                   {summary.overdueCases} {displayLanguage === 'ar' ? 'متأخرة' : 'overdue'} • {summary.totalCases} {displayLanguage === 'ar' ? 'إجمالي' : 'total'}
                 </p>
@@ -614,12 +620,14 @@ export default function PatientExperienceAnalyticsPage() {
             </Card>
 
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle suppressHydrationWarning className="text-sm font-medium">{displayLanguage === 'ar' ? 'متوسط وقت الحل' : 'Avg Resolution'}</CardTitle>
-                <Clock className="h-4 w-4 text-muted-foreground" />
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <Clock className="h-5 w-5 text-muted-foreground" />
+                  <CardTitle suppressHydrationWarning className="text-sm font-medium">{displayLanguage === 'ar' ? 'متوسط وقت الحل' : 'Avg Resolution'}</CardTitle>
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{summary.avgResolutionMinutes.toFixed(0)}</div>
+                <div className="text-3xl font-bold mb-2">{summary.avgResolutionMinutes.toFixed(0)}</div>
                 <p suppressHydrationWarning className="text-xs text-muted-foreground">
                   {displayLanguage === 'ar' ? 'دقيقة' : 'minutes'} • {summary.slaBreachPercent.toFixed(1)}% {displayLanguage === 'ar' ? 'انتهاك SLA' : 'SLA breach'}
                 </p>

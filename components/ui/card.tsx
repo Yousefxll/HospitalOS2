@@ -10,7 +10,10 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(
   ({ className, children, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn("rounded-xl border bg-card text-card-foreground shadow", className)}
+      className={cn(
+        "rounded-2xl border bg-card text-card-foreground shadow-elevation-2 transition-all duration-200 hover:shadow-elevation-3",
+        className
+      )}
       {...props}>
       {children}
     </div>
@@ -26,7 +29,7 @@ const CardHeader = React.forwardRef<HTMLDivElement, CardHeaderProps>(
   ({ className, children, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn("flex flex-col space-y-1.5 p-6", className)}
+      className={cn("flex flex-col space-y-2 p-6 text-center", className)}
       {...props}>
       {children}
     </div>
@@ -42,7 +45,7 @@ const CardTitle = React.forwardRef<HTMLDivElement, CardTitleProps>(
   ({ className, children, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn("font-semibold leading-none tracking-tight", className)}
+      className={cn("font-semibold leading-tight tracking-tight text-center", className)}
       {...props}>
       {children}
     </div>
@@ -58,7 +61,7 @@ const CardDescription = React.forwardRef<HTMLDivElement, CardDescriptionProps>(
   ({ className, children, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn("text-sm text-muted-foreground", className)}
+      className={cn("text-sm text-muted-foreground text-center", className)}
       {...props}>
       {children}
     </div>
@@ -72,7 +75,7 @@ interface CardContentProps extends React.HTMLAttributes<HTMLDivElement> {
 
 const CardContent = React.forwardRef<HTMLDivElement, CardContentProps>(
   ({ className, children, ...props }, ref) => (
-    <div ref={ref} className={cn("p-6 pt-0", className)} {...props}>
+    <div ref={ref} className={cn("p-6 pt-0 text-center", className)} {...props}>
       {children}
     </div>
   )
@@ -87,7 +90,7 @@ const CardFooter = React.forwardRef<HTMLDivElement, CardFooterProps>(
   ({ className, children, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn("flex items-center p-6 pt-0", className)}
+      className={cn("flex items-center justify-center p-6 pt-0", className)}
       {...props}>
       {children}
     </div>

@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -35,7 +36,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
-import { Plus, Edit, Trash2, Building2, DoorOpen, Layers } from 'lucide-react';
+import { Plus, Edit, Trash2, Building2, DoorOpen, Layers, FilePlus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useLang } from '@/hooks/use-lang';
 import { translations } from '@/lib/i18n';
@@ -107,6 +108,14 @@ export default function StructureManagementPage() {
   });
   const [isRoomDialogOpen, setIsRoomDialogOpen] = useState(false);
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
+
+  // Bulk add states
+  const [isBulkFloorDialogOpen, setIsBulkFloorDialogOpen] = useState(false);
+  const [isBulkDeptDialogOpen, setIsBulkDeptDialogOpen] = useState(false);
+  const [isBulkRoomDialogOpen, setIsBulkRoomDialogOpen] = useState(false);
+  const [bulkFloorData, setBulkFloorData] = useState('');
+  const [bulkDeptData, setBulkDeptData] = useState('');
+  const [bulkRoomData, setBulkRoomData] = useState('');
 
   useEffect(() => {
     fetchData();
@@ -262,6 +271,216 @@ export default function StructureManagementPage() {
     }
   }
 
+  // Bulk add functions
+  async function handleBulkCreateFloors() {
+    const lines = bulkFloorData.split('\n').filter(line => line.trim());
+    if (lines.length === 0) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'يرجى إدخال بيانات' : 'Please enter data',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    let successCount = 0;
+    let errorCount = 0;
+    const errors: string[] = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      // Format: number,label_en,label_ar (optional: name)
+      const parts = line.split(',').map(p => p.trim());
+      if (parts.length < 3) {
+        errorCount++;
+        errors.push(`${language === 'ar' ? 'السطر' : 'Line'} ${i + 1}: ${language === 'ar' ? 'تنسيق غير صحيح' : 'Invalid format'}`);
+        continue;
+      }
+
+      try {
+        const floorData = {
+          number: parts[0],
+          name: parts[3] || '',
+          label_en: parts[1],
+          label_ar: parts[2],
+        };
+
+        const response = await fetch('/api/admin/structure', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'floor',
+            data: floorData,
+          }),
+        });
+
+        if (response.ok) {
+          successCount++;
+        } else {
+          errorCount++;
+          errors.push(`${language === 'ar' ? 'السطر' : 'Line'} ${i + 1}: ${language === 'ar' ? 'فشل الإضافة' : 'Failed to add'}`);
+        }
+      } catch (error) {
+        errorCount++;
+        errors.push(`${language === 'ar' ? 'السطر' : 'Line'} ${i + 1}: ${language === 'ar' ? 'خطأ' : 'Error'}`);
+      }
+    }
+
+    setIsBulkFloorDialogOpen(false);
+    setBulkFloorData('');
+    fetchData();
+
+    toast({
+      title: language === 'ar' ? 'اكتمل' : 'Completed',
+      description: language === 'ar' 
+        ? `تم إضافة ${successCount} طابق بنجاح${errorCount > 0 ? `، ${errorCount} فشل` : ''}`
+        : `Successfully added ${successCount} floors${errorCount > 0 ? `, ${errorCount} failed` : ''}`,
+      variant: errorCount > 0 ? 'destructive' : 'default',
+    });
+  }
+
+  async function handleBulkCreateDepartments() {
+    const lines = bulkDeptData.split('\n').filter(line => line.trim());
+    if (lines.length === 0) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'يرجى إدخال بيانات' : 'Please enter data',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    let successCount = 0;
+    let errorCount = 0;
+    const errors: string[] = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      // Format: floorId,name,code,type
+      const parts = line.split(',').map(p => p.trim());
+      if (parts.length < 4) {
+        errorCount++;
+        errors.push(`${language === 'ar' ? 'السطر' : 'Line'} ${i + 1}: ${language === 'ar' ? 'تنسيق غير صحيح' : 'Invalid format'}`);
+        continue;
+      }
+
+      try {
+        const deptData = {
+          floorId: parts[0],
+          name: parts[1],
+          code: parts[2],
+          type: parts[3] as 'OPD' | 'IPD' | 'BOTH',
+        };
+
+        const response = await fetch('/api/admin/structure', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'department',
+            data: deptData,
+          }),
+        });
+
+        if (response.ok) {
+          successCount++;
+        } else {
+          errorCount++;
+          errors.push(`${language === 'ar' ? 'السطر' : 'Line'} ${i + 1}: ${language === 'ar' ? 'فشل الإضافة' : 'Failed to add'}`);
+        }
+      } catch (error) {
+        errorCount++;
+        errors.push(`${language === 'ar' ? 'السطر' : 'Line'} ${i + 1}: ${language === 'ar' ? 'خطأ' : 'Error'}`);
+      }
+    }
+
+    setIsBulkDeptDialogOpen(false);
+    setBulkDeptData('');
+    fetchData();
+
+    toast({
+      title: language === 'ar' ? 'اكتمل' : 'Completed',
+      description: language === 'ar' 
+        ? `تم إضافة ${successCount} قسم بنجاح${errorCount > 0 ? `، ${errorCount} فشل` : ''}`
+        : `Successfully added ${successCount} departments${errorCount > 0 ? `, ${errorCount} failed` : ''}`,
+      variant: errorCount > 0 ? 'destructive' : 'default',
+    });
+  }
+
+  async function handleBulkCreateRooms() {
+    const lines = bulkRoomData.split('\n').filter(line => line.trim());
+    if (lines.length === 0) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'يرجى إدخال بيانات' : 'Please enter data',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    let successCount = 0;
+    let errorCount = 0;
+    const errors: string[] = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      // Format: floorId,departmentId,roomNumber,label_en,label_ar (optional: roomName)
+      const parts = line.split(',').map(p => p.trim());
+      if (parts.length < 5) {
+        errorCount++;
+        errors.push(`${language === 'ar' ? 'السطر' : 'Line'} ${i + 1}: ${language === 'ar' ? 'تنسيق غير صحيح' : 'Invalid format'}`);
+        continue;
+      }
+
+      try {
+        const roomData = {
+          floorId: parts[0],
+          departmentId: parts[1],
+          roomNumber: parts[2],
+          roomName: parts[5] || '',
+          label_en: parts[3],
+          label_ar: parts[4],
+        };
+
+        const response = await fetch('/api/admin/structure', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'room',
+            data: roomData,
+          }),
+        });
+
+        if (response.ok) {
+          successCount++;
+        } else {
+          errorCount++;
+          errors.push(`${language === 'ar' ? 'السطر' : 'Line'} ${i + 1}: ${language === 'ar' ? 'فشل الإضافة' : 'Failed to add'}`);
+        }
+      } catch (error) {
+        errorCount++;
+        errors.push(`${language === 'ar' ? 'السطر' : 'Line'} ${i + 1}: ${language === 'ar' ? 'خطأ' : 'Error'}`);
+      }
+    }
+
+    setIsBulkRoomDialogOpen(false);
+    setBulkRoomData('');
+    fetchData();
+
+    toast({
+      title: language === 'ar' ? 'اكتمل' : 'Completed',
+      description: language === 'ar' 
+        ? `تم إضافة ${successCount} غرفة بنجاح${errorCount > 0 ? `، ${errorCount} فشل` : ''}`
+        : `Successfully added ${successCount} rooms${errorCount > 0 ? `, ${errorCount} failed` : ''}`,
+      variant: errorCount > 0 ? 'destructive' : 'default',
+    });
+  }
+
   // Filter departments by type
   const opdDepartments = departments.filter(d => d.type === 'OPD' || d.type === 'BOTH');
   const ipdDepartments = departments.filter(d => d.type === 'IPD' || d.type === 'BOTH');
@@ -305,63 +524,115 @@ export default function StructureManagementPage() {
                     {language === 'ar' ? 'إدارة طوابق المستشفى' : 'Manage hospital floors'}
                   </CardDescription>
                 </div>
-                <Dialog open={isFloorDialogOpen} onOpenChange={setIsFloorDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button>
-                      <Plus className="mr-2 h-4 w-4" />
-                      {language === 'ar' ? 'إضافة طابق' : 'Add Floor'}
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>
-                        {language === 'ar' ? 'إضافة طابق جديد' : 'Add New Floor'}
-                      </DialogTitle>
-                      <DialogDescription>
-                        {language === 'ar' ? 'أدخل معلومات الطابق' : 'Enter floor information'}
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label>{language === 'ar' ? 'رقم الطابق' : 'Floor Number'} *</Label>
-                        <Input
-                          value={floorForm.number}
-                          onChange={(e) => setFloorForm({ ...floorForm, number: e.target.value })}
-                          placeholder={language === 'ar' ? 'مثال: 1, 2, 3' : 'e.g., 1, 2, 3'}
-                        />
-                      </div>
-                      <div>
-                        <Label>{language === 'ar' ? 'اسم الطابق (اختياري)' : 'Floor Name (Optional)'}</Label>
-                        <Input
-                          value={floorForm.name}
-                          onChange={(e) => setFloorForm({ ...floorForm, name: e.target.value })}
-                        />
-                      </div>
-                      <div>
-                        <Label>{language === 'ar' ? 'الاسم بالإنجليزية' : 'English Label'} *</Label>
-                        <Input
-                          value={floorForm.label_en}
-                          onChange={(e) => setFloorForm({ ...floorForm, label_en: e.target.value })}
-                        />
-                      </div>
-                      <div>
-                        <Label>{language === 'ar' ? 'الاسم بالعربية' : 'Arabic Label'} *</Label>
-                        <Input
-                          value={floorForm.label_ar}
-                          onChange={(e) => setFloorForm({ ...floorForm, label_ar: e.target.value })}
-                        />
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setIsFloorDialogOpen(false)}>
-                        {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                <div className="flex gap-2">
+                  <Dialog open={isFloorDialogOpen} onOpenChange={setIsFloorDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button>
+                        <Plus className="mr-2 h-4 w-4" />
+                        {language === 'ar' ? 'إضافة طابق' : 'Add Floor'}
                       </Button>
-                      <Button onClick={handleCreateFloor}>
-                        {language === 'ar' ? 'إضافة' : 'Add'}
+                    </DialogTrigger>
+                    <DialogContent className="max-h-[90vh] !grid !grid-rows-[auto_1fr_auto] !p-0 !gap-0 overflow-hidden">
+                      <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b relative z-10 bg-background">
+                        <DialogTitle>
+                          {language === 'ar' ? 'إضافة طابق جديد' : 'Add New Floor'}
+                        </DialogTitle>
+                        <DialogDescription>
+                          {language === 'ar' ? 'أدخل معلومات الطابق' : 'Enter floor information'}
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="overflow-y-auto overflow-x-hidden px-6" style={{ maxHeight: 'calc(90vh - 180px)' }}>
+                        <div className="space-y-4 py-4">
+                          <div>
+                            <Label>{language === 'ar' ? 'رقم الطابق' : 'Floor Number'} *</Label>
+                            <Input
+                              value={floorForm.number}
+                              onChange={(e) => setFloorForm({ ...floorForm, number: e.target.value })}
+                              placeholder={language === 'ar' ? 'مثال: 1, 2, 3' : 'e.g., 1, 2, 3'}
+                            />
+                          </div>
+                          <div>
+                            <Label>{language === 'ar' ? 'اسم الطابق (اختياري)' : 'Floor Name (Optional)'}</Label>
+                            <Input
+                              value={floorForm.name}
+                              onChange={(e) => setFloorForm({ ...floorForm, name: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            <Label>{language === 'ar' ? 'الاسم بالإنجليزية' : 'English Label'} *</Label>
+                            <Input
+                              value={floorForm.label_en}
+                              onChange={(e) => setFloorForm({ ...floorForm, label_en: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            <Label>{language === 'ar' ? 'الاسم بالعربية' : 'Arabic Label'} *</Label>
+                            <Input
+                              value={floorForm.label_ar}
+                              onChange={(e) => setFloorForm({ ...floorForm, label_ar: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <DialogFooter className="flex-shrink-0 px-6 py-4 border-t bg-background">
+                        <Button variant="outline" onClick={() => setIsFloorDialogOpen(false)}>
+                          {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                        </Button>
+                        <Button onClick={handleCreateFloor}>
+                          {language === 'ar' ? 'إضافة' : 'Add'}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                  <Dialog open={isBulkFloorDialogOpen} onOpenChange={setIsBulkFloorDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline">
+                        <FilePlus className="mr-2 h-4 w-4" />
+                        {language === 'ar' ? 'إضافة متعددة' : 'Bulk Add'}
                       </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                    </DialogTrigger>
+                    <DialogContent className="max-h-[90vh] !grid !grid-rows-[auto_1fr_auto] !p-0 !gap-0 overflow-hidden">
+                      <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b relative z-10 bg-background">
+                        <DialogTitle>
+                          {language === 'ar' ? 'إضافة طوابق متعددة' : 'Bulk Add Floors'}
+                        </DialogTitle>
+                        <DialogDescription>
+                          {language === 'ar' 
+                            ? 'أدخل بيانات الطوابق (سطر لكل طابق). التنسيق: رقم_الطابق,الاسم_بالإنجليزية,الاسم_بالعربية,اسم_الطابق_اختياري'
+                            : 'Enter floor data (one per line). Format: number,label_en,label_ar,optional_name'}
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="overflow-y-auto overflow-x-hidden px-6" style={{ maxHeight: 'calc(90vh - 180px)' }}>
+                        <div className="space-y-4 py-4">
+                          <div>
+                            <Label>{language === 'ar' ? 'بيانات الطوابق' : 'Floors Data'}</Label>
+                            <Textarea
+                              value={bulkFloorData}
+                              onChange={(e) => setBulkFloorData(e.target.value)}
+                              placeholder={language === 'ar' 
+                                ? 'مثال:\n1,First Floor,الطابق الأول\n2,Second Floor,الطابق الثاني'
+                                : 'Example:\n1,First Floor,الطابق الأول\n2,Second Floor,الطابق الثاني'}
+                              className="min-h-[200px] font-mono text-sm"
+                            />
+                            <p className="text-xs text-muted-foreground mt-2">
+                              {language === 'ar' 
+                                ? 'كل سطر يحتوي على: رقم الطابق، الاسم بالإنجليزية، الاسم بالعربية، اسم الطابق (اختياري)'
+                                : 'Each line: floor_number, english_label, arabic_label, optional_name'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <DialogFooter className="flex-shrink-0 px-6 py-4 border-t bg-background">
+                        <Button variant="outline" onClick={() => setIsBulkFloorDialogOpen(false)}>
+                          {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                        </Button>
+                        <Button onClick={handleBulkCreateFloors}>
+                          {language === 'ar' ? 'إضافة' : 'Add'}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -422,15 +693,16 @@ export default function StructureManagementPage() {
                     {language === 'ar' ? 'إدارة أقسام المستشفى' : 'Manage hospital departments'}
                   </CardDescription>
                 </div>
-                <Dialog open={isDeptDialogOpen} onOpenChange={setIsDeptDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button>
-                      <Plus className="mr-2 h-4 w-4" />
-                      {language === 'ar' ? 'إضافة قسم' : 'Add Department'}
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
+                <div className="flex gap-2">
+                  <Dialog open={isDeptDialogOpen} onOpenChange={setIsDeptDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button>
+                        <Plus className="mr-2 h-4 w-4" />
+                        {language === 'ar' ? 'إضافة قسم' : 'Add Department'}
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-h-[90vh] !grid !grid-rows-[auto_1fr_auto] !p-0 !gap-0 overflow-hidden">
+                    <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b relative z-10 bg-background">
                       <DialogTitle>
                         {language === 'ar' ? 'إضافة قسم جديد' : 'Add New Department'}
                       </DialogTitle>
@@ -438,60 +710,62 @@ export default function StructureManagementPage() {
                         {language === 'ar' ? 'أدخل معلومات القسم' : 'Enter department information'}
                       </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label>{language === 'ar' ? 'الطابق' : 'Floor'} *</Label>
-                        <Select
-                          value={deptForm.floorId}
-                          onValueChange={(value) => setDeptForm({ ...deptForm, floorId: value })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder={language === 'ar' ? 'اختر الطابق' : 'Select floor'} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {floors.map((floor) => (
-                              <SelectItem key={floor.id} value={floor.id}>
-                                {floor.number} - {language === 'ar' ? floor.label_ar : floor.label_en}
+                    <div className="overflow-y-auto overflow-x-hidden px-6" style={{ maxHeight: 'calc(90vh - 180px)' }}>
+                      <div className="space-y-4 py-4">
+                        <div>
+                          <Label>{language === 'ar' ? 'الطابق' : 'Floor'} *</Label>
+                          <Select
+                            value={deptForm.floorId}
+                            onValueChange={(value) => setDeptForm({ ...deptForm, floorId: value })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder={language === 'ar' ? 'اختر الطابق' : 'Select floor'} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {floors.map((floor) => (
+                                <SelectItem key={floor.id} value={floor.id}>
+                                  {floor.number} - {language === 'ar' ? floor.label_ar : floor.label_en}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label>{language === 'ar' ? 'اسم القسم' : 'Department Name'} *</Label>
+                          <Input
+                            value={deptForm.name}
+                            onChange={(e) => setDeptForm({ ...deptForm, name: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <Label>{language === 'ar' ? 'رمز القسم' : 'Department Code'} *</Label>
+                          <Input
+                            value={deptForm.code}
+                            onChange={(e) => setDeptForm({ ...deptForm, code: e.target.value.toUpperCase() })}
+                            placeholder={language === 'ar' ? 'مثال: CARD, SURG' : 'e.g., CARD, SURG'}
+                          />
+                        </div>
+                        <div>
+                          <Label>{language === 'ar' ? 'نوع القسم' : 'Department Type'} *</Label>
+                          <Select
+                            value={deptForm.type}
+                            onValueChange={(value) => setDeptForm({ ...deptForm, type: value as 'OPD' | 'IPD' | 'BOTH' })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="OPD">OPD</SelectItem>
+                              <SelectItem value="IPD">IPD</SelectItem>
+                              <SelectItem value="BOTH">
+                                {language === 'ar' ? 'كلاهما' : 'Both'}
                               </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>{language === 'ar' ? 'اسم القسم' : 'Department Name'} *</Label>
-                        <Input
-                          value={deptForm.name}
-                          onChange={(e) => setDeptForm({ ...deptForm, name: e.target.value })}
-                        />
-                      </div>
-                      <div>
-                        <Label>{language === 'ar' ? 'رمز القسم' : 'Department Code'} *</Label>
-                        <Input
-                          value={deptForm.code}
-                          onChange={(e) => setDeptForm({ ...deptForm, code: e.target.value.toUpperCase() })}
-                          placeholder={language === 'ar' ? 'مثال: CARD, SURG' : 'e.g., CARD, SURG'}
-                        />
-                      </div>
-                      <div>
-                        <Label>{language === 'ar' ? 'نوع القسم' : 'Department Type'} *</Label>
-                        <Select
-                          value={deptForm.type}
-                          onValueChange={(value) => setDeptForm({ ...deptForm, type: value as 'OPD' | 'IPD' | 'BOTH' })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="OPD">OPD</SelectItem>
-                            <SelectItem value="IPD">IPD</SelectItem>
-                            <SelectItem value="BOTH">
-                              {language === 'ar' ? 'كلاهما' : 'Both'}
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
                     </div>
-                    <DialogFooter>
+                    <DialogFooter className="flex-shrink-0 px-6 py-4 border-t bg-background">
                       <Button variant="outline" onClick={() => setIsDeptDialogOpen(false)}>
                         {language === 'ar' ? 'إلغاء' : 'Cancel'}
                       </Button>
@@ -500,7 +774,56 @@ export default function StructureManagementPage() {
                       </Button>
                     </DialogFooter>
                   </DialogContent>
-                </Dialog>
+                  </Dialog>
+                  <Dialog open={isBulkDeptDialogOpen} onOpenChange={setIsBulkDeptDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline">
+                        <FilePlus className="mr-2 h-4 w-4" />
+                        {language === 'ar' ? 'إضافة متعددة' : 'Bulk Add'}
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-h-[90vh] !grid !grid-rows-[auto_1fr_auto] !p-0 !gap-0 overflow-hidden">
+                      <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b relative z-10 bg-background">
+                        <DialogTitle>
+                          {language === 'ar' ? 'إضافة أقسام متعددة' : 'Bulk Add Departments'}
+                        </DialogTitle>
+                        <DialogDescription>
+                          {language === 'ar' 
+                            ? 'أدخل بيانات الأقسام (سطر لكل قسم). التنسيق: floorId,اسم_القسم,رمز_القسم,نوع_القسم (OPD/IPD/BOTH)'
+                            : 'Enter department data (one per line). Format: floorId,name,code,type (OPD/IPD/BOTH)'}
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="overflow-y-auto overflow-x-hidden px-6" style={{ maxHeight: 'calc(90vh - 180px)' }}>
+                        <div className="space-y-4 py-4">
+                          <div>
+                            <Label>{language === 'ar' ? 'بيانات الأقسام' : 'Departments Data'}</Label>
+                            <Textarea
+                              value={bulkDeptData}
+                              onChange={(e) => setBulkDeptData(e.target.value)}
+                              placeholder={language === 'ar' 
+                                ? 'مثال:\nfloor-id-1,Cardiology,CARD,OPD\nfloor-id-1,Surgery,SURG,IPD'
+                                : 'Example:\nfloor-id-1,Cardiology,CARD,OPD\nfloor-id-1,Surgery,SURG,IPD'}
+                              className="min-h-[200px] font-mono text-sm"
+                            />
+                            <p className="text-xs text-muted-foreground mt-2">
+                              {language === 'ar' 
+                                ? 'كل سطر يحتوي على: معرف الطابق، اسم القسم، رمز القسم، نوع القسم (OPD/IPD/BOTH)'
+                                : 'Each line: floor_id, department_name, department_code, type (OPD/IPD/BOTH)'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <DialogFooter className="flex-shrink-0 px-6 py-4 border-t bg-background">
+                        <Button variant="outline" onClick={() => setIsBulkDeptDialogOpen(false)}>
+                          {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                        </Button>
+                        <Button onClick={handleBulkCreateDepartments}>
+                          {language === 'ar' ? 'إضافة' : 'Add'}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -624,15 +947,16 @@ export default function StructureManagementPage() {
                     {language === 'ar' ? 'إدارة غرف المستشفى' : 'Manage hospital rooms'}
                   </CardDescription>
                 </div>
-                <Dialog open={isRoomDialogOpen} onOpenChange={setIsRoomDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button>
-                      <Plus className="mr-2 h-4 w-4" />
-                      {language === 'ar' ? 'إضافة غرفة' : 'Add Room'}
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
+                <div className="flex gap-2">
+                  <Dialog open={isRoomDialogOpen} onOpenChange={setIsRoomDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button>
+                        <Plus className="mr-2 h-4 w-4" />
+                        {language === 'ar' ? 'إضافة غرفة' : 'Add Room'}
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-h-[90vh] !grid !grid-rows-[auto_1fr_auto] !p-0 !gap-0 overflow-hidden">
+                    <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b relative z-10 bg-background">
                       <DialogTitle>
                         {language === 'ar' ? 'إضافة غرفة جديدة' : 'Add New Room'}
                       </DialogTitle>
@@ -640,73 +964,75 @@ export default function StructureManagementPage() {
                         {language === 'ar' ? 'أدخل معلومات الغرفة' : 'Enter room information'}
                       </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label>{language === 'ar' ? 'الطابق' : 'Floor'} *</Label>
-                        <Select
-                          value={roomForm.floorId}
-                          onValueChange={(value) => setRoomForm({ ...roomForm, floorId: value })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder={language === 'ar' ? 'اختر الطابق' : 'Select floor'} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {floors.map((floor) => (
-                              <SelectItem key={floor.id} value={floor.id}>
-                                {floor.number} - {language === 'ar' ? floor.label_ar : floor.label_en}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>{language === 'ar' ? 'القسم' : 'Department'} *</Label>
-                        <Select
-                          value={roomForm.departmentId}
-                          onValueChange={(value) => setRoomForm({ ...roomForm, departmentId: value })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder={language === 'ar' ? 'اختر القسم' : 'Select department'} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {departments.map((dept) => (
-                              <SelectItem key={dept.id} value={dept.id}>
-                                {dept.name} ({dept.code})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>{language === 'ar' ? 'رقم الغرفة' : 'Room Number'} *</Label>
-                        <Input
-                          value={roomForm.roomNumber}
-                          onChange={(e) => setRoomForm({ ...roomForm, roomNumber: e.target.value })}
-                        />
-                      </div>
-                      <div>
-                        <Label>{language === 'ar' ? 'اسم الغرفة (اختياري)' : 'Room Name (Optional)'}</Label>
-                        <Input
-                          value={roomForm.roomName}
-                          onChange={(e) => setRoomForm({ ...roomForm, roomName: e.target.value })}
-                        />
-                      </div>
-                      <div>
-                        <Label>{language === 'ar' ? 'الاسم بالإنجليزية' : 'English Label'} *</Label>
-                        <Input
-                          value={roomForm.label_en}
-                          onChange={(e) => setRoomForm({ ...roomForm, label_en: e.target.value })}
-                        />
-                      </div>
-                      <div>
-                        <Label>{language === 'ar' ? 'الاسم بالعربية' : 'Arabic Label'} *</Label>
-                        <Input
-                          value={roomForm.label_ar}
-                          onChange={(e) => setRoomForm({ ...roomForm, label_ar: e.target.value })}
-                        />
+                    <div className="overflow-y-auto overflow-x-hidden px-6" style={{ maxHeight: 'calc(90vh - 180px)' }}>
+                      <div className="space-y-4 py-4">
+                        <div>
+                          <Label>{language === 'ar' ? 'الطابق' : 'Floor'} *</Label>
+                          <Select
+                            value={roomForm.floorId}
+                            onValueChange={(value) => setRoomForm({ ...roomForm, floorId: value })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder={language === 'ar' ? 'اختر الطابق' : 'Select floor'} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {floors.map((floor) => (
+                                <SelectItem key={floor.id} value={floor.id}>
+                                  {floor.number} - {language === 'ar' ? floor.label_ar : floor.label_en}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label>{language === 'ar' ? 'القسم' : 'Department'} *</Label>
+                          <Select
+                            value={roomForm.departmentId}
+                            onValueChange={(value) => setRoomForm({ ...roomForm, departmentId: value })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder={language === 'ar' ? 'اختر القسم' : 'Select department'} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {departments.map((dept) => (
+                                <SelectItem key={dept.id} value={dept.id}>
+                                  {dept.name} ({dept.code})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label>{language === 'ar' ? 'رقم الغرفة' : 'Room Number'} *</Label>
+                          <Input
+                            value={roomForm.roomNumber}
+                            onChange={(e) => setRoomForm({ ...roomForm, roomNumber: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <Label>{language === 'ar' ? 'اسم الغرفة (اختياري)' : 'Room Name (Optional)'}</Label>
+                          <Input
+                            value={roomForm.roomName}
+                            onChange={(e) => setRoomForm({ ...roomForm, roomName: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <Label>{language === 'ar' ? 'الاسم بالإنجليزية' : 'English Label'} *</Label>
+                          <Input
+                            value={roomForm.label_en}
+                            onChange={(e) => setRoomForm({ ...roomForm, label_en: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <Label>{language === 'ar' ? 'الاسم بالعربية' : 'Arabic Label'} *</Label>
+                          <Input
+                            value={roomForm.label_ar}
+                            onChange={(e) => setRoomForm({ ...roomForm, label_ar: e.target.value })}
+                          />
+                        </div>
                       </div>
                     </div>
-                    <DialogFooter>
+                    <DialogFooter className="flex-shrink-0 px-6 py-4 border-t bg-background">
                       <Button variant="outline" onClick={() => setIsRoomDialogOpen(false)}>
                         {language === 'ar' ? 'إلغاء' : 'Cancel'}
                       </Button>
@@ -715,7 +1041,56 @@ export default function StructureManagementPage() {
                       </Button>
                     </DialogFooter>
                   </DialogContent>
-                </Dialog>
+                  </Dialog>
+                  <Dialog open={isBulkRoomDialogOpen} onOpenChange={setIsBulkRoomDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline">
+                        <FilePlus className="mr-2 h-4 w-4" />
+                        {language === 'ar' ? 'إضافة متعددة' : 'Bulk Add'}
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-h-[90vh] !grid !grid-rows-[auto_1fr_auto] !p-0 !gap-0 overflow-hidden">
+                      <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b relative z-10 bg-background">
+                        <DialogTitle>
+                          {language === 'ar' ? 'إضافة غرف متعددة' : 'Bulk Add Rooms'}
+                        </DialogTitle>
+                        <DialogDescription>
+                          {language === 'ar' 
+                            ? 'أدخل بيانات الغرف (سطر لكل غرفة). التنسيق: floorId,departmentId,رقم_الغرفة,الاسم_بالإنجليزية,الاسم_بالعربية,اسم_الغرفة_اختياري'
+                            : 'Enter room data (one per line). Format: floorId,departmentId,room_number,label_en,label_ar,optional_name'}
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="overflow-y-auto overflow-x-hidden px-6" style={{ maxHeight: 'calc(90vh - 180px)' }}>
+                        <div className="space-y-4 py-4">
+                          <div>
+                            <Label>{language === 'ar' ? 'بيانات الغرف' : 'Rooms Data'}</Label>
+                            <Textarea
+                              value={bulkRoomData}
+                              onChange={(e) => setBulkRoomData(e.target.value)}
+                              placeholder={language === 'ar' 
+                                ? 'مثال:\nfloor-id-1,dept-id-1,101,Room 101,غرفة 101\nfloor-id-1,dept-id-1,102,Room 102,غرفة 102'
+                                : 'Example:\nfloor-id-1,dept-id-1,101,Room 101,غرفة 101\nfloor-id-1,dept-id-1,102,Room 102,غرفة 102'}
+                              className="min-h-[200px] font-mono text-sm"
+                            />
+                            <p className="text-xs text-muted-foreground mt-2">
+                              {language === 'ar' 
+                                ? 'كل سطر يحتوي على: معرف الطابق، معرف القسم، رقم الغرفة، الاسم بالإنجليزية، الاسم بالعربية، اسم الغرفة (اختياري)'
+                                : 'Each line: floor_id, department_id, room_number, english_label, arabic_label, optional_name'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <DialogFooter className="flex-shrink-0 px-6 py-4 border-t bg-background">
+                        <Button variant="outline" onClick={() => setIsBulkRoomDialogOpen(false)}>
+                          {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                        </Button>
+                        <Button onClick={handleBulkCreateRooms}>
+                          {language === 'ar' ? 'إضافة' : 'Add'}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </div>
             </CardHeader>
             <CardContent>

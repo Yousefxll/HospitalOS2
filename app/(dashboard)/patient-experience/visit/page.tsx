@@ -14,6 +14,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Slider } from '@/components/ui/slider';
 import { 
   User, 
   Building2, 
@@ -70,6 +72,9 @@ export default function PatientExperienceVisitPage() {
     patientFileNumber: '',
     complaintText: '',
     complainedStaffName: '',
+    // Patient satisfaction
+    isPatientSatisfied: false,
+    satisfactionPercentage: 0,
   });
 
   const steps: { key: Step; title: string; icon: any }[] = [
@@ -93,16 +98,25 @@ export default function PatientExperienceVisitPage() {
   async function loadCurrentUser() {
     try {
       const response = await fetch('/api/auth/me');
-      if (response.ok) {
-        const data = await response.json();
-        const user = data.user;
-        // Auto-fill staff name and ID from current user
-        setFormData(prev => ({
-          ...prev,
-          staffName: `${user.firstName} ${user.lastName}`.trim(),
-          staffId: user.staffId || '',
-        }));
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.warn('Unauthorized: Please login again');
+          // Redirect to login if session expired
+          if (typeof window !== 'undefined') {
+            window.location.href = '/login?sessionExpired=true';
+          }
+          return;
+        }
+        throw new Error(`Failed to load user: ${response.status}`);
       }
+      const data = await response.json();
+      const user = data.user;
+      // Auto-fill staff name and ID from current user
+      setFormData(prev => ({
+        ...prev,
+        staffName: `${user.firstName} ${user.lastName}`.trim(),
+        staffId: user.staffId || '',
+      }));
     } catch (error) {
       console.error('Error loading current user:', error);
     }
@@ -125,12 +139,20 @@ export default function PatientExperienceVisitPage() {
   async function loadAllDepartments() {
     try {
       const response = await fetch('/api/patient-experience/data?type=all-departments');
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.warn('Unauthorized: Please login again');
+          return;
+        }
+        throw new Error(`Failed to load all departments: ${response.status}`);
+      }
       const data = await response.json();
       if (data.success) {
-        setAllDepartments(data.data);
+        setAllDepartments(data.data || []);
       }
     } catch (error) {
       console.error('Error loading all departments:', error);
+      setAllDepartments([]);
     }
   }
 
@@ -146,21 +168,43 @@ export default function PatientExperienceVisitPage() {
   async function loadFloors() {
     try {
       const response = await fetch('/api/patient-experience/data?type=floors');
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.warn('Unauthorized: Please login again');
+          toast({
+            title: language === 'ar' ? 'خطأ في المصادقة' : 'Authentication Error',
+            description: language === 'ar' ? 'يرجى تسجيل الدخول مرة أخرى' : 'Please login again',
+            variant: 'destructive',
+          });
+          return;
+        }
+        throw new Error(`Failed to load floors: ${response.status}`);
+      }
       const data = await response.json();
       if (data.success) {
-        setFloors(data.data);
+        setFloors(data.data || []);
       }
     } catch (error) {
       console.error('Error loading floors:', error);
+      setFloors([]);
     }
   }
 
   async function loadDepartmentsByKey(floorKey: string) {
     try {
       const response = await fetch(`/api/patient-experience/data?type=departments&floorKey=${floorKey}`);
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.warn('Unauthorized: Please login again');
+          return;
+        }
+        throw new Error(`Failed to load departments: ${response.status}`);
+      }
       const data = await response.json();
       if (data.success) {
-        setDepartments(data.data);
+        setDepartments(data.data || []);
+      } else {
+        setDepartments([]);
       }
     } catch (error) {
       console.error('Error loading departments:', error);
@@ -171,9 +215,16 @@ export default function PatientExperienceVisitPage() {
   async function loadRoomsByKey(floorKey: string, departmentKey: string) {
     try {
       const response = await fetch(`/api/patient-experience/data?type=rooms&floorKey=${floorKey}&departmentKey=${departmentKey}`);
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.warn('Unauthorized: Please login again');
+          return;
+        }
+        throw new Error(`Failed to load rooms: ${response.status}`);
+      }
       const data = await response.json();
       if (data.success) {
-        setRooms(data.data);
+        setRooms(data.data || []);
       } else {
         console.error('Error loading rooms:', data.error);
         setRooms([]);
@@ -187,48 +238,80 @@ export default function PatientExperienceVisitPage() {
   async function loadComplaintDomains() {
     try {
       const response = await fetch('/api/patient-experience/data?type=complaint-domains');
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.warn('Unauthorized: Please login again');
+          return;
+        }
+        throw new Error(`Failed to load complaint domains: ${response.status}`);
+      }
       const data = await response.json();
       if (data.success) {
-        setComplaintDomains(data.data);
+        setComplaintDomains(data.data || []);
       }
     } catch (error) {
       console.error('Error loading complaint domains:', error);
+      setComplaintDomains([]);
     }
   }
 
   async function loadComplaintTypes() {
     try {
       const response = await fetch('/api/patient-experience/data?type=complaint-types');
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.warn('Unauthorized: Please login again');
+          return;
+        }
+        throw new Error(`Failed to load complaint types: ${response.status}`);
+      }
       const data = await response.json();
       if (data.success) {
-        setComplaintTypes(data.data);
+        setComplaintTypes(data.data || []);
       }
     } catch (error) {
       console.error('Error loading complaint types:', error);
+      setComplaintTypes([]);
     }
   }
 
   async function loadComplaintTypesByDomain(domainKey: string) {
     try {
       const response = await fetch(`/api/patient-experience/data?type=complaint-types&domainKey=${domainKey}`);
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.warn('Unauthorized: Please login again');
+          return;
+        }
+        throw new Error(`Failed to load complaint types: ${response.status}`);
+      }
       const data = await response.json();
       if (data.success) {
-        setComplaintTypes(data.data);
+        setComplaintTypes(data.data || []);
       }
     } catch (error) {
       console.error('Error loading complaint types by domain:', error);
+      setComplaintTypes([]);
     }
   }
 
   async function loadNursingComplaintTypes() {
     try {
       const response = await fetch('/api/patient-experience/data?type=nursing-complaint-types');
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.warn('Unauthorized: Please login again');
+          return;
+        }
+        throw new Error(`Failed to load nursing complaint types: ${response.status}`);
+      }
       const data = await response.json();
       if (data.success) {
-        setNursingComplaintTypes(data.data);
+        setNursingComplaintTypes(data.data || []);
       }
     } catch (error) {
       console.error('Error loading nursing complaint types:', error);
+      setNursingComplaintTypes([]);
     }
   }
 
@@ -339,6 +422,9 @@ export default function PatientExperienceVisitPage() {
           detailsLang: language,
           // Optional
           complainedStaffName: formData.complainedStaffName || undefined,
+          // Patient satisfaction
+          isPatientSatisfied: formData.isPatientSatisfied || undefined,
+          satisfactionPercentage: formData.isPatientSatisfied ? formData.satisfactionPercentage : undefined,
         }),
       });
 
@@ -415,6 +501,78 @@ export default function PatientExperienceVisitPage() {
     setIsSubmitted(true);
   }
 
+  async function handleSaveSatisfaction() {
+    if (!formData.isPatientSatisfied || formData.satisfactionPercentage === 0) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'يرجى ملء بيانات رضا المريض' : 'Please fill patient satisfaction data',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/patient-experience', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          // Staff information
+          staffName: formData.staffName,
+          staffId: formData.staffId,
+          // Patient information
+          patientName: formData.patientName,
+          patientFileNumber: formData.patientFileNumber,
+          // Canonical keys
+          floorKey: formData.floorKey,
+          departmentKey: formData.departmentKey,
+          roomKey: formData.roomKey,
+          // Satisfaction data
+          isPatientSatisfied: formData.isPatientSatisfied,
+          satisfactionPercentage: formData.satisfactionPercentage,
+          // Default values for satisfaction record
+          domainKey: 'SATISFACTION',
+          typeKey: 'PATIENT_SATISFACTION',
+          severity: 'MEDIUM',
+          status: 'CLOSED',
+          complaintText: language === 'ar' 
+            ? `رضا المريض: ${formData.satisfactionPercentage}%`
+            : `Patient Satisfaction: ${formData.satisfactionPercentage}%`,
+          detailsLang: language,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast({
+          title: language === 'ar' ? 'نجح' : 'Success',
+          description: language === 'ar' 
+            ? `تم حفظ رضا المريض بنسبة ${formData.satisfactionPercentage}%`
+            : `Patient satisfaction saved: ${formData.satisfactionPercentage}%`,
+        });
+        // Reset satisfaction fields after save
+        setFormData(prev => ({
+          ...prev,
+          isPatientSatisfied: false,
+          satisfactionPercentage: 0,
+        }));
+      } else {
+        throw new Error(data.error || 'Failed to save satisfaction');
+      }
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? 'خطأ في الحفظ' : 'Error Saving',
+        description: error.message || (language === 'ar' ? 'فشل في حفظ بيانات الرضا' : 'Failed to save satisfaction data'),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   function handleReset() {
     setFormData({
       staffName: '',
@@ -429,6 +587,8 @@ export default function PatientExperienceVisitPage() {
       patientFileNumber: '',
       complaintText: '',
       complainedStaffName: '',
+      isPatientSatisfied: false,
+      satisfactionPercentage: 0,
     });
     setCurrentStep('staff');
     setIsSubmitted(false);
@@ -630,8 +790,8 @@ export default function PatientExperienceVisitPage() {
                     <SelectValue placeholder={language === 'ar' ? 'اختر القسم' : 'Select department'} />
                   </SelectTrigger>
                   <SelectContent>
-                    {/* Use allDepartments to show all hospital departments */}
-                    {(allDepartments.length > 0 ? allDepartments : departments).map((dept) => {
+                    {/* Only show departments that belong to the selected floor */}
+                    {departments.map((dept) => {
                       const deptType = dept.type || 'BOTH';
                       const deptName = language === 'ar' ? (dept.label_ar || dept.labelAr || dept.name || dept.departmentName) : (dept.label_en || dept.labelEn || dept.name || dept.departmentName);
                       const typeLabel = deptType === 'OPD' ? 'OPD' : deptType === 'IPD' ? 'IPD' : 'OPD/IPD';
@@ -641,6 +801,11 @@ export default function PatientExperienceVisitPage() {
                         </SelectItem>
                       );
                     })}
+                    {departments.length === 0 && formData.floorKey && (
+                      <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                        {language === 'ar' ? 'لا توجد أقسام في هذا الطابق' : 'No departments in this floor'}
+                      </div>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -649,17 +814,23 @@ export default function PatientExperienceVisitPage() {
                 <Select
                   value={formData.roomKey}
                   onValueChange={(value) => setFormData({ ...formData, roomKey: value })}
-                  disabled={!formData.departmentKey}
+                  disabled={!formData.departmentKey || !formData.floorKey}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder={language === 'ar' ? 'اختر الغرفة' : 'Select room'} />
                   </SelectTrigger>
                   <SelectContent>
+                    {/* Only show rooms that belong to the selected department and floor */}
                     {rooms.map((room) => (
                       <SelectItem key={room.id} value={room.key || room.roomKey}>
                         {language === 'ar' ? (room.label_ar || room.labelAr || `غرفة ${room.roomNumber}`) : (room.label_en || room.labelEn || `Room ${room.roomNumber}`)} {room.roomName ? ` - ${room.roomName}` : ''}
                       </SelectItem>
                     ))}
+                    {rooms.length === 0 && formData.departmentKey && formData.floorKey && (
+                      <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                        {language === 'ar' ? 'لا توجد غرف في هذا القسم' : 'No rooms in this department'}
+                      </div>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -688,6 +859,81 @@ export default function PatientExperienceVisitPage() {
                   required
                 />
               </div>
+              
+              {/* Patient Satisfaction Section */}
+              <div className="space-y-4 pt-4 border-t">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="isPatientSatisfied"
+                    checked={formData.isPatientSatisfied}
+                    onCheckedChange={(checked) => {
+                      setFormData({ 
+                        ...formData, 
+                        isPatientSatisfied: checked === true,
+                        satisfactionPercentage: checked === true ? formData.satisfactionPercentage || 50 : 0
+                      });
+                    }}
+                  />
+                  <Label 
+                    htmlFor="isPatientSatisfied" 
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                  >
+                    {language === 'ar' ? 'المريض راضي' : 'Patient is Satisfied'}
+                  </Label>
+                </div>
+                
+                {formData.isPatientSatisfied && (
+                  <div className="space-y-3 pl-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="satisfactionPercentage">
+                        {language === 'ar' ? 'نسبة الرضا' : 'Satisfaction Percentage'}: {formData.satisfactionPercentage}%
+                      </Label>
+                      <div className="px-2">
+                        <Slider
+                          id="satisfactionPercentage"
+                          min={0}
+                          max={100}
+                          step={1}
+                          value={[formData.satisfactionPercentage]}
+                          onValueChange={(value) => {
+                            setFormData({ ...formData, satisfactionPercentage: value[0] });
+                          }}
+                          className="w-full"
+                        />
+                      </div>
+                      <div className="flex justify-between text-xs text-muted-foreground px-2">
+                        <span>0%</span>
+                        <span>50%</span>
+                        <span>100%</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              {/* Save Satisfaction Button - Shows when patient is satisfied and percentage is set */}
+              {formData.isPatientSatisfied && formData.satisfactionPercentage > 0 && (
+                <div className="pt-4 border-t">
+                  <Button
+                    type="button"
+                    onClick={handleSaveSatisfaction}
+                    disabled={isLoading}
+                    className="w-full"
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        {language === 'ar' ? 'جاري الحفظ...' : 'Saving...'}
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="mr-2 h-4 w-4" />
+                        {language === 'ar' ? 'حفظ رضا المريض' : 'Save Patient Satisfaction'}
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
             </div>
           )}
 
@@ -859,6 +1105,24 @@ export default function PatientExperienceVisitPage() {
                     <Label className="text-muted-foreground">{t.px.visit.complainedStaff}</Label>
                     <p className="font-medium">{formData.complainedStaffName}</p>
                   </div>
+                )}
+                {formData.isPatientSatisfied && (
+                  <>
+                    <div className="space-y-2">
+                      <Label className="text-muted-foreground">
+                        {language === 'ar' ? 'رضا المريض' : 'Patient Satisfaction'}
+                      </Label>
+                      <Badge variant="outline" className="bg-green-100 text-green-800">
+                        {language === 'ar' ? 'راضي' : 'Satisfied'}
+                      </Badge>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-muted-foreground">
+                        {language === 'ar' ? 'نسبة الرضا' : 'Satisfaction Percentage'}
+                      </Label>
+                      <p className="font-medium">{formData.satisfactionPercentage}%</p>
+                    </div>
+                  </>
                 )}
               </div>
               <div className="space-y-2">

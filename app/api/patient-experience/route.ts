@@ -46,6 +46,9 @@ export async function POST(request: NextRequest) {
       resolutionText,
       resolutionOriginal: providedResolutionOriginal,
       resolutionLang: providedResolutionLang,
+      // Patient satisfaction (optional)
+      isPatientSatisfied,
+      satisfactionPercentage,
     } = body;
 
     // Validate required fields
@@ -160,6 +163,9 @@ export async function POST(request: NextRequest) {
       }),
       // Optional fields
       complainedStaffName: complainedStaffName || undefined,
+      // Patient satisfaction (optional)
+      ...(isPatientSatisfied !== undefined && { isPatientSatisfied }),
+      ...(satisfactionPercentage !== undefined && { satisfactionPercentage }),
       visitDate: new Date(),
       createdAt: new Date(),
       updatedAt: new Date(),
