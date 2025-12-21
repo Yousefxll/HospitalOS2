@@ -59,18 +59,7 @@ export async function GET(request: NextRequest) {
       const allDepartments = searchParams.get('all') === 'true'; // Option to get all departments regardless of floor
       
       const departmentsCollection = await getCollection('departments');
-      const floorDepartmentsCollection = await getCollection('floor_departments');
       const floorsCollection = await getCollection('floors');
-      
-      // For Patient Experience: always get all departments from departments collection
-      // Then optionally filter by floor if floorId/floorKey is provided
-      const departmentsQuery: any = { isActive: true };
-      
-      // Get all active departments (OPD, IPD, and BOTH)
-      const allDepts = await departmentsCollection
-        .find(departmentsQuery)
-        .sort({ name: 1 })
-        .toArray();
       
       // If floorId or floorKey is provided, filter departments that belong to that floor
       if (floorId || floorKey) {
@@ -88,88 +77,66 @@ export async function GET(request: NextRequest) {
         }
         
         if (floor) {
-          // Filter departments that have this floorId
-          const filteredDepts = allDepts.filter((dept: any) => 
-            dept.floorId === floor.id || dept.floorId === floor.number
-          );
+          // Filter departments that have this floorId (departments collection has floorId field)
+          const departmentsQuery: any = { 
+            isActive: true,
+            floorId: floor.id // Use floor.id directly from structure API
+          };
           
-          // Also check floor_departments for additional relationships
-          const floorDeptsQuery: any = { active: true };
-          if (floorKey) {
-            floorDeptsQuery.floorKey = floorKey;
-          } else {
-            floorDeptsQuery.floorId = floor.id || floor.number;
-          }
+          const filteredDepts = await departmentsCollection
+            .find(departmentsQuery)
+            .sort({ name: 1 })
+            .toArray();
           
-          const floorDepts = await floorDepartmentsCollection.find(floorDeptsQuery).toArray();
-          const floorDeptIds = new Set(floorDepts.map((fd: any) => fd.departmentId));
+          // Transform to match expected format
+          const transformed = filteredDepts.map((dept: any) => ({
+            ...dept,
+            id: dept.id,
+            departmentId: dept.id,
+            departmentName: dept.name,
+            departmentKey: dept.code || dept.id,
+            label_en: dept.name,
+            label_ar: dept.name,
+            floorId: floor.id,
+            floorKey: floor.key,
+            type: dept.type || 'BOTH',
+          }));
           
-          // Combine: departments with matching floorId + departments in floor_departments
-          const combinedDepts = new Map();
-          
-          // Add departments with matching floorId
-          filteredDepts.forEach((dept: any) => {
-            combinedDepts.set(dept.id, {
-              ...dept,
-              departmentId: dept.id,
-              departmentName: dept.name,
-              departmentKey: dept.code || dept.id,
-              label_en: dept.name,
-              label_ar: dept.name,
-              floorId: floor.id || floor.number,
-              floorKey: floor.key,
-              type: dept.type || 'BOTH', // Ensure type is included
-            });
-          });
-          
-          // Add departments from floor_departments
-          floorDepts.forEach((fd: any) => {
-            const dept = allDepts.find((d: any) => d.id === fd.departmentId);
-            if (dept && !combinedDepts.has(dept.id)) {
-              combinedDepts.set(dept.id, {
-                ...fd,
-                ...dept,
-                departmentId: dept.id,
-                departmentName: dept.name || fd.departmentName,
-                departmentKey: dept.code || fd.departmentKey || dept.id,
-                label_en: dept.name || fd.label_en || fd.labelEn,
-                label_ar: dept.name || fd.label_ar || fd.labelAr,
-                floorId: floor.id || floor.number,
-                floorKey: floor.key,
-                type: dept.type || fd.type || 'BOTH', // Ensure type is included
-              });
-            }
-          });
-          
-          const result = Array.from(combinedDepts.values());
-          return NextResponse.json({ success: true, data: result });
+          return NextResponse.json({ success: true, data: transformed });
+        } else {
+          // Floor not found, return empty array
+          return NextResponse.json({ success: true, data: [] });
         }
       }
       
       // If all=true or no floor filter: return all departments
+      const departmentsQuery: any = { isActive: true };
+      const allDepts = await departmentsCollection
+        .find(departmentsQuery)
+        .sort({ name: 1 })
+        .toArray();
+      
       // Transform to match expected format
       const transformed = allDepts.map((dept: any) => {
         // Get floor info if floorId exists
         let floorInfo: any = {};
         if (dept.floorId) {
-          // Try to get floor details (async would be better but keeping it simple)
-          // For now, just include floorId
           floorInfo = {
             floorId: dept.floorId,
-            floorKey: `FLOOR_${dept.floorId}`,
+            floorKey: `FLOOR_${dept.floorId}`, // Will be properly resolved if needed
           };
         }
         
         return {
+          ...dept,
           id: dept.id,
           departmentId: dept.id,
           departmentName: dept.name,
           departmentKey: dept.code || dept.id,
           label_en: dept.name,
           label_ar: dept.name,
-          type: dept.type || 'BOTH', // Ensure type is included
+          type: dept.type || 'BOTH',
           ...floorInfo,
-          ...dept,
         };
       });
       
@@ -204,24 +171,25 @@ export async function GET(request: NextRequest) {
         );
       }
       
-      const floorRoomsCollection = await getCollection('floor_rooms');
+      // Use 'rooms' collection (same as structure API)
+      const roomsCollection = await getCollection('rooms');
       const query: any = { active: true };
       
-      // If departmentKey is provided, use it (it's sufficient for filtering)
-      if (departmentKey) {
-        query.departmentKey = departmentKey;
-      } else if (departmentId) {
+      // Filter by department
+      if (departmentId) {
         query.departmentId = departmentId;
+      } else if (departmentKey) {
+        query.departmentKey = departmentKey;
       }
       
       // Optionally filter by floor if provided (for additional validation)
-      if (floorKey) {
-        query.floorKey = floorKey;
-      } else if (floorId) {
+      if (floorId) {
         query.floorId = floorId;
+      } else if (floorKey) {
+        query.floorKey = floorKey;
       }
       
-      const rooms = await floorRoomsCollection
+      const rooms = await roomsCollection
         .find(query)
         .sort({ roomNumber: 1 })
         .toArray();
