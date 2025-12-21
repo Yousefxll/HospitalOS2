@@ -59,9 +59,9 @@ export function MobileTopBar({
         paddingTop: 'env(safe-area-inset-top)',
       }}
     >
-      {/* Left: Menu button or Back button */}
+      {/* Left: Back button */}
       <div className="flex items-center min-w-[40px]">
-        {shouldShowBack ? (
+        {shouldShowBack && (
           <Button
             variant="ghost"
             size="icon"
@@ -71,7 +71,17 @@ export function MobileTopBar({
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-        ) : onMenuClick ? (
+        )}
+      </div>
+
+      {/* Center: Title */}
+      <h1 className="flex-1 text-center text-base font-semibold truncate px-2">
+        {title}
+      </h1>
+
+      {/* Right: Menu button (when no back) or Actions */}
+      <div className="flex items-center min-w-[40px] justify-end gap-2">
+        {!shouldShowBack && onMenuClick && (
           <Button
             variant="ghost"
             size="icon"
@@ -81,16 +91,7 @@ export function MobileTopBar({
           >
             <Menu className="h-5 w-5" />
           </Button>
-        ) : null}
-      </div>
-
-      {/* Center: Title */}
-      <h1 className="flex-1 text-center text-base font-semibold truncate px-2">
-        {title}
-      </h1>
-
-      {/* Right: Action button or menu */}
-      <div className="flex items-center min-w-[40px] justify-end">
+        )}
         {actions && actions.length > 0 ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
