@@ -89,6 +89,19 @@ export async function POST(request: NextRequest) {
       const validated = createFloorSchema.parse(data);
       const floorsCollection = await getCollection('floors');
       
+      // Check for duplicate floor number
+      const existingFloor = await floorsCollection.findOne({ 
+        number: validated.number,
+        active: true 
+      });
+      
+      if (existingFloor) {
+        return NextResponse.json(
+          { error: 'الطابق موجود بالفعل' },
+          { status: 400 }
+        );
+      }
+      
       const floor = {
         id: uuidv4(),
         number: validated.number,
@@ -119,6 +132,31 @@ export async function POST(request: NextRequest) {
           { error: 'Floor not found' },
           { status: 400 }
         );
+      }
+      
+      // Check for duplicate department name or code in the same floor
+      const existingDept = await departmentsCollection.findOne({
+        floorId: validated.floorId,
+        $or: [
+          { name: validated.name },
+          { code: validated.code }
+        ],
+        isActive: true
+      });
+      
+      if (existingDept) {
+        if (existingDept.name === validated.name) {
+          return NextResponse.json(
+            { error: 'اسم القسم موجود بالفعل في هذا الطابق' },
+            { status: 400 }
+          );
+        }
+        if (existingDept.code === validated.code) {
+          return NextResponse.json(
+            { error: 'رمز القسم موجود بالفعل في هذا الطابق' },
+            { status: 400 }
+          );
+        }
       }
       
       const department = {
@@ -152,6 +190,21 @@ export async function POST(request: NextRequest) {
       if (!floor || !department) {
         return NextResponse.json(
           { error: 'Floor or Department not found' },
+          { status: 400 }
+        );
+      }
+
+      // Check for duplicate room number in the same floor and department
+      const existingRoom = await roomsCollection.findOne({
+        floorId: validated.floorId,
+        departmentId: validated.departmentId,
+        roomNumber: validated.roomNumber,
+        active: true
+      });
+
+      if (existingRoom) {
+        return NextResponse.json(
+          { error: 'رقم الغرفة موجود بالفعل في هذا القسم والطابق' },
           { status: 400 }
         );
       }

@@ -145,6 +145,17 @@ export default function StructureManagementPage() {
 
   async function handleCreateFloor() {
     try {
+      // Check for duplicate floor number
+      const existingFloor = floors.find(f => f.number === floorForm.number && f.id);
+      if (existingFloor) {
+        toast({
+          title: language === 'ar' ? 'خطأ' : 'Error',
+          description: language === 'ar' ? 'الطابق موجود بالفعل' : 'Floor already exists',
+          variant: 'destructive',
+        });
+        return;
+      }
+
       const response = await fetch('/api/admin/structure', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -163,12 +174,13 @@ export default function StructureManagementPage() {
         setFloorForm({ number: '', name: '', label_en: '', label_ar: '' });
         fetchData();
       } else {
-        throw new Error('Failed to create floor');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to create floor');
       }
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: language === 'ar' ? 'خطأ' : 'Error',
-        description: language === 'ar' ? 'فشل إضافة الطابق' : 'Failed to add floor',
+        description: error.message || (language === 'ar' ? 'فشل إضافة الطابق' : 'Failed to add floor'),
         variant: 'destructive',
       });
     }
@@ -176,6 +188,28 @@ export default function StructureManagementPage() {
 
   async function handleCreateDepartment() {
     try {
+      // Check for duplicate department name or code in the same floor
+      if (deptForm.floorId) {
+        const existingDept = departments.find(d => 
+          d.floorId === deptForm.floorId && 
+          (d.name === deptForm.name || d.code === deptForm.code)
+        );
+        if (existingDept) {
+          toast({
+            title: language === 'ar' ? 'خطأ' : 'Error',
+            description: language === 'ar' 
+              ? existingDept.name === deptForm.name 
+                ? 'اسم القسم موجود بالفعل في هذا الطابق' 
+                : 'رمز القسم موجود بالفعل في هذا الطابق'
+              : existingDept.name === deptForm.name
+                ? 'Department name already exists in this floor'
+                : 'Department code already exists in this floor',
+            variant: 'destructive',
+          });
+          return;
+        }
+      }
+
       const response = await fetch('/api/admin/structure', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -194,12 +228,13 @@ export default function StructureManagementPage() {
         setDeptForm({ name: '', code: '', type: 'OPD', floorId: '' });
         fetchData();
       } else {
-        throw new Error('Failed to create department');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to create department');
       }
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: language === 'ar' ? 'خطأ' : 'Error',
-        description: language === 'ar' ? 'فشل إضافة القسم' : 'Failed to add department',
+        description: error.message || (language === 'ar' ? 'فشل إضافة القسم' : 'Failed to add department'),
         variant: 'destructive',
       });
     }
@@ -207,6 +242,23 @@ export default function StructureManagementPage() {
 
   async function handleCreateRoom() {
     try {
+      // Check for duplicate room number in the same floor and department
+      if (roomForm.floorId && roomForm.departmentId && roomForm.roomNumber) {
+        const existingRoom = rooms.find(r => 
+          r.floorId === roomForm.floorId && 
+          r.departmentId === roomForm.departmentId && 
+          r.roomNumber === roomForm.roomNumber
+        );
+        if (existingRoom) {
+          toast({
+            title: language === 'ar' ? 'خطأ' : 'Error',
+            description: language === 'ar' ? 'رقم الغرفة موجود بالفعل في هذا القسم والطابق' : 'Room number already exists in this department and floor',
+            variant: 'destructive',
+          });
+          return;
+        }
+      }
+
       const response = await fetch('/api/admin/structure', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -232,12 +284,13 @@ export default function StructureManagementPage() {
         });
         fetchData();
       } else {
-        throw new Error('Failed to create room');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to create room');
       }
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: language === 'ar' ? 'خطأ' : 'Error',
-        description: language === 'ar' ? 'فشل إضافة الغرفة' : 'Failed to add room',
+        description: error.message || (language === 'ar' ? 'فشل إضافة الغرفة' : 'Failed to add room'),
         variant: 'destructive',
       });
     }
@@ -320,7 +373,9 @@ export default function StructureManagementPage() {
           successCount++;
         } else {
           errorCount++;
-          errors.push(`${language === 'ar' ? 'السطر' : 'Line'} ${i + 1}: ${language === 'ar' ? 'فشل الإضافة' : 'Failed to add'}`);
+          const errorData = await response.json().catch(() => ({}));
+          const errorMsg = errorData.error || (language === 'ar' ? 'فشل الإضافة' : 'Failed to add');
+          errors.push(`${language === 'ar' ? 'السطر' : 'Line'} ${i + 1}: ${errorMsg}`);
         }
       } catch (error) {
         errorCount++;
@@ -389,7 +444,9 @@ export default function StructureManagementPage() {
           successCount++;
         } else {
           errorCount++;
-          errors.push(`${language === 'ar' ? 'السطر' : 'Line'} ${i + 1}: ${language === 'ar' ? 'فشل الإضافة' : 'Failed to add'}`);
+          const errorData = await response.json().catch(() => ({}));
+          const errorMsg = errorData.error || (language === 'ar' ? 'فشل الإضافة' : 'Failed to add');
+          errors.push(`${language === 'ar' ? 'السطر' : 'Line'} ${i + 1}: ${errorMsg}`);
         }
       } catch (error) {
         errorCount++;
@@ -460,7 +517,9 @@ export default function StructureManagementPage() {
           successCount++;
         } else {
           errorCount++;
-          errors.push(`${language === 'ar' ? 'السطر' : 'Line'} ${i + 1}: ${language === 'ar' ? 'فشل الإضافة' : 'Failed to add'}`);
+          const errorData = await response.json().catch(() => ({}));
+          const errorMsg = errorData.error || (language === 'ar' ? 'فشل الإضافة' : 'Failed to add');
+          errors.push(`${language === 'ar' ? 'السطر' : 'Line'} ${i + 1}: ${errorMsg}`);
         }
       } catch (error) {
         errorCount++;
