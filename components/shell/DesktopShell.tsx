@@ -1,0 +1,53 @@
+'use client';
+
+import Sidebar from '@/components/Sidebar';
+import Header from '@/components/Header';
+import { Toaster } from '@/components/ui/toaster';
+import { useLang } from '@/hooks/use-lang';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useState } from 'react';
+
+interface DesktopShellProps {
+  children: React.ReactNode;
+}
+
+export function DesktopShell({ children }: DesktopShellProps) {
+  const { isRTL } = useLang();
+  const isMobile = useIsMobile();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const sidebarWidth = 64;
+
+  // If mobile, return null (MobileShell will handle it)
+  if (isMobile) {
+    return null;
+  }
+
+  return (
+    <div className="flex min-h-screen">
+      {/* Desktop Sidebar - Fixed */}
+      <div 
+        className="fixed top-0 h-screen z-50 hidden md:block"
+        style={isRTL ? { right: 0 } : { left: 0 }}
+      >
+        <Sidebar onLinkClick={() => {}} />
+      </div>
+
+      <div 
+        className="flex-1 flex flex-col w-full" 
+        style={isRTL ? { marginRight: `${sidebarWidth}px` } : { marginLeft: `${sidebarWidth}px` }}
+      >
+        <div 
+          className="fixed top-0 z-40 w-full" 
+          style={isRTL ? { right: `${sidebarWidth}px`, left: 0 } : { left: `${sidebarWidth}px`, right: 0 }}
+        >
+          <Header onMenuClick={() => setSidebarOpen(true)} />
+        </div>
+        <main className="bg-background p-3 md:p-6 w-full" style={{ marginTop: '64px' }}>
+          {children}
+        </main>
+      </div>
+      <Toaster />
+    </div>
+  );
+}
+
