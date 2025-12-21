@@ -24,8 +24,9 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    // RBAC: supervisor, admin can update cases (staff forbidden)
-    const authResult = await requireRoleAsync(request, ['supervisor', 'admin']);
+    // RBAC: Allow staff, supervisor, admin to update cases
+    // Staff can close cases immediately after creating them
+    const authResult = await requireRoleAsync(request, ['staff', 'supervisor', 'admin']);
     if (authResult instanceof NextResponse) {
       return authResult; // Returns 401 or 403
     }
