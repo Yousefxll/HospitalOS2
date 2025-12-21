@@ -23,6 +23,7 @@ interface MobileTopBarProps {
     onClick: () => void;
     icon?: React.ReactNode;
   }>;
+  onMenuClick?: () => void;
   className?: string;
 }
 
