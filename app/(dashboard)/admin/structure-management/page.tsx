@@ -584,65 +584,65 @@ export default function StructureManagementPage() {
                   </CardDescription>
                 </div>
                 <div className="flex gap-2">
-                  <Dialog open={isFloorDialogOpen} onOpenChange={setIsFloorDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button>
-                        <Plus className="mr-2 h-4 w-4" />
-                        {language === 'ar' ? 'إضافة طابق' : 'Add Floor'}
-                      </Button>
-                    </DialogTrigger>
+                <Dialog open={isFloorDialogOpen} onOpenChange={setIsFloorDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <Plus className="mr-2 h-4 w-4" />
+                      {language === 'ar' ? 'إضافة طابق' : 'Add Floor'}
+                    </Button>
+                  </DialogTrigger>
                     <DialogContent className="max-h-[90vh] !grid !grid-rows-[auto_1fr_auto] !p-0 !gap-0 overflow-hidden">
                       <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b relative z-10 bg-background">
-                        <DialogTitle>
-                          {language === 'ar' ? 'إضافة طابق جديد' : 'Add New Floor'}
-                        </DialogTitle>
-                        <DialogDescription>
-                          {language === 'ar' ? 'أدخل معلومات الطابق' : 'Enter floor information'}
-                        </DialogDescription>
-                      </DialogHeader>
+                      <DialogTitle>
+                        {language === 'ar' ? 'إضافة طابق جديد' : 'Add New Floor'}
+                      </DialogTitle>
+                      <DialogDescription>
+                        {language === 'ar' ? 'أدخل معلومات الطابق' : 'Enter floor information'}
+                      </DialogDescription>
+                    </DialogHeader>
                       <div className="overflow-y-auto overflow-x-hidden px-6" style={{ maxHeight: 'calc(90vh - 180px)' }}>
                         <div className="space-y-4 py-4">
-                          <div>
-                            <Label>{language === 'ar' ? 'رقم الطابق' : 'Floor Number'} *</Label>
-                            <Input
-                              value={floorForm.number}
-                              onChange={(e) => setFloorForm({ ...floorForm, number: e.target.value })}
-                              placeholder={language === 'ar' ? 'مثال: 1, 2, 3' : 'e.g., 1, 2, 3'}
-                            />
-                          </div>
-                          <div>
-                            <Label>{language === 'ar' ? 'اسم الطابق (اختياري)' : 'Floor Name (Optional)'}</Label>
-                            <Input
-                              value={floorForm.name}
-                              onChange={(e) => setFloorForm({ ...floorForm, name: e.target.value })}
-                            />
-                          </div>
-                          <div>
-                            <Label>{language === 'ar' ? 'الاسم بالإنجليزية' : 'English Label'} *</Label>
-                            <Input
-                              value={floorForm.label_en}
-                              onChange={(e) => setFloorForm({ ...floorForm, label_en: e.target.value })}
-                            />
-                          </div>
-                          <div>
-                            <Label>{language === 'ar' ? 'الاسم بالعربية' : 'Arabic Label'} *</Label>
-                            <Input
-                              value={floorForm.label_ar}
-                              onChange={(e) => setFloorForm({ ...floorForm, label_ar: e.target.value })}
-                            />
-                          </div>
-                        </div>
+                      <div>
+                        <Label>{language === 'ar' ? 'رقم الطابق' : 'Floor Number'} *</Label>
+                        <Input
+                          value={floorForm.number}
+                          onChange={(e) => setFloorForm({ ...floorForm, number: e.target.value })}
+                          placeholder={language === 'ar' ? 'مثال: 1, 2, 3' : 'e.g., 1, 2, 3'}
+                        />
+                      </div>
+                      <div>
+                        <Label>{language === 'ar' ? 'اسم الطابق (اختياري)' : 'Floor Name (Optional)'}</Label>
+                        <Input
+                          value={floorForm.name}
+                          onChange={(e) => setFloorForm({ ...floorForm, name: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>{language === 'ar' ? 'الاسم بالإنجليزية' : 'English Label'} *</Label>
+                        <Input
+                          value={floorForm.label_en}
+                          onChange={(e) => setFloorForm({ ...floorForm, label_en: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>{language === 'ar' ? 'الاسم بالعربية' : 'Arabic Label'} *</Label>
+                        <Input
+                          value={floorForm.label_ar}
+                          onChange={(e) => setFloorForm({ ...floorForm, label_ar: e.target.value })}
+                        />
+                      </div>
+                    </div>
                       </div>
                       <DialogFooter className="flex-shrink-0 px-6 py-4 border-t bg-background">
-                        <Button variant="outline" onClick={() => setIsFloorDialogOpen(false)}>
-                          {language === 'ar' ? 'إلغاء' : 'Cancel'}
-                        </Button>
-                        <Button onClick={handleCreateFloor}>
-                          {language === 'ar' ? 'إضافة' : 'Add'}
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
+                      <Button variant="outline" onClick={() => setIsFloorDialogOpen(false)}>
+                        {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                      </Button>
+                      <Button onClick={handleCreateFloor}>
+                        {language === 'ar' ? 'إضافة' : 'Add'}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
                   <Dialog open={isBulkFloorDialogOpen} onOpenChange={setIsBulkFloorDialogOpen}>
                     <DialogTrigger asChild>
                       <Button variant="outline">
@@ -753,13 +753,13 @@ export default function StructureManagementPage() {
                   </CardDescription>
                 </div>
                 <div className="flex gap-2">
-                  <Dialog open={isDeptDialogOpen} onOpenChange={setIsDeptDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button>
-                        <Plus className="mr-2 h-4 w-4" />
-                        {language === 'ar' ? 'إضافة قسم' : 'Add Department'}
-                      </Button>
-                    </DialogTrigger>
+                <Dialog open={isDeptDialogOpen} onOpenChange={setIsDeptDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <Plus className="mr-2 h-4 w-4" />
+                      {language === 'ar' ? 'إضافة قسم' : 'Add Department'}
+                    </Button>
+                  </DialogTrigger>
                     <DialogContent className="max-h-[90vh] !grid !grid-rows-[auto_1fr_auto] !p-0 !gap-0 overflow-hidden">
                     <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b relative z-10 bg-background">
                       <DialogTitle>
@@ -771,58 +771,58 @@ export default function StructureManagementPage() {
                     </DialogHeader>
                     <div className="overflow-y-auto overflow-x-hidden px-6" style={{ maxHeight: 'calc(90vh - 180px)' }}>
                       <div className="space-y-4 py-4">
-                        <div>
-                          <Label>{language === 'ar' ? 'الطابق' : 'Floor'} *</Label>
-                          <Select
-                            value={deptForm.floorId}
-                            onValueChange={(value) => setDeptForm({ ...deptForm, floorId: value })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder={language === 'ar' ? 'اختر الطابق' : 'Select floor'} />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {floors.map((floor) => (
-                                <SelectItem key={floor.id} value={floor.id}>
-                                  {floor.number} - {language === 'ar' ? floor.label_ar : floor.label_en}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label>{language === 'ar' ? 'اسم القسم' : 'Department Name'} *</Label>
-                          <Input
-                            value={deptForm.name}
-                            onChange={(e) => setDeptForm({ ...deptForm, name: e.target.value })}
-                          />
-                        </div>
-                        <div>
-                          <Label>{language === 'ar' ? 'رمز القسم' : 'Department Code'} *</Label>
-                          <Input
-                            value={deptForm.code}
-                            onChange={(e) => setDeptForm({ ...deptForm, code: e.target.value.toUpperCase() })}
-                            placeholder={language === 'ar' ? 'مثال: CARD, SURG' : 'e.g., CARD, SURG'}
-                          />
-                        </div>
-                        <div>
-                          <Label>{language === 'ar' ? 'نوع القسم' : 'Department Type'} *</Label>
-                          <Select
-                            value={deptForm.type}
-                            onValueChange={(value) => setDeptForm({ ...deptForm, type: value as 'OPD' | 'IPD' | 'BOTH' })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="OPD">OPD</SelectItem>
-                              <SelectItem value="IPD">IPD</SelectItem>
-                              <SelectItem value="BOTH">
-                                {language === 'ar' ? 'كلاهما' : 'Both'}
+                      <div>
+                        <Label>{language === 'ar' ? 'الطابق' : 'Floor'} *</Label>
+                        <Select
+                          value={deptForm.floorId}
+                          onValueChange={(value) => setDeptForm({ ...deptForm, floorId: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={language === 'ar' ? 'اختر الطابق' : 'Select floor'} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {floors.map((floor) => (
+                              <SelectItem key={floor.id} value={floor.id}>
+                                {floor.number} - {language === 'ar' ? floor.label_ar : floor.label_en}
                               </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
+                      <div>
+                        <Label>{language === 'ar' ? 'اسم القسم' : 'Department Name'} *</Label>
+                        <Input
+                          value={deptForm.name}
+                          onChange={(e) => setDeptForm({ ...deptForm, name: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>{language === 'ar' ? 'رمز القسم' : 'Department Code'} *</Label>
+                        <Input
+                          value={deptForm.code}
+                          onChange={(e) => setDeptForm({ ...deptForm, code: e.target.value.toUpperCase() })}
+                          placeholder={language === 'ar' ? 'مثال: CARD, SURG' : 'e.g., CARD, SURG'}
+                        />
+                      </div>
+                      <div>
+                        <Label>{language === 'ar' ? 'نوع القسم' : 'Department Type'} *</Label>
+                        <Select
+                          value={deptForm.type}
+                          onValueChange={(value) => setDeptForm({ ...deptForm, type: value as 'OPD' | 'IPD' | 'BOTH' })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="OPD">OPD</SelectItem>
+                            <SelectItem value="IPD">IPD</SelectItem>
+                            <SelectItem value="BOTH">
+                              {language === 'ar' ? 'كلاهما' : 'Both'}
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
                     </div>
                     <DialogFooter className="flex-shrink-0 px-6 py-4 border-t bg-background">
                       <Button variant="outline" onClick={() => setIsDeptDialogOpen(false)}>
@@ -833,7 +833,7 @@ export default function StructureManagementPage() {
                       </Button>
                     </DialogFooter>
                   </DialogContent>
-                  </Dialog>
+                </Dialog>
                   <Dialog open={isBulkDeptDialogOpen} onOpenChange={setIsBulkDeptDialogOpen}>
                     <DialogTrigger asChild>
                       <Button variant="outline">
@@ -1007,13 +1007,13 @@ export default function StructureManagementPage() {
                   </CardDescription>
                 </div>
                 <div className="flex gap-2">
-                  <Dialog open={isRoomDialogOpen} onOpenChange={setIsRoomDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button>
-                        <Plus className="mr-2 h-4 w-4" />
-                        {language === 'ar' ? 'إضافة غرفة' : 'Add Room'}
-                      </Button>
-                    </DialogTrigger>
+                <Dialog open={isRoomDialogOpen} onOpenChange={setIsRoomDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <Plus className="mr-2 h-4 w-4" />
+                      {language === 'ar' ? 'إضافة غرفة' : 'Add Room'}
+                    </Button>
+                  </DialogTrigger>
                     <DialogContent className="max-h-[90vh] !grid !grid-rows-[auto_1fr_auto] !p-0 !gap-0 overflow-hidden">
                     <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b relative z-10 bg-background">
                       <DialogTitle>
@@ -1025,71 +1025,71 @@ export default function StructureManagementPage() {
                     </DialogHeader>
                     <div className="overflow-y-auto overflow-x-hidden px-6" style={{ maxHeight: 'calc(90vh - 180px)' }}>
                       <div className="space-y-4 py-4">
-                        <div>
-                          <Label>{language === 'ar' ? 'الطابق' : 'Floor'} *</Label>
-                          <Select
-                            value={roomForm.floorId}
-                            onValueChange={(value) => setRoomForm({ ...roomForm, floorId: value })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder={language === 'ar' ? 'اختر الطابق' : 'Select floor'} />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {floors.map((floor) => (
-                                <SelectItem key={floor.id} value={floor.id}>
-                                  {floor.number} - {language === 'ar' ? floor.label_ar : floor.label_en}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label>{language === 'ar' ? 'القسم' : 'Department'} *</Label>
-                          <Select
-                            value={roomForm.departmentId}
-                            onValueChange={(value) => setRoomForm({ ...roomForm, departmentId: value })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder={language === 'ar' ? 'اختر القسم' : 'Select department'} />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {departments.map((dept) => (
-                                <SelectItem key={dept.id} value={dept.id}>
-                                  {dept.name} ({dept.code})
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label>{language === 'ar' ? 'رقم الغرفة' : 'Room Number'} *</Label>
-                          <Input
-                            value={roomForm.roomNumber}
-                            onChange={(e) => setRoomForm({ ...roomForm, roomNumber: e.target.value })}
-                          />
-                        </div>
-                        <div>
-                          <Label>{language === 'ar' ? 'اسم الغرفة (اختياري)' : 'Room Name (Optional)'}</Label>
-                          <Input
-                            value={roomForm.roomName}
-                            onChange={(e) => setRoomForm({ ...roomForm, roomName: e.target.value })}
-                          />
-                        </div>
-                        <div>
-                          <Label>{language === 'ar' ? 'الاسم بالإنجليزية' : 'English Label'} *</Label>
-                          <Input
-                            value={roomForm.label_en}
-                            onChange={(e) => setRoomForm({ ...roomForm, label_en: e.target.value })}
-                          />
-                        </div>
-                        <div>
-                          <Label>{language === 'ar' ? 'الاسم بالعربية' : 'Arabic Label'} *</Label>
-                          <Input
-                            value={roomForm.label_ar}
-                            onChange={(e) => setRoomForm({ ...roomForm, label_ar: e.target.value })}
-                          />
-                        </div>
+                      <div>
+                        <Label>{language === 'ar' ? 'الطابق' : 'Floor'} *</Label>
+                        <Select
+                          value={roomForm.floorId}
+                          onValueChange={(value) => setRoomForm({ ...roomForm, floorId: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={language === 'ar' ? 'اختر الطابق' : 'Select floor'} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {floors.map((floor) => (
+                              <SelectItem key={floor.id} value={floor.id}>
+                                {floor.number} - {language === 'ar' ? floor.label_ar : floor.label_en}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
+                      <div>
+                        <Label>{language === 'ar' ? 'القسم' : 'Department'} *</Label>
+                        <Select
+                          value={roomForm.departmentId}
+                          onValueChange={(value) => setRoomForm({ ...roomForm, departmentId: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={language === 'ar' ? 'اختر القسم' : 'Select department'} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {departments.map((dept) => (
+                              <SelectItem key={dept.id} value={dept.id}>
+                                {dept.name} ({dept.code})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label>{language === 'ar' ? 'رقم الغرفة' : 'Room Number'} *</Label>
+                        <Input
+                          value={roomForm.roomNumber}
+                          onChange={(e) => setRoomForm({ ...roomForm, roomNumber: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>{language === 'ar' ? 'اسم الغرفة (اختياري)' : 'Room Name (Optional)'}</Label>
+                        <Input
+                          value={roomForm.roomName}
+                          onChange={(e) => setRoomForm({ ...roomForm, roomName: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>{language === 'ar' ? 'الاسم بالإنجليزية' : 'English Label'} *</Label>
+                        <Input
+                          value={roomForm.label_en}
+                          onChange={(e) => setRoomForm({ ...roomForm, label_en: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>{language === 'ar' ? 'الاسم بالعربية' : 'Arabic Label'} *</Label>
+                        <Input
+                          value={roomForm.label_ar}
+                          onChange={(e) => setRoomForm({ ...roomForm, label_ar: e.target.value })}
+                        />
+                      </div>
+                    </div>
                     </div>
                     <DialogFooter className="flex-shrink-0 px-6 py-4 border-t bg-background">
                       <Button variant="outline" onClick={() => setIsRoomDialogOpen(false)}>
@@ -1100,7 +1100,7 @@ export default function StructureManagementPage() {
                       </Button>
                     </DialogFooter>
                   </DialogContent>
-                  </Dialog>
+                </Dialog>
                   <Dialog open={isBulkRoomDialogOpen} onOpenChange={setIsBulkRoomDialogOpen}>
                     <DialogTrigger asChild>
                       <Button variant="outline">
