@@ -27,6 +27,8 @@ import {
   ArrowRight,
   ArrowLeft,
   ClipboardList,
+  Plus,
+  Trash2,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useLang } from '@/hooks/use-lang';
@@ -58,6 +60,15 @@ export default function PatientExperienceVisitPage() {
   const [complaintTypes, setComplaintTypes] = useState<any[]>([]);
   const [nursingComplaintTypes, setNursingComplaintTypes] = useState<any[]>([]);
   
+  // Classification type
+  type Classification = {
+    id: string;
+    domainKey: string;
+    typeKey: string;
+    severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+    shift: 'NIGHT' | 'DAY' | 'DAY_NIGHT' | 'BOTH';
+  };
+
   const [formData, setFormData] = useState({
     staffName: '',
     staffId: '',
@@ -65,9 +76,7 @@ export default function PatientExperienceVisitPage() {
     floorKey: '',
     departmentKey: '',
     roomKey: '',
-    domainKey: '',
-    typeKey: '',
-    severity: 'MEDIUM' as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL',
+    classifications: [] as Classification[],
     patientName: '',
     patientFileNumber: '',
     complaintText: '',
@@ -348,13 +357,24 @@ export default function PatientExperienceVisitPage() {
         }
         return true;
       case 'complaint':
-        if (!formData.domainKey || !formData.typeKey) {
+        if (formData.classifications.length === 0) {
           toast({
             title: t.common.error,
-            description: language === 'ar' ? 'يرجى اختيار التصنيف' : 'Please select classification',
+            description: language === 'ar' ? 'يرجى إضافة تصنيف واحد على الأقل' : 'Please add at least one classification',
             variant: 'destructive',
           });
           return false;
+        }
+        // Validate each classification
+        for (const classification of formData.classifications) {
+          if (!classification.domainKey || !classification.typeKey) {
+            toast({
+              title: t.common.error,
+              description: language === 'ar' ? 'يرجى إكمال جميع التصنيفات' : 'Please complete all classifications',
+              variant: 'destructive',
+            });
+            return false;
+          }
         }
         return true;
       case 'details':
@@ -390,6 +410,37 @@ export default function PatientExperienceVisitPage() {
     }
   }
 
+  // Classification management functions
+  function addClassification() {
+    const newClassification: Classification = {
+      id: Date.now().toString(),
+      domainKey: '',
+      typeKey: '',
+      severity: 'MEDIUM',
+      shift: 'DAY',
+    };
+    setFormData({
+      ...formData,
+      classifications: [...formData.classifications, newClassification],
+    });
+  }
+
+  function removeClassification(id: string) {
+    setFormData({
+      ...formData,
+      classifications: formData.classifications.filter(c => c.id !== id),
+    });
+  }
+
+  function updateClassification(id: string, updates: Partial<Classification>) {
+    setFormData({
+      ...formData,
+      classifications: formData.classifications.map(c =>
+        c.id === id ? { ...c, ...updates } : c
+      ),
+    });
+  }
+
   async function handleSubmit() {
     if (!validateStep('details')) return;
 
@@ -412,10 +463,18 @@ export default function PatientExperienceVisitPage() {
           floorKey: formData.floorKey,
           departmentKey: formData.departmentKey,
           roomKey: formData.roomKey,
-          domainKey: formData.domainKey,
-          typeKey: formData.typeKey,
-          // Severity and status as English enums
-          severity: formData.severity,
+          // Multiple classifications
+          classifications: formData.classifications.map(c => ({
+            domainKey: c.domainKey,
+            typeKey: c.typeKey,
+            severity: c.severity,
+            shift: c.shift,
+          })),
+          // For backward compatibility, use first classification
+          domainKey: formData.classifications[0]?.domainKey || '',
+          typeKey: formData.classifications[0]?.typeKey || '',
+          severity: formData.classifications[0]?.severity || 'MEDIUM',
+          // Status as English enum
           status: 'PENDING', // Default status
           // Free text details (bilingual)
           complaintText: formData.complaintText,
@@ -580,9 +639,7 @@ export default function PatientExperienceVisitPage() {
       floorKey: '',
       departmentKey: '',
       roomKey: '',
-      domainKey: '',
-      typeKey: '',
-      severity: 'MEDIUM',
+      classifications: [],
       patientName: '',
       patientFileNumber: '',
       complaintText: '',
@@ -939,73 +996,132 @@ export default function PatientExperienceVisitPage() {
           {/* Step 4: Complaint Type */}
           {currentStep === 'complaint' && (
             <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="domainKey">{t.px.visit.domain} *</Label>
-                <Select
-                  value={formData.domainKey}
-                  onValueChange={(value) => {
-                    setFormData({ 
-                      ...formData, 
-                      domainKey: value,
-                      typeKey: '' // Reset type when domain changes
-                    });
-                    // Filter complaint types by domain
-                    loadComplaintTypesByDomain(value);
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={language === 'ar' ? 'اختر المجال' : 'Select domain'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {complaintDomains.map((domain) => (
-                      <SelectItem key={domain.id} value={domain.key}>
-                        {language === 'ar' ? (domain.label_ar || domain.labelAr) : (domain.label_en || domain.labelEn)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              {formData.domainKey && (
-                <div className="space-y-2">
-                  <Label htmlFor="typeKey">{t.px.visit.classification} *</Label>
-                  <Select
-                    value={formData.typeKey}
-                    onValueChange={(value) => setFormData({ ...formData, typeKey: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={language === 'ar' ? 'اختر التصنيف' : 'Select classification'} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {complaintTypes
-                        .filter(type => type.domainKey === formData.domainKey)
-                        .map((type) => (
-                          <SelectItem key={type.id} value={type.key || type.typeKey}>
-                            {language === 'ar' ? (type.label_ar || type.labelAr || type.name) : (type.label_en || type.labelEn || type.name)}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+              {/* List of Classifications */}
+              {formData.classifications.map((classification, index) => (
+                <Card key={classification.id} className="p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-semibold">
+                      {language === 'ar' ? `تصنيف ${index + 1}` : `Classification ${index + 1}`}
+                    </h3>
+                    {formData.classifications.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeClassification(classification.id)}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>{t.px.visit.domain} *</Label>
+                      <Select
+                        value={classification.domainKey}
+                        onValueChange={(value) => {
+                          updateClassification(classification.id, { 
+                            domainKey: value,
+                            typeKey: '' // Reset type when domain changes
+                          });
+                          loadComplaintTypesByDomain(value);
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={language === 'ar' ? 'اختر المجال' : 'Select domain'} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {complaintDomains.map((domain) => (
+                            <SelectItem key={domain.id} value={domain.key}>
+                              {language === 'ar' ? (domain.label_ar || domain.labelAr) : (domain.label_en || domain.labelEn)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    {classification.domainKey && (
+                      <div className="space-y-2">
+                        <Label>{t.px.visit.classification} *</Label>
+                        <Select
+                          value={classification.typeKey}
+                          onValueChange={(value) => updateClassification(classification.id, { typeKey: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={language === 'ar' ? 'اختر التصنيف' : 'Select classification'} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {complaintTypes
+                              .filter(type => type.domainKey === classification.domainKey)
+                              .map((type) => (
+                                <SelectItem key={type.id} value={type.key || type.typeKey}>
+                                  {language === 'ar' ? (type.label_ar || type.labelAr || type.name) : (type.label_en || type.labelEn || type.name)}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
 
-              <div className="space-y-2">
-                <Label htmlFor="severity">{t.px.visit.severity} *</Label>
-                <Select
-                  value={formData.severity}
-                  onValueChange={(value) => setFormData({ ...formData, severity: value as any })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={language === 'ar' ? 'اختر مستوى الخطورة' : 'Select severity'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="LOW">{language === 'ar' ? 'منخفض' : 'Low'}</SelectItem>
-                    <SelectItem value="MEDIUM">{language === 'ar' ? 'متوسط' : 'Medium'}</SelectItem>
-                    <SelectItem value="HIGH">{language === 'ar' ? 'عالي' : 'High'}</SelectItem>
-                    <SelectItem value="CRITICAL">{language === 'ar' ? 'حرج' : 'Critical'}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>{t.px.visit.severity} *</Label>
+                        <Select
+                          value={classification.severity}
+                          onValueChange={(value) => updateClassification(classification.id, { severity: value as any })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={language === 'ar' ? 'اختر مستوى الخطورة' : 'Select severity'} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="LOW">{language === 'ar' ? 'منخفض' : 'Low'}</SelectItem>
+                            <SelectItem value="MEDIUM">{language === 'ar' ? 'متوسط' : 'Medium'}</SelectItem>
+                            <SelectItem value="HIGH">{language === 'ar' ? 'عالي' : 'High'}</SelectItem>
+                            <SelectItem value="CRITICAL">{language === 'ar' ? 'حرج' : 'Critical'}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>{language === 'ar' ? 'الشيفت' : 'Shift'} *</Label>
+                        <Select
+                          value={classification.shift}
+                          onValueChange={(value) => updateClassification(classification.id, { shift: value as any })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={language === 'ar' ? 'اختر الشيفت' : 'Select shift'} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="DAY">{language === 'ar' ? 'داي شيفت' : 'Day Shift'}</SelectItem>
+                            <SelectItem value="NIGHT">{language === 'ar' ? 'نايت شيفت' : 'Night Shift'}</SelectItem>
+                            <SelectItem value="DAY_NIGHT">{language === 'ar' ? 'داي ونايت' : 'Day & Night'}</SelectItem>
+                            <SelectItem value="BOTH">{language === 'ar' ? 'الشفتين' : 'Both Shifts'}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+
+              {/* Add Classification Button */}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={addClassification}
+                className="w-full"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                {language === 'ar' ? 'إضافة تصنيف جديد' : 'Add New Classification'}
+              </Button>
+
+              {formData.classifications.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center">
+                  {language === 'ar' ? 'اضغط على الزر أعلاه لإضافة تصنيف' : 'Click the button above to add a classification'}
+                </p>
+              )}
             </div>
           )}
 
@@ -1085,19 +1201,55 @@ export default function PatientExperienceVisitPage() {
                   <Label className="text-muted-foreground">{t.px.visit.patientFileNumber}</Label>
                   <p className="font-medium">{formData.patientFileNumber}</p>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-muted-foreground">{t.px.visit.classification}</Label>
-                  <Badge variant="outline">
-                    {complaintTypes.find(t => (t.key || t.typeKey) === formData.typeKey)
-                      ? (language === 'ar'
-                          ? (complaintTypes.find(t => (t.key || t.typeKey) === formData.typeKey)?.label_ar || complaintTypes.find(t => (t.key || t.typeKey) === formData.typeKey)?.labelAr)
-                          : (complaintTypes.find(t => (t.key || t.typeKey) === formData.typeKey)?.label_en || complaintTypes.find(t => (t.key || t.typeKey) === formData.typeKey)?.labelEn))
-                      : formData.typeKey}
-                  </Badge>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-muted-foreground">{t.px.visit.severity}</Label>
-                  <Badge variant="outline">{formData.severity}</Badge>
+                {/* Classifications List */}
+                <div className="col-span-2 space-y-2">
+                  <Label className="text-muted-foreground">
+                    {language === 'ar' ? 'التصنيفات' : 'Classifications'}
+                  </Label>
+                  <div className="space-y-3">
+                    {formData.classifications.map((classification, index) => {
+                      const domain = complaintDomains.find(d => d.key === classification.domainKey);
+                      const type = complaintTypes.find(t => (t.key || t.typeKey) === classification.typeKey);
+                      const shiftLabels: Record<string, { ar: string; en: string }> = {
+                        DAY: { ar: 'داي شيفت', en: 'Day Shift' },
+                        NIGHT: { ar: 'نايت شيفت', en: 'Night Shift' },
+                        DAY_NIGHT: { ar: 'داي ونايت', en: 'Day & Night' },
+                        BOTH: { ar: 'الشفتين', en: 'Both Shifts' },
+                      };
+                      return (
+                        <Card key={classification.id} className="p-3">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1 space-y-2">
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-xs">
+                                  {index + 1}
+                                </Badge>
+                                <span className="font-medium">
+                                  {language === 'ar' 
+                                    ? (domain?.label_ar || domain?.labelAr || classification.domainKey)
+                                    : (domain?.label_en || domain?.labelEn || classification.domainKey)}
+                                </span>
+                                <span className="text-muted-foreground">-</span>
+                                <span>
+                                  {language === 'ar'
+                                    ? (type?.label_ar || type?.labelAr || type?.name || classification.typeKey)
+                                    : (type?.label_en || type?.labelEn || type?.name || classification.typeKey)}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-xs">
+                                  {language === 'ar' ? 'الخطورة' : 'Severity'}: {classification.severity}
+                                </Badge>
+                                <Badge variant="outline" className="text-xs">
+                                  {language === 'ar' ? 'الشيفت' : 'Shift'}: {language === 'ar' ? shiftLabels[classification.shift]?.ar : shiftLabels[classification.shift]?.en}
+                                </Badge>
+                              </div>
+                            </div>
+                          </div>
+                        </Card>
+                      );
+                    })}
+                  </div>
                 </div>
                 {formData.complainedStaffName && (
                   <div className="space-y-2">

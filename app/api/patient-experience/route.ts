@@ -35,9 +35,10 @@ export async function POST(request: NextRequest) {
       floorKey,
       departmentKey,
       roomKey,
-      domainKey,
-      typeKey,
-      severity, // English enum: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+      domainKey, // For backward compatibility
+      typeKey, // For backward compatibility
+      severity, // For backward compatibility - English enum: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+      classifications, // New: array of classifications
       status = 'PENDING', // English enum: 'PENDING' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED'
       // Free text fields (can be provided or will be auto-detected)
       detailsOriginal: providedDetailsOriginal,
@@ -67,12 +68,49 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!domainKey || !typeKey) {
+    // Support both old format (domainKey/typeKey) and new format (classifications array)
+    const hasClassifications = classifications && Array.isArray(classifications) && classifications.length > 0;
+    const hasOldFormat = domainKey && typeKey;
+    
+    if (!hasClassifications && !hasOldFormat) {
       return NextResponse.json(
-        { error: 'domainKey and typeKey are required' },
+        { error: 'Either classifications array or domainKey and typeKey are required' },
         { status: 400 }
       );
     }
+
+    // Normalize to classifications array format
+    const normalizedClassifications = hasClassifications 
+      ? classifications 
+      : [{ domainKey, typeKey, severity: severity || 'MEDIUM', shift: 'DAY' }];
+    
+    // Validate all classifications
+    for (const classification of normalizedClassifications) {
+      if (!classification.domainKey || !classification.typeKey) {
+        return NextResponse.json(
+          { error: 'Each classification must have domainKey and typeKey' },
+          { status: 400 }
+        );
+      }
+      if (!classification.severity || !['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].includes(classification.severity)) {
+        return NextResponse.json(
+          { error: 'Each classification must have a valid severity' },
+          { status: 400 }
+        );
+      }
+      if (!classification.shift || !['DAY', 'NIGHT', 'DAY_NIGHT', 'BOTH'].includes(classification.shift)) {
+        return NextResponse.json(
+          { error: 'Each classification must have a valid shift' },
+          { status: 400 }
+        );
+      }
+    }
+    
+    // Use first classification for backward compatibility
+    const primaryClassification = normalizedClassifications[0];
+    const effectiveDomainKey = primaryClassification.domainKey;
+    const effectiveTypeKey = primaryClassification.typeKey;
+    const effectiveSeverity = primaryClassification.severity;
 
     if (!patientFileNumber) {
       return NextResponse.json(
@@ -81,13 +119,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate severity is provided and is valid enum
-    if (!severity || !['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].includes(severity)) {
-      return NextResponse.json(
-        { error: 'severity must be one of: LOW, MEDIUM, HIGH, CRITICAL' },
-        { status: 400 }
-      );
-    }
+    // Severity is now validated in classifications loop above
 
     // Validate status is valid enum
     if (status && !['PENDING', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'].includes(status)) {
@@ -146,10 +178,17 @@ export async function POST(request: NextRequest) {
       floorKey, // Required
       departmentKey, // Required
       roomKey, // Required
-      domainKey, // Required (e.g., "NURSING", "MAINTENANCE")
-      typeKey, // Required (e.g., "COMPLAINT_NURSING", "PRAISE_MAINTENANCE")
-      // Severity and status as English enums
-      severity: severity as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL', // Required
+      // For backward compatibility, keep primary classification fields
+      domainKey: effectiveDomainKey, // Required (e.g., "NURSING", "MAINTENANCE")
+      typeKey: effectiveTypeKey, // Required (e.g., "COMPLAINT_NURSING", "PRAISE_MAINTENANCE")
+      severity: effectiveSeverity as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL', // Required
+      // New: Multiple classifications
+      classifications: normalizedClassifications.map(c => ({
+        domainKey: c.domainKey,
+        typeKey: c.typeKey,
+        severity: c.severity,
+        shift: c.shift,
+      })),
       status: status as 'PENDING' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED', // Default: 'PENDING'
       // Bilingual details (free text)
       detailsOriginal,
@@ -181,15 +220,20 @@ export async function POST(request: NextRequest) {
     await patientExperienceCollection.insertOne(record);
 
     // Auto-create case for unresolved complaints
-    const isComplaint = !typeKey.toUpperCase().includes('PRAISE');
+    const isComplaint = !effectiveTypeKey.toUpperCase().includes('PRAISE');
     const isResolved = status === 'RESOLVED' || status === 'CLOSED';
     const resolvedNow = body.resolvedNow === true;
 
     if (isComplaint && !isResolved && !resolvedNow) {
-      // Get SLA minutes for this severity
+      // Get SLA minutes for this severity (use highest severity from classifications)
+      const maxSeverity = normalizedClassifications.reduce((max, c) => {
+        const severityOrder = { 'LOW': 1, 'MEDIUM': 2, 'HIGH': 3, 'CRITICAL': 4 };
+        return severityOrder[c.severity] > severityOrder[max.severity] ? c : max;
+      }, normalizedClassifications[0]);
+      
       const slaRulesCollection = await getCollection('sla_rules');
       const slaRule = await slaRulesCollection.findOne({
-        severity: severity,
+        severity: maxSeverity.severity,
         active: true,
       });
 
@@ -203,7 +247,7 @@ export async function POST(request: NextRequest) {
         id: uuidv4(),
         visitId: record.id,
         status: 'OPEN',
-        severity: severity as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL',
+        severity: maxSeverity.severity as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL',
         slaMinutes,
         dueAt,
         escalationLevel: 0,
