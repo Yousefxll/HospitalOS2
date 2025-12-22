@@ -376,6 +376,28 @@ code {
     inset: auto !important;
   }
 
+  /* Ensure AlertDialog (Manage Complaint) is always centered vertically and horizontally */
+  [data-radix-alert-dialog-content],
+  [data-radix-alert-dialog-content][data-state="open"],
+  [data-radix-alert-dialog-content][data-state="closed"],
+  [data-radix-alert-dialog-content][data-state="open"][class*="translate"],
+  [data-radix-alert-dialog-content][data-state="closed"][class*="translate"] {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    right: auto !important;
+    bottom: auto !important;
+    transform: translate(-50%, -50%) !important;
+    max-height: 90vh !important;
+    max-width: 90vw !important;
+    margin: 0 !important;
+    margin-left: 0 !important;
+    margin-top: 0 !important;
+    margin-right: 0 !important;
+    margin-bottom: 0 !important;
+    inset: auto !important;
+  }
+
   /* Ensure Select dropdown has scrollable viewport */
   [data-radix-select-viewport] {
     max-height: 200px !important;
