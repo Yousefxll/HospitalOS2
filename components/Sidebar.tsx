@@ -458,7 +458,7 @@ export default function Sidebar({ onLinkClick, sidebarOpen, setSidebarOpen }: Si
     <>
       {/* Toggle Button - Desktop only */}
       {!isMobileView && (
-        <div className="p-2 border-b flex-shrink-0 relative">
+        <div className="pt-[11.5px] pb-[11.5px] px-2 border-b flex-shrink-0 relative">
           <Button
             variant="ghost"
             size="icon"
