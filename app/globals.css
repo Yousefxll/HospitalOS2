@@ -381,7 +381,9 @@ code {
   [data-radix-alert-dialog-content][data-state="open"],
   [data-radix-alert-dialog-content][data-state="closed"],
   [data-radix-alert-dialog-content][data-state="open"][class*="translate"],
-  [data-radix-alert-dialog-content][data-state="closed"][class*="translate"] {
+  [data-radix-alert-dialog-content][data-state="closed"][class*="translate"],
+  [data-radix-alert-dialog-content][class*="left"],
+  [data-radix-alert-dialog-content][class*="top"] {
     position: fixed !important;
     top: 50% !important;
     left: 50% !important;
@@ -396,6 +398,12 @@ code {
     margin-right: 0 !important;
     margin-bottom: 0 !important;
     inset: auto !important;
+  }
+  
+  /* Override any animation transforms that might interfere */
+  [data-radix-alert-dialog-content][data-state="open"],
+  [data-radix-alert-dialog-content][data-state="closed"] {
+    transform: translate(-50%, -50%) !important;
   }
 
   /* Ensure Select dropdown has scrollable viewport */
