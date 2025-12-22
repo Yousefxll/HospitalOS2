@@ -97,6 +97,7 @@ export default function PatientExperienceCasesPage() {
   const displayLanguage = isMounted ? language : 'en';
   const [showFilters, setShowFilters] = useState(false);
   const [cases, setCases] = useState<CaseRecord[]>([]);
+  const [totalCases, setTotalCases] = useState<number>(0);
   const [selectedCase, setSelectedCase] = useState<CaseRecord | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -157,6 +158,7 @@ export default function PatientExperienceCasesPage() {
       if (response.ok) {
         const data = await response.json();
         setCases(data.data || []);
+        setTotalCases(data.pagination?.total || data.data?.length || 0);
       } else {
         toast({
           title: 'Error',
@@ -518,9 +520,18 @@ export default function PatientExperienceCasesPage() {
       {/* Cases Table */}
       <Card>
         <CardHeader>
-          <CardTitle suppressHydrationWarning>{displayLanguage === 'ar' ? 'الحالات' : 'Cases'}</CardTitle>
+          <CardTitle suppressHydrationWarning>
+            {displayLanguage === 'ar' ? 'الحالات' : 'Cases'}
+            {totalCases > 0 && (
+              <span className="ml-2 text-base font-normal text-muted-foreground">
+                ({totalCases})
+              </span>
+            )}
+          </CardTitle>
           <CardDescription suppressHydrationWarning>
-            {displayLanguage === 'ar' ? `إجمالي ${cases.length} حالة` : `Total ${cases.length} cases`}
+            {displayLanguage === 'ar' 
+              ? `إجمالي ${totalCases} حالة${totalCases !== cases.length ? ` (${cases.length} معروضة)` : ''}` 
+              : `Total ${totalCases} cases${totalCases !== cases.length ? ` (${cases.length} displayed)` : ''}`}
           </CardDescription>
         </CardHeader>
         <CardContent>
