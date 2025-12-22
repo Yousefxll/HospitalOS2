@@ -2,7 +2,7 @@ import { MongoClient } from 'mongodb'
 import { v4 as uuidv4 } from 'uuid'
 import { NextResponse } from 'next/server'
 // Import env module (Next.js supports ES6 imports in .js files)
-import { env } from '../../lib/env'
+import { env } from '@/lib/env'
 
 // MongoDB connection
 let client
