@@ -64,10 +64,10 @@ export default function PatientExperienceVisitPage() {
   type Classification = {
     id: string;
     type: 'PRAISE' | 'COMPLAINT'; // New: praise or complaint
-    domainKey: string;
-    typeKey: string;
-    severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-    shift: 'NIGHT' | 'DAY' | 'DAY_NIGHT' | 'BOTH';
+    domainKey?: string; // Only for complaint
+    typeKey?: string; // Only for complaint
+    severity?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'; // Only for complaint
+    shift?: 'NIGHT' | 'DAY' | 'DAY_NIGHT' | 'BOTH'; // Only for complaint
     // For praise only
     satisfactionPercentage?: number;
     praiseText?: string;
@@ -454,6 +454,7 @@ export default function PatientExperienceVisitPage() {
       typeKey: '',
       severity: 'MEDIUM',
       shift: 'DAY',
+      // Praise fields are undefined by default
     };
     setFormData({
       ...formData,
@@ -1071,15 +1072,31 @@ export default function PatientExperienceVisitPage() {
                 <Select
                   value={classification.type}
                   onValueChange={(value) => {
-                    updateClassification(classification.id, { 
-                      type: value as 'PRAISE' | 'COMPLAINT',
-                      domainKey: '', // Reset when type changes
-                      typeKey: '',
-                      severity: 'MEDIUM',
-                      satisfactionPercentage: value === 'PRAISE' ? 50 : undefined,
-                      praiseText: value === 'PRAISE' ? '' : undefined,
-                      praisedStaffName: value === 'PRAISE' ? '' : undefined,
-                    });
+                    if (value === 'PRAISE') {
+                      // Reset complaint fields when switching to praise
+                      updateClassification(classification.id, { 
+                        type: 'PRAISE',
+                        domainKey: '',
+                        typeKey: '',
+                        severity: undefined, // Remove severity for praise
+                        shift: undefined, // Remove shift for praise
+                        satisfactionPercentage: 50,
+                        praiseText: '',
+                        praisedStaffName: '',
+                      });
+                    } else {
+                      // Reset praise fields when switching to complaint
+                      updateClassification(classification.id, { 
+                        type: 'COMPLAINT',
+                        domainKey: '',
+                        typeKey: '',
+                        severity: 'MEDIUM',
+                        shift: 'DAY',
+                        satisfactionPercentage: undefined,
+                        praiseText: undefined,
+                        praisedStaffName: undefined,
+                      });
+                    }
                   }}
                 >
                   <SelectTrigger>
