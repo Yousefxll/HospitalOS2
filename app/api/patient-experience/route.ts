@@ -82,35 +82,59 @@ export async function POST(request: NextRequest) {
     // Normalize to classifications array format
     const normalizedClassifications = hasClassifications 
       ? classifications 
-      : [{ domainKey, typeKey, severity: severity || 'MEDIUM', shift: 'DAY' }];
+      : [{ type: 'COMPLAINT', domainKey, typeKey, severity: severity || 'MEDIUM', shift: 'DAY' }];
     
     // Validate all classifications
     for (const classification of normalizedClassifications) {
-      if (!classification.domainKey || !classification.typeKey) {
+      if (!classification.type || !['PRAISE', 'COMPLAINT'].includes(classification.type)) {
         return NextResponse.json(
-          { error: 'Each classification must have domainKey and typeKey' },
+          { error: 'Each classification must have a valid type (PRAISE or COMPLAINT)' },
           { status: 400 }
         );
       }
-      if (!classification.severity || !['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].includes(classification.severity)) {
-        return NextResponse.json(
-          { error: 'Each classification must have a valid severity' },
-          { status: 400 }
-        );
-      }
-      if (!classification.shift || !['DAY', 'NIGHT', 'DAY_NIGHT', 'BOTH'].includes(classification.shift)) {
-        return NextResponse.json(
-          { error: 'Each classification must have a valid shift' },
-          { status: 400 }
-        );
+      
+      if (classification.type === 'PRAISE') {
+        // Validate praise fields
+        if (!classification.praiseText || !classification.praiseText.trim()) {
+          return NextResponse.json(
+            { error: 'Praise classification must have praiseText' },
+            { status: 400 }
+          );
+        }
+        if (classification.satisfactionPercentage === undefined || classification.satisfactionPercentage < 0 || classification.satisfactionPercentage > 100) {
+          return NextResponse.json(
+            { error: 'Praise classification must have valid satisfactionPercentage (0-100)' },
+            { status: 400 }
+          );
+        }
+      } else if (classification.type === 'COMPLAINT') {
+        // Validate complaint fields
+        if (!classification.domainKey || !classification.typeKey) {
+          return NextResponse.json(
+            { error: 'Complaint classification must have domainKey and typeKey' },
+            { status: 400 }
+          );
+        }
+        if (!classification.severity || !['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].includes(classification.severity)) {
+          return NextResponse.json(
+            { error: 'Complaint classification must have a valid severity' },
+            { status: 400 }
+          );
+        }
+        if (!classification.shift || !['DAY', 'NIGHT', 'DAY_NIGHT', 'BOTH'].includes(classification.shift)) {
+          return NextResponse.json(
+            { error: 'Complaint classification must have a valid shift' },
+            { status: 400 }
+          );
+        }
       }
     }
     
-    // Use first classification for backward compatibility
-    const primaryClassification = normalizedClassifications[0];
-    const effectiveDomainKey = primaryClassification.domainKey;
-    const effectiveTypeKey = primaryClassification.typeKey;
-    const effectiveSeverity = primaryClassification.severity;
+    // Use first complaint classification for backward compatibility (if exists)
+    const firstComplaint = normalizedClassifications.find(c => c.type === 'COMPLAINT');
+    const effectiveDomainKey = firstComplaint?.domainKey || '';
+    const effectiveTypeKey = firstComplaint?.typeKey || '';
+    const effectiveSeverity = firstComplaint?.severity || 'MEDIUM';
 
     if (!patientFileNumber) {
       return NextResponse.json(
@@ -184,10 +208,15 @@ export async function POST(request: NextRequest) {
       severity: effectiveSeverity as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL', // Required
       // New: Multiple classifications
       classifications: normalizedClassifications.map(c => ({
-        domainKey: c.domainKey,
-        typeKey: c.typeKey,
-        severity: c.severity,
-        shift: c.shift,
+        type: c.type,
+        domainKey: c.type === 'COMPLAINT' ? c.domainKey : undefined,
+        typeKey: c.type === 'COMPLAINT' ? c.typeKey : undefined,
+        severity: c.type === 'COMPLAINT' ? c.severity : undefined,
+        shift: c.type === 'COMPLAINT' ? c.shift : undefined,
+        // For praise
+        satisfactionPercentage: c.type === 'PRAISE' ? c.satisfactionPercentage : undefined,
+        praiseText: c.type === 'PRAISE' ? c.praiseText : undefined,
+        praisedStaffName: c.type === 'PRAISE' ? c.praisedStaffName : undefined,
       })),
       status: status as 'PENDING' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED', // Default: 'PENDING'
       // Bilingual details (free text)
@@ -219,17 +248,32 @@ export async function POST(request: NextRequest) {
 
     await patientExperienceCollection.insertOne(record);
 
-    // Auto-create case for unresolved complaints
-    const isComplaint = !effectiveTypeKey.toUpperCase().includes('PRAISE');
+    // Auto-create case for unresolved complaints (only if there are complaint classifications)
+    const hasComplaints = normalizedClassifications.some(c => c.type === 'COMPLAINT');
     const isResolved = status === 'RESOLVED' || status === 'CLOSED';
     const resolvedNow = body.resolvedNow === true;
 
-    if (isComplaint && !isResolved && !resolvedNow) {
+    if (hasComplaints && !isResolved && !resolvedNow) {
       // Get SLA minutes for this severity (use highest severity from classifications)
-      const maxSeverity = normalizedClassifications.reduce((max, c) => {
+      // Only consider complaint classifications for SLA
+      const complaintClassifications = normalizedClassifications.filter(c => c.type === 'COMPLAINT');
+      if (complaintClassifications.length === 0) {
+        // No complaints, skip case creation
+        return NextResponse.json({
+          success: true,
+          record: {
+            id: record.id,
+            staffName,
+            patientName,
+            visitDate: record.visitDate,
+          },
+        });
+      }
+      
+      const maxSeverity = complaintClassifications.reduce((max, c) => {
         const severityOrder = { 'LOW': 1, 'MEDIUM': 2, 'HIGH': 3, 'CRITICAL': 4 };
         return severityOrder[c.severity] > severityOrder[max.severity] ? c : max;
-      }, normalizedClassifications[0]);
+      }, complaintClassifications[0]);
       
       const slaRulesCollection = await getCollection('sla_rules');
       const slaRule = await slaRulesCollection.findOne({
