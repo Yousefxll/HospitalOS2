@@ -51,7 +51,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
   }
 
   return (
-    <header className="sticky top-0 z-40 h-16 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 flex items-center justify-between px-3 md:px-6 shadow-elevation-1">
+    <header className="sticky top-0 z-40 h-16 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 flex items-center justify-between pl-0 pr-10 md:pr-20 lg:pr-24 shadow-elevation-1">
       {/* Mobile Menu Button */}
       <div className="flex items-center gap-2">
         {isMobile && onMenuClick && (
@@ -71,13 +71,13 @@ export default function Header({ onMenuClick }: HeaderProps) {
 
       {/* Desktop Title */}
       {!isMobile && (
-        <div className="flex-1 flex justify-center">
+        <div className="flex-1 flex justify-center min-w-0">
           <h1 className="text-lg font-semibold">{t.header.hospitalOS}</h1>
         </div>
       )}
 
       {/* Right Side - Actions */}
-      <div className="flex items-center justify-end gap-2 md:gap-4">
+      <div className="flex items-center justify-end gap-2 md:gap-3 flex-shrink-0 ml-4 md:ml-6">
         <LanguageToggle />
         {user && !isMobile && (
           <div className="hidden md:flex items-center gap-2 text-sm px-3 py-1.5 rounded-md hover:bg-accent/50 transition-colors">
@@ -92,14 +92,14 @@ export default function Header({ onMenuClick }: HeaderProps) {
             </div>
           </div>
         )}
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={handleLogout} 
-          className="text-xs md:text-sm hover:bg-accent transition-colors"
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleLogout}
+          className="shrink-0 gap-2 px-3"
         >
-          {!isMobile && <LogOut className="h-4 w-4 mr-2" />}
-          {isMobile ? <LogOut className="h-4 w-4" /> : t.header.logout}
+          <LogOut className="h-4 w-4" />
+          <span className="whitespace-nowrap">{t.header.logout ?? "Logout"}</span>
         </Button>
       </div>
     </header>

@@ -681,9 +681,9 @@ export default function PatientExperienceSetupPage() {
                   <div className="space-y-4">
                     <div className="space-y-2">
                           <Label>{getTranslation('px.setup.existingFloors', 'الطوابق الموجودة', 'Existing Floors')}</Label>
-                      <div className="border rounded-lg divide-y">
+                      <div className="border rounded-xl divide-y">
                         {floors.map((floor) => (
-                          <div key={floor.id} className="p-3 flex items-center justify-between hover:bg-muted/50">
+                          <div key={floor.id} className="p-4 flex items-center justify-between hover:bg-muted/50">
                             <div>
                               <p className="font-medium">{language === 'ar' ? (floor.label_ar || floor.labelAr || `الطابق ${floor.number}`) : (floor.label_en || floor.labelEn || `Floor ${floor.number}`)}</p>
                               {floor.name && <p className="text-sm text-muted-foreground">{floor.name}</p>}
@@ -707,7 +707,7 @@ export default function PatientExperienceSetupPage() {
                     </div>
 
                     {(showAddForm || editingItem) && (
-                      <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+                      <div className="space-y-4 p-6 border rounded-xl bg-muted/30">
                         <div className="flex items-center justify-between">
                           <Label className="text-lg font-semibold">
                             {editingItem ? `${getTranslation('px.setup.editItem', 'تعديل', 'Edit')} ${getTranslation('px.setup.floor', 'طابق', 'Floor')}` : `${getTranslation('px.setup.addNew', 'إضافة جديد', 'Add New')} ${getTranslation('px.setup.floor', 'طابق', 'Floor')}`}
@@ -795,7 +795,7 @@ export default function PatientExperienceSetupPage() {
                       <>
                         <div className="space-y-2">
                           <Label>{getTranslation('px.setup.existingDepartments', 'الأقسام الموجودة', 'Existing Departments')} - {addDataForm.selectedFloorForDept}</Label>
-                          <div className="border rounded-lg divide-y">
+                          <div className="border rounded-xl divide-y">
                             {departments
                               .filter(d => {
                                 // Filter by floorKey if available, otherwise by floorId
@@ -814,7 +814,7 @@ export default function PatientExperienceSetupPage() {
                                   : (dept.label_en || dept.labelEn || dept.departmentName || fullDept?.name || dept.name);
                                 const typeLabel = deptType === 'OPD' ? 'OPD' : deptType === 'IPD' ? 'IPD' : 'OPD/IPD';
                                 return (
-                                  <div key={dept.id} className="p-3 flex items-center justify-between hover:bg-muted/50">
+                                  <div key={dept.id} className="p-4 flex items-center justify-between hover:bg-muted/50">
                                     <div>
                                       <p className="font-medium">[{typeLabel}] {deptName}</p>
                                     </div>
@@ -844,7 +844,7 @@ export default function PatientExperienceSetupPage() {
                         </div>
 
                         {(showAddForm || editingItem) && (
-                          <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+                          <div className="space-y-4 p-6 border rounded-xl bg-muted/30">
                             <div className="flex items-center justify-between">
                               <Label className="text-lg font-semibold">
                                 {editingItem ? `${getTranslation('px.setup.editItem', 'تعديل', 'Edit')} ${getTranslation('px.setup.department', 'قسم', 'Department')}` : `${getTranslation('px.setup.addNew', 'إضافة جديد', 'Add New')} ${getTranslation('px.setup.department', 'قسم', 'Department')}`}
@@ -1026,9 +1026,9 @@ export default function PatientExperienceSetupPage() {
                       <>
                         <div className="space-y-2">
                           <Label>{getTranslation('px.setup.existingClassifications', 'التصنيفات الموجودة', 'Existing Classifications')}</Label>
-                          <div className="border rounded-lg divide-y">
+                          <div className="border rounded-xl divide-y">
                             {availableComplaintTypes.map((type) => (
-                              <div key={type.id} className="p-3 flex items-center justify-between hover:bg-muted/50">
+                              <div key={type.id} className="p-4 flex items-center justify-between hover:bg-muted/50">
                                 <div>
                                   <p className="font-medium">{language === 'ar' ? (type.label_ar || type.labelAr || type.name) : (type.label_en || type.labelEn || type.name)}</p>
                                 </div>
@@ -1081,7 +1081,7 @@ export default function PatientExperienceSetupPage() {
                   <div className="space-y-4">
                     <div className="space-y-2">
                       <Label>{getTranslation('px.setup.existingNursingClassifications', 'التصنيفات الفرعية الموجودة', 'Existing Sub Classifications')}</Label>
-                      <div className="border rounded-lg divide-y">
+                      <div className="border rounded-xl divide-y">
                         {nursingComplaintTypes.map((type) => (
                           <div key={type.id} className="p-3 flex items-center justify-between hover:bg-muted/50">
                             <div>

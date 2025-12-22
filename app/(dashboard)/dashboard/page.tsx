@@ -286,10 +286,10 @@ export default function DashboardPage() {
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-center gap-2 mb-2">
                     <Icon className="h-5 w-5 text-muted-foreground transition-colors group-hover:text-primary" />
-                    <CardTitle className="text-sm font-medium">{kpi.title}</CardTitle>
+                    <CardTitle className="text-sm font-medium text-center">{kpi.title}</CardTitle>
                   </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="text-center">
                   <div className="text-3xl font-bold mb-2">{kpi.value}</div>
                   <p className="text-xs text-muted-foreground mb-2">{kpi.description}</p>
                   {kpi.trend && (
@@ -314,10 +314,10 @@ export default function DashboardPage() {
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-center gap-2 mb-2">
                     <Icon className="h-5 w-5 text-muted-foreground transition-colors group-hover:text-primary" />
-                    <CardTitle className="text-sm font-medium">{kpi.title}</CardTitle>
+                    <CardTitle className="text-sm font-medium text-center">{kpi.title}</CardTitle>
                   </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="text-center">
                   <div className="text-3xl font-bold mb-2">{kpi.value}</div>
                   <p className="text-xs text-muted-foreground mb-2">{kpi.description}</p>
                   {kpi.trend && (
@@ -342,10 +342,10 @@ export default function DashboardPage() {
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-center gap-2 mb-2">
                     <Icon className="h-5 w-5 text-muted-foreground transition-colors group-hover:text-primary" />
-                    <CardTitle className="text-sm font-medium">{kpi.title}</CardTitle>
+                    <CardTitle className="text-sm font-medium text-center">{kpi.title}</CardTitle>
                   </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="text-center">
                   <div className="text-3xl font-bold mb-2">{kpi.value}</div>
                   <p className="text-xs text-muted-foreground mb-2">{kpi.description}</p>
                   {kpi.trend && (
@@ -370,22 +370,22 @@ export default function DashboardPage() {
             <CardDescription>{t.dashboard.commonTasks}</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 gap-2">
-              <a href="/opd/clinic-daily-census" className="flex items-center gap-3 p-3 rounded-lg border hover:bg-accent transition-colors group">
+            <div className="grid grid-cols-1 gap-4">
+              <a href="/opd/clinic-daily-census" className="flex items-center gap-3 p-4 rounded-xl border hover:bg-accent transition-colors group">
                 <Activity className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
                 <div className="flex-1">
               <div className="font-medium">{t.dashboard.viewOPDCensus}</div>
               <div className="text-sm text-muted-foreground">{t.dashboard.dailyClinicActivity}</div>
                 </div>
             </a>
-              <a href="/ipd/live-beds" className="flex items-center gap-3 p-3 rounded-lg border hover:bg-accent transition-colors group">
+              <a href="/ipd/live-beds" className="flex items-center gap-3 p-4 rounded-xl border hover:bg-accent transition-colors group">
                 <Bed className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
                 <div className="flex-1">
               <div className="font-medium">{t.dashboard.liveBedStatus}</div>
               <div className="text-sm text-muted-foreground">{t.dashboard.realTimeOccupancy}</div>
                 </div>
             </a>
-              <a href="/equipment/checklist" className="flex items-center gap-3 p-3 rounded-lg border hover:bg-accent transition-colors group">
+              <a href="/equipment/checklist" className="flex items-center gap-3 p-4 rounded-xl border hover:bg-accent transition-colors group">
                 <PackagePlus className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
                 <div className="flex-1">
               <div className="font-medium">{t.dashboard.equipmentChecklist}</div>

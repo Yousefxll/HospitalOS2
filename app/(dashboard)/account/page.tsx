@@ -99,11 +99,11 @@ export default function AccountPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Profile Information */}
         <Card>
-          <CardHeader>
+          <CardHeader className="text-center">
             <CardTitle>{t.account.profileInformation}</CardTitle>
             <CardDescription>{t.account.accountDetails}</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 text-center">
             <div className="space-y-2">
               <Label>{t.users.name}</Label>
               <Input
@@ -130,7 +130,7 @@ export default function AccountPage() {
 
         {/* Change Password */}
         <Card>
-          <CardHeader>
+          <CardHeader className="text-center">
             <CardTitle>{t.account.changePassword}</CardTitle>
             <CardDescription>{t.account.updatePassword}</CardDescription>
           </CardHeader>

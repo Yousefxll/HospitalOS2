@@ -1125,7 +1125,7 @@ export default function PatientExperienceVisitPage() {
 
               {/* Praise Section */}
               {classification.type === 'PRAISE' && (
-                <div className="space-y-4 p-4 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
+                <div className="space-y-4 p-6 bg-green-50 dark:bg-green-950 rounded-xl border border-green-200 dark:border-green-800">
                   <div className="space-y-2">
                     <Label>{language === 'ar' ? 'مدى الرضا' : 'Satisfaction Level'} *</Label>
                     <div className="px-2">

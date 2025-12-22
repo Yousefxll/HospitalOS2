@@ -578,10 +578,10 @@ export default function PatientExperienceAnalyticsPage() {
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-center gap-2 mb-2">
                   <Users className="h-5 w-5 text-muted-foreground" />
-                  <CardTitle suppressHydrationWarning className="text-sm font-medium">{displayLanguage === 'ar' ? 'إجمالي الزيارات' : 'Total Visits'}</CardTitle>
+                  <CardTitle suppressHydrationWarning className="text-sm font-medium text-center">{displayLanguage === 'ar' ? 'إجمالي الزيارات' : 'Total Visits'}</CardTitle>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="text-center">
                 <div className="text-3xl font-bold mb-2">{summary.totalVisits}</div>
                 <p suppressHydrationWarning className="text-xs text-muted-foreground">
                   {summary.totalComplaints} {displayLanguage === 'ar' ? 'شكوى' : 'complaints'} • {summary.totalPraise} {displayLanguage === 'ar' ? 'مديح' : 'praise'}
@@ -593,10 +593,10 @@ export default function PatientExperienceAnalyticsPage() {
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-center gap-2 mb-2">
                   <Heart className="h-5 w-5 text-muted-foreground" />
-                  <CardTitle suppressHydrationWarning className="text-sm font-medium">{displayLanguage === 'ar' ? 'متوسط الرضا' : 'Avg Satisfaction'}</CardTitle>
+                  <CardTitle suppressHydrationWarning className="text-sm font-medium text-center">{displayLanguage === 'ar' ? 'متوسط الرضا' : 'Avg Satisfaction'}</CardTitle>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="text-center">
                 <div className="text-3xl font-bold mb-2">{summary.avgSatisfaction.toFixed(1)}%</div>
                 <p suppressHydrationWarning className="text-xs text-muted-foreground">
                   {displayLanguage === 'ar' ? 'نسبة المدائح' : 'Praise ratio'}
@@ -608,10 +608,10 @@ export default function PatientExperienceAnalyticsPage() {
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-center gap-2 mb-2">
                   <AlertCircle className="h-5 w-5 text-muted-foreground" />
-                  <CardTitle suppressHydrationWarning className="text-sm font-medium">{displayLanguage === 'ar' ? 'الحالات المفتوحة' : 'Open Cases'}</CardTitle>
+                  <CardTitle suppressHydrationWarning className="text-sm font-medium text-center">{displayLanguage === 'ar' ? 'الحالات المفتوحة' : 'Open Cases'}</CardTitle>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="text-center">
                 <div className="text-3xl font-bold mb-2">{summary.openCases}</div>
                 <p suppressHydrationWarning className="text-xs text-muted-foreground">
                   {summary.overdueCases} {displayLanguage === 'ar' ? 'متأخرة' : 'overdue'} • {summary.totalCases} {displayLanguage === 'ar' ? 'إجمالي' : 'total'}
@@ -623,10 +623,10 @@ export default function PatientExperienceAnalyticsPage() {
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-center gap-2 mb-2">
                   <Clock className="h-5 w-5 text-muted-foreground" />
-                  <CardTitle suppressHydrationWarning className="text-sm font-medium">{displayLanguage === 'ar' ? 'متوسط وقت الحل' : 'Avg Resolution'}</CardTitle>
+                  <CardTitle suppressHydrationWarning className="text-sm font-medium text-center">{displayLanguage === 'ar' ? 'متوسط وقت الحل' : 'Avg Resolution'}</CardTitle>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="text-center">
                 <div className="text-3xl font-bold mb-2">{summary.avgResolutionMinutes.toFixed(0)}</div>
                 <p suppressHydrationWarning className="text-xs text-muted-foreground">
                   {displayLanguage === 'ar' ? 'دقيقة' : 'minutes'} • {summary.slaBreachPercent.toFixed(1)}% {displayLanguage === 'ar' ? 'انتهاك SLA' : 'SLA breach'}

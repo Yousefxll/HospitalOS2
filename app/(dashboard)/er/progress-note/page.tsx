@@ -189,7 +189,7 @@ function ERProgressNotePageContent() {
               {patientAlerts.map((alert) => (
                 <div
                   key={alert.id}
-                  className={`p-3 rounded-lg border ${getAlertColor(alert.severity)}`}
+                  className={`p-4 rounded-xl border ${getAlertColor(alert.severity)}`}
                 >
                   <div className="flex items-start gap-2">
                     <span className="text-xl">{getAlertIcon(alert.type)}</span>

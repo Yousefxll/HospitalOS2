@@ -7,7 +7,7 @@ import { QueryProvider } from '@/components/providers/QueryProvider';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'MedFlow - Hospital Operations Platform',
+  title: 'Hospital Operations System',
   description: 'Comprehensive hospital operations management system',
 };
 

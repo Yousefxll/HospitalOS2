@@ -178,45 +178,53 @@ export default function OPDDashboardPage() {
       {/* KPI Cards */}
       <div className="flex flex-row gap-4 w-full">
         <Card className="flex-1 min-w-0">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{(t.opd as any).totalVisits}</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Activity className="h-5 w-5 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium text-center">{(t.opd as any).totalVisits}</CardTitle>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalVisits}</div>
+          <CardContent className="text-center">
+            <div className="text-2xl font-bold mb-2">{stats.totalVisits}</div>
             <p className="text-xs text-muted-foreground">{t.dashboard.forSelectedPeriod}</p>
           </CardContent>
         </Card>
 
         <Card className="flex-1 min-w-0">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{(t.opd as any).newPatients}</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Users className="h-5 w-5 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium text-center">{(t.opd as any).newPatients}</CardTitle>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.newPatients}</div>
+          <CardContent className="text-center">
+            <div className="text-2xl font-bold mb-2">{stats.newPatients}</div>
             <p className="text-xs text-muted-foreground">{(t.opd as any).firstTimeVisits}</p>
           </CardContent>
         </Card>
 
         <Card className="flex-1 min-w-0">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{(t.opd as any).followUpVisits}</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <TrendingUp className="h-5 w-5 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium text-center">{(t.opd as any).followUpVisits}</CardTitle>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.followUpPatients}</div>
+          <CardContent className="text-center">
+            <div className="text-2xl font-bold mb-2">{stats.followUpPatients}</div>
             <p className="text-xs text-muted-foreground">{(t.opd as any).returningPatients}</p>
           </CardContent>
         </Card>
 
         <Card className="flex-1 min-w-0">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{(t.opd as any).avgUtilization}</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Calendar className="h-5 w-5 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium text-center">{(t.opd as any).avgUtilization}</CardTitle>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.avgUtilization}%</div>
+          <CardContent className="text-center">
+            <div className="text-2xl font-bold mb-2">{stats.avgUtilization}%</div>
             <p className="text-xs text-muted-foreground">{(t.opd as any).clinicCapacityUsage}</p>
           </CardContent>
         </Card>
@@ -306,7 +314,7 @@ export default function OPDDashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <Link href="/opd/clinic-daily-census">
           <Card className="hover:bg-accent transition-colors cursor-pointer">
-            <CardContent className="pt-6">
+            <CardContent className="pt-6 text-center">
               <h3 className="font-semibold mb-2">{(t.opd as any).dailyCensus}</h3>
               <p className="text-sm text-muted-foreground">
                 {(t.opd as any).viewPatientCountsPerClinic}
@@ -317,7 +325,7 @@ export default function OPDDashboardPage() {
 
         <Link href="/opd/clinic-utilization">
           <Card className="hover:bg-accent transition-colors cursor-pointer">
-            <CardContent className="pt-6">
+            <CardContent className="pt-6 text-center">
               <h3 className="font-semibold mb-2">{(t.opd as any).clinicUtilization}</h3>
               <p className="text-sm text-muted-foreground">
                 {(t.opd as any).analyzeClinicCapacityUsage}
@@ -328,7 +336,7 @@ export default function OPDDashboardPage() {
 
         <Link href="/opd/doctors-view">
           <Card className="hover:bg-accent transition-colors cursor-pointer">
-            <CardContent className="pt-6">
+            <CardContent className="pt-6 text-center">
               <h3 className="font-semibold mb-2">{(t.opd as any).doctorsView}</h3>
               <p className="text-sm text-muted-foreground">
                 {(t.opd as any).doctorSchedulesWorkload}

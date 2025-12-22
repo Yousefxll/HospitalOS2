@@ -852,9 +852,9 @@ export default function PatientExperiencePage() {
                     {/* قائمة الطوابق الموجودة */}
                     <div className="space-y-2">
                       <Label>{t('px.setup.existingFloors', language)}</Label>
-                      <div className="border rounded-lg divide-y">
+                      <div className="border rounded-xl divide-y">
                         {floors.map((floor) => (
-                          <div key={floor.id} className="p-3 flex items-center justify-between hover:bg-muted/50">
+                          <div key={floor.id} className="p-4 flex items-center justify-between hover:bg-muted/50">
                             <div>
                               <p className="font-medium">{language === 'ar' ? (floor.labelAr || `الطابق ${floor.number}`) : (floor.labelEn || `Floor ${floor.number}`)}</p>
                               {floor.name && <p className="text-sm text-muted-foreground">{floor.name}</p>}
@@ -888,7 +888,7 @@ export default function PatientExperiencePage() {
 
                     {/* نموذج الإضافة/التعديل */}
                     {(showAddForm || editingItem) && (
-                      <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+                      <div className="space-y-4 p-6 border rounded-xl bg-muted/30">
                         <div className="flex items-center justify-between">
                           <Label className="text-lg font-semibold">
                             {editingItem ? `${t('px.setup.editItem', language)} ${t('px.setup.floor', language)}` : `${t('px.setup.addNew', language)} ${t('px.setup.floor', language)}`}
@@ -986,11 +986,11 @@ export default function PatientExperiencePage() {
                         {/* قائمة الأقسام الموجودة في الطابق */}
                         <div className="space-y-2">
                           <Label>{t('px.setup.existingDepartments', language)} - {addDataForm.selectedFloorForDept}</Label>
-                          <div className="border rounded-lg divide-y">
+                          <div className="border rounded-xl divide-y">
                             {departments
                               .filter(d => d.floorId === addDataForm.selectedFloorForDept)
                               .map((dept) => (
-                                <div key={dept.id} className="p-3 flex items-center justify-between hover:bg-muted/50">
+                                <div key={dept.id} className="p-4 flex items-center justify-between hover:bg-muted/50">
                                   <div>
                                     <p className="font-medium">{language === 'ar' ? (dept.labelAr || dept.departmentName) : (dept.labelEn || dept.departmentName)}</p>
                                   </div>
@@ -1023,7 +1023,7 @@ export default function PatientExperiencePage() {
 
                         {/* نموذج الإضافة/التعديل */}
                         {(showAddForm || editingItem) && (
-                          <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+                          <div className="space-y-4 p-6 border rounded-xl bg-muted/30">
                             <div className="flex items-center justify-between">
                               <Label className="text-lg font-semibold">
                                 {editingItem ? `${t('px.setup.editItem', language)} ${t('px.setup.department', language)}` : `${t('px.setup.addNew', language)} ${t('px.setup.department', language)}`}
@@ -1246,7 +1246,7 @@ export default function PatientExperiencePage() {
                         
                         {/* إذا اختار تصنيف موجود */}
                         {addDataForm.selectedComplaintType && addDataForm.selectedComplaintType !== 'new' && (
-                          <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                          <div className="p-6 bg-green-50 border border-green-200 rounded-xl">
                             <p className="text-sm text-green-800 font-medium">
                               ✓ تم اختيار التصنيف: {availableComplaintTypes.find(t => t.id === addDataForm.selectedComplaintType)?.name}
                             </p>
