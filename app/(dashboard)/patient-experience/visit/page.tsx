@@ -479,10 +479,20 @@ export default function PatientExperienceVisitPage() {
   }
 
   async function handleSubmit() {
+    // Validate all steps first
+    if (!validateStep('staff')) return;
+    if (!validateStep('visit')) return;
+    if (!validateStep('patient')) return;
+    if (!validateStep('complaint')) return;
     if (!validateStep('details')) return;
 
     setIsLoading(true);
     try {
+      console.log('Submitting form data:', {
+        classifications: formData.classifications,
+        complaintText: formData.complaintText,
+      });
+      
       // Submit ONLY canonical keys (no Arabic strings in structured fields)
       const response = await fetch('/api/patient-experience', {
         method: 'POST',
@@ -537,29 +547,33 @@ export default function PatientExperienceVisitPage() {
       });
 
       const data = await response.json();
+      console.log('API Response:', { status: response.status, data });
 
       if (response.ok) {
         toast({
-          title: t.px.visit.success,
-          description: t.px.visit.successMessage,
+          title: language === 'ar' ? 'نجح' : 'Success',
+          description: language === 'ar' ? 'تم حفظ البيانات بنجاح' : 'Data saved successfully',
         });
         // Store visit data for case closure option
         setCreatedVisitData(data.record);
         // Check if it's a complaint (not praise) to show closure option
-        const isComplaint = !formData.typeKey.toUpperCase().includes('PRAISE');
-        if (isComplaint && data.caseId) {
+        const hasComplaints = formData.classifications.some(c => c.type === 'COMPLAINT');
+        if (hasComplaints && data.caseId) {
           setCreatedCaseId(data.caseId);
           setShowCaseClosureDialog(true);
         } else {
           setIsSubmitted(true);
         }
       } else {
-        throw new Error(data.error || 'فشل في حفظ البيانات');
+        const errorMessage = data.error || data.message || (language === 'ar' ? 'فشل في حفظ البيانات' : 'Failed to save data');
+        console.error('API Error:', errorMessage, data);
+        throw new Error(errorMessage);
       }
     } catch (error: any) {
+      console.error('Submit Error:', error);
       toast({
-        title: 'خطأ في الحفظ',
-        description: error.message || 'فشل في حفظ البيانات',
+        title: language === 'ar' ? 'خطأ في الحفظ' : 'Error Saving',
+        description: error.message || (language === 'ar' ? 'فشل في حفظ البيانات' : 'Failed to save data'),
         variant: 'destructive',
       });
     } finally {
