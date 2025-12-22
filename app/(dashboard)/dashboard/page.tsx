@@ -374,24 +374,24 @@ export default function DashboardPage() {
               <a href="/opd/clinic-daily-census" className="flex items-center gap-3 p-3 rounded-lg border hover:bg-accent transition-colors group">
                 <Activity className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
                 <div className="flex-1">
-                  <div className="font-medium">{t.dashboard.viewOPDCensus}</div>
-                  <div className="text-sm text-muted-foreground">{t.dashboard.dailyClinicActivity}</div>
+              <div className="font-medium">{t.dashboard.viewOPDCensus}</div>
+              <div className="text-sm text-muted-foreground">{t.dashboard.dailyClinicActivity}</div>
                 </div>
-              </a>
+            </a>
               <a href="/ipd/live-beds" className="flex items-center gap-3 p-3 rounded-lg border hover:bg-accent transition-colors group">
                 <Bed className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
                 <div className="flex-1">
-                  <div className="font-medium">{t.dashboard.liveBedStatus}</div>
-                  <div className="text-sm text-muted-foreground">{t.dashboard.realTimeOccupancy}</div>
+              <div className="font-medium">{t.dashboard.liveBedStatus}</div>
+              <div className="text-sm text-muted-foreground">{t.dashboard.realTimeOccupancy}</div>
                 </div>
-              </a>
+            </a>
               <a href="/equipment/checklist" className="flex items-center gap-3 p-3 rounded-lg border hover:bg-accent transition-colors group">
                 <PackagePlus className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
                 <div className="flex-1">
-                  <div className="font-medium">{t.dashboard.equipmentChecklist}</div>
-                  <div className="text-sm text-muted-foreground">{t.dashboard.dailyEquipmentChecks}</div>
+              <div className="font-medium">{t.dashboard.equipmentChecklist}</div>
+              <div className="text-sm text-muted-foreground">{t.dashboard.dailyEquipmentChecks}</div>
                 </div>
-              </a>
+            </a>
             </div>
           </CardContent>
         </Card>

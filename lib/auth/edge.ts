@@ -5,7 +5,14 @@
 
 import { jwtVerify } from 'jose';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'default-secret-key';
+// Edge runtime compatible: read env at function call time
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_SECRET environment variable is required');
+  }
+  return secret;
+}
 
 export interface TokenPayload {
   userId: string;
@@ -19,7 +26,7 @@ export interface TokenPayload {
  */
 export async function verifyTokenEdge(token: string): Promise<TokenPayload | null> {
   try {
-    const secret = new TextEncoder().encode(JWT_SECRET);
+    const secret = new TextEncoder().encode(getJwtSecret());
     const { payload } = await jwtVerify(token, secret);
     return payload as unknown as TokenPayload;
   } catch (error) {

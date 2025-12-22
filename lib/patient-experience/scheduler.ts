@@ -12,6 +12,7 @@
  */
 
 import { runPxSla } from './runSla';
+import { env } from '../env';
 
 let cronJob: any = null;
 
@@ -20,7 +21,7 @@ let cronJob: any = null;
  * 
  * @param enabled - Whether to enable the scheduler (default: only in production)
  */
-export function startPxSlaScheduler(enabled: boolean = process.env.NODE_ENV === 'production') {
+export function startPxSlaScheduler(enabled: boolean = env.isProd) {
   // Only run if enabled and not already running
   if (!enabled || cronJob) {
     return;

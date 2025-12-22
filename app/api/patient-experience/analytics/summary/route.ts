@@ -81,11 +81,13 @@ export async function GET(request: NextRequest) {
       return typeKey.includes('PRAISE') || domainKey.includes('PRAISE');
     }).length;
 
-    // Count complaints (everything else)
+    // Count complaints (everything else, excluding praises and satisfaction visits)
     const totalComplaints = visits.filter(v => {
       const typeKey = (v.typeKey || '').toUpperCase();
       const domainKey = (v.domainKey || '').toUpperCase();
-      return !typeKey.includes('PRAISE') && !domainKey.includes('PRAISE');
+      const isPraise = typeKey.includes('PRAISE') || domainKey.includes('PRAISE');
+      const isSatisfaction = domainKey === 'SATISFACTION' || typeKey === 'PATIENT_SATISFACTION';
+      return !isPraise && !isSatisfaction;
     }).length;
 
     // Average satisfaction (praises / total visits * 100)

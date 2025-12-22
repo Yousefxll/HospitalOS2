@@ -5,6 +5,7 @@ import { comparePassword, generateToken } from '@/lib/auth';
 import { createSession, deleteUserSessions } from '@/lib/auth/sessions';
 import { User } from '@/lib/models/User';
 import { serialize } from 'cookie';
+import { env } from '@/lib/env';
 
 export const dynamic = 'force-dynamic';
 
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest) {
       'Set-Cookie',
       serialize('auth-token', token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: env.isProd,
         sameSite: 'lax',
         maxAge: 7 * 24 * 60 * 60, // 7 days
         path: '/',
@@ -103,7 +104,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { 
         error: 'Internal server error',
-        message: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+        message: env.isDev ? errorMessage : undefined
       },
       { status: 500 }
     );

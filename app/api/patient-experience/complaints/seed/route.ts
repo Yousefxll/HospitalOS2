@@ -3,6 +3,7 @@ import { requireRoleAsync } from '@/lib/auth/requireRole';
 import { getCollection } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import { pxComplaintTaxonomySeed } from '@/lib/seed/pxComplaintTaxonomySeed';
+import { env } from '@/lib/env';
 
 /**
  * POST /api/patient-experience/complaints/seed
@@ -285,7 +286,7 @@ export async function POST(request: NextRequest) {
       {
         error: 'Failed to import seed data',
         details: error.message,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+        stack: env.isDev ? error.stack : undefined,
       },
       { status: 500 }
     );

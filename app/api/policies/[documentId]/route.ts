@@ -3,8 +3,9 @@ import { getCollection } from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
 import fs from 'fs';
 import path from 'path';
+import { env } from '@/lib/env';
 
-const POLICIES_DIR = process.env.POLICIES_DIR || path.join(process.cwd(), 'storage', 'policies');
+const POLICIES_DIR = env.POLICIES_DIR;
 
 export async function DELETE(
   request: NextRequest,

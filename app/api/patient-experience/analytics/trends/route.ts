@@ -115,16 +115,18 @@ export async function GET(request: NextRequest) {
 
       const entry = timeSeriesMap.get(bucketKey)!;
       
-      // Check if it's a praise or complaint
+      // Check if it's a praise, satisfaction, or complaint
       const typeKey = (visit.typeKey || '').toUpperCase();
       const domainKey = (visit.domainKey || '').toUpperCase();
       const isPraise = typeKey.includes('PRAISE') || domainKey.includes('PRAISE');
+      const isSatisfaction = domainKey === 'SATISFACTION' || typeKey === 'PATIENT_SATISFACTION';
       
       if (isPraise) {
         entry.praise++;
-      } else {
+      } else if (!isSatisfaction) {
         entry.complaints++;
       }
+      // Satisfaction visits are not counted as complaints
     }
 
     // Process cases

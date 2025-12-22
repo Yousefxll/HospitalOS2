@@ -67,12 +67,13 @@ export async function GET(request: NextRequest) {
       return typeKey.includes('PRAISE') || domainKey.includes('PRAISE');
     }).length;
 
-    // Count complaints (everything else, or explicit complaint indicators)
+    // Count complaints (everything else, excluding praises and satisfaction visits)
     const complaints = records.filter(r => {
       const typeKey = (r.typeKey || '').toUpperCase();
       const domainKey = (r.domainKey || '').toUpperCase();
       const isPraise = typeKey.includes('PRAISE') || domainKey.includes('PRAISE');
-      return !isPraise;
+      const isSatisfaction = domainKey === 'SATISFACTION' || typeKey === 'PATIENT_SATISFACTION';
+      return !isPraise && !isSatisfaction;
     }).length;
 
     // Average satisfaction (if satisfactionScore exists in records)
@@ -84,7 +85,8 @@ export async function GET(request: NextRequest) {
       const typeKey = (r.typeKey || '').toUpperCase();
       const domainKey = (r.domainKey || '').toUpperCase();
       const isPraise = typeKey.includes('PRAISE') || domainKey.includes('PRAISE');
-      const isComplaint = !isPraise;
+      const isSatisfaction = domainKey === 'SATISFACTION' || typeKey === 'PATIENT_SATISFACTION';
+      const isComplaint = !isPraise && !isSatisfaction;
       const status = r.status || 'PENDING';
       return isComplaint && (status === 'PENDING' || status === 'IN_PROGRESS');
     }).length;

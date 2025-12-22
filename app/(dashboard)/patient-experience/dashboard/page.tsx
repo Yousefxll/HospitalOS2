@@ -31,6 +31,7 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
+  X,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useLang } from '@/hooks/use-lang';
@@ -131,6 +132,7 @@ export default function PatientExperienceDashboardPage() {
   const [departments, setDepartments] = useState<any[]>([]);
   const [allDepartments, setAllDepartments] = useState<any[]>([]);
   const [rooms, setRooms] = useState<any[]>([]);
+  const [isClosingVisit, setIsClosingVisit] = useState<string | null>(null);
 
   useEffect(() => {
     loadFloors();
@@ -251,6 +253,47 @@ export default function PatientExperienceDashboardPage() {
       });
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function handleCloseVisit(visitId: string) {
+    const confirmMessage = displayLanguage === 'ar'
+      ? 'هل تريد إغلاق هذه الزيارة؟'
+      : 'Do you want to close this visit?';
+    
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    setIsClosingVisit(visitId);
+    try {
+      const response = await fetch('/api/patient-experience', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: visitId,
+          status: 'CLOSED',
+        }),
+      });
+
+      if (response.ok) {
+        toast({
+          title: displayLanguage === 'ar' ? 'نجح' : 'Success',
+          description: displayLanguage === 'ar' ? 'تم إغلاق الزيارة بنجاح' : 'Visit closed successfully',
+        });
+        fetchData();
+      } else {
+        const data = await response.json();
+        throw new Error(data.error || 'Close failed');
+      }
+    } catch (error: any) {
+      toast({
+        title: displayLanguage === 'ar' ? 'خطأ' : 'Error',
+        description: error.message || (displayLanguage === 'ar' ? 'فشل في إغلاق الزيارة' : 'Failed to close visit'),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsClosingVisit(null);
     }
   }
 
@@ -557,6 +600,7 @@ export default function PatientExperienceDashboardPage() {
                         <TableHead suppressHydrationWarning>{displayLanguage === 'ar' ? 'الشدة' : 'Severity'}</TableHead>
                         <TableHead suppressHydrationWarning>{displayLanguage === 'ar' ? 'الحالة' : 'Status'}</TableHead>
                         <TableHead suppressHydrationWarning>{displayLanguage === 'ar' ? 'التفاصيل' : 'Details'}</TableHead>
+                        <TableHead suppressHydrationWarning>{displayLanguage === 'ar' ? 'إجراءات' : 'Actions'}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -595,7 +639,7 @@ export default function PatientExperienceDashboardPage() {
                               </div>
                             ) : (
                               visit.domainLabel && visit.typeLabel
-                                ? `${visit.domainLabel} - ${visit.typeLabel}`
+                              ? `${visit.domainLabel} - ${visit.typeLabel}`
                                 : visit.typeKey || '-'
                             )}
                           </TableCell>
@@ -613,12 +657,12 @@ export default function PatientExperienceDashboardPage() {
                                 ))}
                               </div>
                             ) : (
-                              <Badge 
-                                className={`${getSeverityColor(visit.severity)} border-0`}
-                                style={{ backgroundColor: getSeverityColorValue(visit.severity), color: 'white' }}
-                              >
-                                {visit.severity}
-                              </Badge>
+                            <Badge 
+                              className={`${getSeverityColor(visit.severity)} border-0`}
+                              style={{ backgroundColor: getSeverityColorValue(visit.severity), color: 'white' }}
+                            >
+                              {visit.severity}
+                            </Badge>
                             )}
                           </TableCell>
                           <TableCell>
@@ -631,6 +675,26 @@ export default function PatientExperienceDashboardPage() {
                           </TableCell>
                           <TableCell className="max-w-md truncate">
                             {visit.detailsEn || '-'}
+                          </TableCell>
+                          <TableCell>
+                            {visit.status === 'PENDING' && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleCloseVisit(visit.id)}
+                                disabled={isClosingVisit === visit.id}
+                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              >
+                                {isClosingVisit === visit.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <>
+                                    <X className="h-4 w-4 mr-1" />
+                                    {displayLanguage === 'ar' ? 'إغلاق' : 'Close'}
+                                  </>
+                                )}
+                              </Button>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}

@@ -1177,66 +1177,66 @@ export default function PatientExperienceVisitPage() {
                       value={classification.domainKey}
                       onValueChange={(value) => {
                         updateClassification(classification.id, { 
-                          domainKey: value,
-                          typeKey: '' // Reset type when domain changes
-                        });
-                        loadComplaintTypesByDomain(value);
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder={language === 'ar' ? 'اختر المجال' : 'Select domain'} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {complaintDomains.map((domain) => (
-                          <SelectItem key={domain.id} value={domain.key}>
-                            {language === 'ar' ? (domain.label_ar || domain.labelAr) : (domain.label_en || domain.labelEn)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
+                      domainKey: value,
+                      typeKey: '' // Reset type when domain changes
+                    });
+                    loadComplaintTypesByDomain(value);
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={language === 'ar' ? 'اختر المجال' : 'Select domain'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {complaintDomains.map((domain) => (
+                      <SelectItem key={domain.id} value={domain.key}>
+                        {language === 'ar' ? (domain.label_ar || domain.labelAr) : (domain.label_en || domain.labelEn)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
                   {classification.domainKey && (
-                    <div className="space-y-2">
+                <div className="space-y-2">
                       <Label>{t.px.visit.classification} *</Label>
-                      <Select
+                  <Select
                         value={classification.typeKey}
                         onValueChange={(value) => updateClassification(classification.id, { typeKey: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder={language === 'ar' ? 'اختر التصنيف' : 'Select classification'} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {complaintTypes
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={language === 'ar' ? 'اختر التصنيف' : 'Select classification'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {complaintTypes
                             .filter(type => type.domainKey === classification.domainKey)
-                            .map((type) => (
-                              <SelectItem key={type.id} value={type.key || type.typeKey}>
-                                {language === 'ar' ? (type.label_ar || type.labelAr || type.name) : (type.label_en || type.labelEn || type.name)}
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
+                        .map((type) => (
+                          <SelectItem key={type.id} value={type.key || type.typeKey}>
+                            {language === 'ar' ? (type.label_ar || type.labelAr || type.name) : (type.label_en || type.labelEn || type.name)}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
+              <div className="space-y-2">
                       <Label>{t.px.visit.severity} *</Label>
-                      <Select
+                <Select
                         value={classification.severity}
                         onValueChange={(value) => updateClassification(classification.id, { severity: value as any })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder={language === 'ar' ? 'اختر مستوى الخطورة' : 'Select severity'} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="LOW">{language === 'ar' ? 'منخفض' : 'Low'}</SelectItem>
-                          <SelectItem value="MEDIUM">{language === 'ar' ? 'متوسط' : 'Medium'}</SelectItem>
-                          <SelectItem value="HIGH">{language === 'ar' ? 'عالي' : 'High'}</SelectItem>
-                          <SelectItem value="CRITICAL">{language === 'ar' ? 'حرج' : 'Critical'}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={language === 'ar' ? 'اختر مستوى الخطورة' : 'Select severity'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="LOW">{language === 'ar' ? 'منخفض' : 'Low'}</SelectItem>
+                    <SelectItem value="MEDIUM">{language === 'ar' ? 'متوسط' : 'Medium'}</SelectItem>
+                    <SelectItem value="HIGH">{language === 'ar' ? 'عالي' : 'High'}</SelectItem>
+                    <SelectItem value="CRITICAL">{language === 'ar' ? 'حرج' : 'Critical'}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
                     <div className="space-y-2">
                       <Label>{language === 'ar' ? 'الشيفت' : 'Shift'} *</Label>
@@ -1254,7 +1254,7 @@ export default function PatientExperienceVisitPage() {
                           <SelectItem value="BOTH">{language === 'ar' ? 'الشفتين' : 'Both Shifts'}</SelectItem>
                         </SelectContent>
                       </Select>
-                    </div>
+            </div>
                   </div>
                 </>
               )}
@@ -1382,8 +1382,8 @@ export default function PatientExperienceVisitPage() {
                                   </Badge>
                                   <Badge variant="outline" className="text-xs bg-green-100 text-green-800">
                                     {language === 'ar' ? 'شكر' : 'Praise'}
-                                  </Badge>
-                                </div>
+                  </Badge>
+                </div>
                                 <div className="space-y-1">
                                   <div className="text-sm">
                                     <span className="font-medium">{language === 'ar' ? 'مدى الرضا' : 'Satisfaction'}: </span>

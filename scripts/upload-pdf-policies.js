@@ -5,8 +5,14 @@ const pdfParse = require('pdf-parse');
 const { v4: uuidv4 } = require('uuid');
 
 // MongoDB connection
-const MONGO_URL = process.env.MONGO_URL || 'mongodb+srv://Hospitalos_admin:ab9VtwZxaGiftB0O@hospitalos-cluster.hqi1xpu.mongodb.net/hospital_ops?retryWrites=true&w=majority&appName=HospitalOS-Cluster';
+const MONGO_URL = process.env.MONGO_URL;
 const DB_NAME = process.env.DB_NAME || 'hospital_ops';
+
+if (!MONGO_URL) {
+  console.error('ERROR: MONGO_URL environment variable is required');
+  console.error('Please set MONGO_URL in your environment or .env file');
+  process.exit(1);
+}
 
 // Get PDF files from command line arguments or a directory
 const pdfFiles = process.argv.slice(2);

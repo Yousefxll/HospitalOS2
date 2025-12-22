@@ -9,6 +9,8 @@ import pdfParse from 'pdf-parse';
 
 export const runtime = 'nodejs';
 
+import { env } from '@/lib/env';
+
 // Dynamic import for pdf-parse
 let pdfParseFn: any;
 async function getPdfParse() {
@@ -19,7 +21,7 @@ async function getPdfParse() {
   return pdfParseFn;
 }
 
-const POLICIES_DIR = process.env.POLICIES_DIR || path.join(process.cwd(), 'storage', 'policies');
+const POLICIES_DIR = env.POLICIES_DIR;
 const CHUNK_SIZE = 1000;
 const CHUNK_OVERLAP = 200;
 

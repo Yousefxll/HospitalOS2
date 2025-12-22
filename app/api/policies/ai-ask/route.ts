@@ -3,12 +3,16 @@ import { getCollection } from '@/lib/db';
 import { z } from 'zod';
 import OpenAI from 'openai';
 import { PolicyAIResponse } from '@/lib/models/Policy';
+import { env } from '@/lib/env';
 
 export const dynamic = 'force-dynamic';
 
 function getOpenAIClient() {
+  if (!env.OPENAI_API_KEY) {
+    throw new Error('OPENAI_API_KEY is not configured');
+  }
   return new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
+    apiKey: env.OPENAI_API_KEY,
   });
 }
 
@@ -28,7 +32,7 @@ export async function POST(request: NextRequest) {
     
     const { question, limitDocs, limitChunks, hospital, category } = askSchema.parse(body);
 
-    if (!process.env.OPENAI_API_KEY) {
+    if (!env.OPENAI_API_KEY) {
       console.error('OpenAI API key is not configured');
       return NextResponse.json(
         { error: 'OpenAI API key is not configured' },
@@ -216,7 +220,7 @@ export async function POST(request: NextRequest) {
         answer: 'No relevant policies found for your question.',
         sources: [],
         matchedDocuments: [],
-        debug: process.env.NODE_ENV === 'development' ? {
+        debug: env.isDev ? {
           totalChunks,
           searchQuery: question,
         } : undefined,
@@ -412,7 +416,7 @@ ${contextText}`,
       { 
         error: 'Failed to process question', 
         details: error.message || 'Unknown error',
-        ...(process.env.NODE_ENV === 'development' && { stack: error.stack?.substring(0, 500) })
+        ...(env.isDev && { stack: error.stack?.substring(0, 500) })
       },
       { status: 500 }
     );

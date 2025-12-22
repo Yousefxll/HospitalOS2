@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { serialize } from 'cookie';
 import { verifyTokenEdge } from '@/lib/auth/edge';
 import { deleteSession } from '@/lib/auth/sessions';
+import { env } from '@/lib/env';
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
       'Set-Cookie',
       serialize('auth-token', '', {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: env.isProd,
         sameSite: 'lax',
         maxAge: 0,
         path: '/',
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
       'Set-Cookie',
       serialize('auth-token', '', {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: env.isProd,
         sameSite: 'lax',
         maxAge: 0,
         path: '/',

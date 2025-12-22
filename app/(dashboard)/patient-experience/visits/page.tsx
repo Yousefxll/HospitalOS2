@@ -259,14 +259,14 @@ export default function PatientExperienceVisitsPage() {
     const rows: any[] = [];
     visits.forEach((visit) => {
       const baseRow = [
-        format(new Date(visit.createdAt), 'yyyy-MM-dd HH:mm'),
-        visit.staffName,
-        visit.staffId,
-        visit.patientName,
-        visit.patientFileNumber,
-        visit.floorLabel && visit.departmentLabel && visit.roomLabel
-          ? `${visit.floorLabel} / ${visit.departmentLabel} / ${visit.roomLabel}`
-          : visit.floorKey || '-',
+      format(new Date(visit.createdAt), 'yyyy-MM-dd HH:mm'),
+      visit.staffName,
+      visit.staffId,
+      visit.patientName,
+      visit.patientFileNumber,
+      visit.floorLabel && visit.departmentLabel && visit.roomLabel
+        ? `${visit.floorLabel} / ${visit.departmentLabel} / ${visit.roomLabel}`
+        : visit.floorKey || '-',
       ];
 
       const location = baseRow[5];
@@ -301,14 +301,14 @@ export default function PatientExperienceVisitsPage() {
         };
         rows.push([
           ...baseRow,
-          visit.domainLabel || visit.domainKey || '-',
-          visit.typeLabel || visit.typeKey || '-',
-          visit.severity,
+      visit.domainLabel || visit.domainKey || '-',
+      visit.typeLabel || visit.typeKey || '-',
+      visit.severity,
           '-', // No shift for old format
-          visit.status,
-          visit.detailsEn || '',
-          visit.resolutionEn || '',
-        ]);
+      visit.status,
+      visit.detailsEn || '',
+      visit.resolutionEn || '',
+    ]);
       }
     });
 
@@ -608,7 +608,7 @@ export default function PatientExperienceVisitsPage() {
                             </div>
                           ) : (
                             visit.domainLabel && visit.typeLabel
-                              ? `${visit.domainLabel} - ${visit.typeLabel}`
+                            ? `${visit.domainLabel} - ${visit.typeLabel}`
                               : visit.typeKey || '-'
                           )}
                         </TableCell>
@@ -626,12 +626,12 @@ export default function PatientExperienceVisitsPage() {
                               ))}
                             </div>
                           ) : (
-                            <Badge 
-                              className={`${getSeverityColor(visit.severity)} border-0`}
-                              style={{ backgroundColor: getSeverityColorValue(visit.severity), color: 'white' }}
-                            >
-                              {visit.severity}
-                            </Badge>
+                          <Badge 
+                            className={`${getSeverityColor(visit.severity)} border-0`}
+                            style={{ backgroundColor: getSeverityColorValue(visit.severity), color: 'white' }}
+                          >
+                            {visit.severity}
+                          </Badge>
                           )}
                         </TableCell>
                         <TableCell>

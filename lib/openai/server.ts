@@ -5,6 +5,7 @@
  */
 
 import OpenAI from 'openai';
+import { env } from '../env';
 
 let openaiClient: OpenAI | null = null;
 
@@ -13,21 +14,20 @@ let openaiClient: OpenAI | null = null;
  * Uses OPENAI_API_KEY from environment variables
  * @returns OpenAI client instance or null if API key is not configured
  */
+
 export function getOpenAI(): OpenAI | null {
   if (openaiClient) {
     return openaiClient;
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  
-  if (!apiKey) {
+  if (!env.OPENAI_API_KEY) {
     console.warn('OPENAI_API_KEY not configured in environment variables');
     return null;
   }
 
   try {
     openaiClient = new OpenAI({
-      apiKey,
+      apiKey: env.OPENAI_API_KEY,
     });
     return openaiClient;
   } catch (error) {

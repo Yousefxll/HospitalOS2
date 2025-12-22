@@ -250,6 +250,71 @@ export async function POST(request: NextRequest) {
   }
 }
 
+/**
+ * Check dependencies for Floor before deactivation
+ */
+async function checkFloorDependencies(floorId: string): Promise<{ departments: number; rooms: number }> {
+  const departmentsCollection = await getCollection('departments');
+  const roomsCollection = await getCollection('rooms');
+
+  const [departmentsCount, roomsCount] = await Promise.all([
+    departmentsCollection.countDocuments({ floorId, isActive: true }),
+    roomsCollection.countDocuments({ floorId, active: true }),
+  ]);
+
+  return { departments: departmentsCount, rooms: roomsCount };
+}
+
+/**
+ * Check dependencies for Department before deactivation
+ */
+async function checkDepartmentDependencies(departmentId: string): Promise<{ rooms: number; clinics: number; patientExperience: number }> {
+  const roomsCollection = await getCollection('rooms');
+  const clinicsCollection = await getCollection('clinic_details');
+
+  // Get department to find its key for patient_experience lookup
+  const departmentsCollection = await getCollection('departments');
+  const department = await departmentsCollection.findOne({ id: departmentId });
+  const departmentKey = department?.code || department?.id;
+
+  const patientExperienceCollection = await getCollection('patient_experience');
+  
+  const [roomsCount, clinicsCount, patientExperienceCount] = await Promise.all([
+    roomsCollection.countDocuments({ departmentId, active: true }),
+    clinicsCollection.countDocuments({ departmentId, isActive: true }),
+    // Check both departmentId (legacy) and departmentKey
+    departmentKey 
+      ? patientExperienceCollection.countDocuments({ 
+          $or: [
+            { departmentId },
+            { departmentKey }
+          ]
+        })
+      : Promise.resolve(0),
+  ]);
+
+  return { 
+    rooms: roomsCount, 
+    clinics: clinicsCount,
+    patientExperience: patientExperienceCount,
+  };
+}
+
+/**
+ * Check dependencies for Room before deactivation
+ */
+async function checkRoomDependencies(roomId: string, roomKey: string): Promise<{ clinics: number }> {
+  const clinicsCollection = await getCollection('clinic_details');
+
+  // Check if any clinic references this room in roomIds array
+  const clinicsCount = await clinicsCollection.countDocuments({
+    isActive: true,
+    roomIds: roomId,
+  });
+
+  return { clinics: clinicsCount };
+}
+
 // DELETE - Delete floor, department, or room
 export async function DELETE(request: NextRequest) {
   try {
@@ -271,6 +336,7 @@ export async function DELETE(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type');
     const id = searchParams.get('id');
+    const dryRun = searchParams.get('dryRun') === '1' || searchParams.get('dryRun') === 'true';
 
     if (!type || !id) {
       return NextResponse.json(
@@ -280,6 +346,31 @@ export async function DELETE(request: NextRequest) {
     }
 
     if (type === 'floor') {
+      const dependencies = await checkFloorDependencies(id);
+      const totalDependencies = dependencies.departments + dependencies.rooms;
+
+      if (totalDependencies > 0) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: 'HAS_DEPENDENCIES',
+            message: 'Cannot deactivate floor because it has linked records.',
+            dependencies,
+            ...(dryRun && { dryRun: true }),
+          },
+          { status: 409 }
+        );
+      }
+
+      if (dryRun) {
+        return NextResponse.json({
+          ok: true,
+          dryRun: true,
+          dependencies,
+          message: 'No dependencies found. Deletion would succeed.',
+        });
+      }
+
       const floorsCollection = await getCollection('floors');
       await floorsCollection.updateOne(
         { id },
@@ -289,6 +380,31 @@ export async function DELETE(request: NextRequest) {
     }
 
     if (type === 'department') {
+      const dependencies = await checkDepartmentDependencies(id);
+      const totalDependencies = dependencies.rooms + dependencies.clinics + dependencies.patientExperience;
+
+      if (totalDependencies > 0) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: 'HAS_DEPENDENCIES',
+            message: 'Cannot deactivate department because it has linked records.',
+            dependencies,
+            ...(dryRun && { dryRun: true }),
+          },
+          { status: 409 }
+        );
+      }
+
+      if (dryRun) {
+        return NextResponse.json({
+          ok: true,
+          dryRun: true,
+          dependencies,
+          message: 'No dependencies found. Deletion would succeed.',
+        });
+      }
+
       const departmentsCollection = await getCollection('departments');
       await departmentsCollection.updateOne(
         { id },
@@ -298,7 +414,42 @@ export async function DELETE(request: NextRequest) {
     }
 
     if (type === 'room') {
+      // Get room to find its key for dependency checking
       const roomsCollection = await getCollection('rooms');
+      const room = await roomsCollection.findOne({ id });
+      
+      if (!room) {
+        return NextResponse.json(
+          { error: 'Room not found' },
+          { status: 404 }
+        );
+      }
+
+      const dependencies = await checkRoomDependencies(id, room.key || '');
+      const totalDependencies = dependencies.clinics;
+
+      if (totalDependencies > 0) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: 'HAS_DEPENDENCIES',
+            message: 'Cannot deactivate room because it has linked records.',
+            dependencies,
+            ...(dryRun && { dryRun: true }),
+          },
+          { status: 409 }
+        );
+      }
+
+      if (dryRun) {
+        return NextResponse.json({
+          ok: true,
+          dryRun: true,
+          dependencies,
+          message: 'No dependencies found. Deletion would succeed.',
+        });
+      }
+
       await roomsCollection.updateOne(
         { id },
         { $set: { active: false, updatedAt: new Date(), updatedBy: authResult.userId } }

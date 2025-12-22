@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
+import { env } from '@/lib/env';
 
 /**
  * DELETE /api/patient-experience/delete-all-data
@@ -135,7 +136,7 @@ export async function DELETE(request: NextRequest) {
       { 
         error: 'Failed to delete data', 
         details: error.message,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+        stack: env.isDev ? error.stack : undefined,
       },
       { status: 500 }
     );

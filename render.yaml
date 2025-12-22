@@ -3,7 +3,8 @@ services:
     name: hospitalos
     env: node
     plan: free
-    buildCommand: yarn install && yarn build
+    nodeVersion: 20
+    buildCommand: yarn install --frozen-lockfile && yarn build
     startCommand: yarn start
     envVars:
       - key: NODE_ENV

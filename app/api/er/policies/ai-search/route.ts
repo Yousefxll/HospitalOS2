@@ -3,10 +3,14 @@ import { NextRequest, NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 import { getCollection } from '@/lib/db';
 import OpenAI from 'openai';
+import { env } from '@/lib/env';
 
 function getOpenAIClient() {
+  if (!env.OPENAI_API_KEY) {
+    throw new Error('OPENAI_API_KEY is not configured');
+  }
   return new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
+    apiKey: env.OPENAI_API_KEY,
   });
 }
 

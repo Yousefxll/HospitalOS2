@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
+import { env } from '@/lib/env';
 
 /**
  * POST /api/patient-experience/seed-data
@@ -448,7 +449,7 @@ export async function POST(request: NextRequest) {
       { 
         error: 'Failed to seed data', 
         details: error.message,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+        stack: env.isDev ? error.stack : undefined,
       },
       { status: 500 }
     );

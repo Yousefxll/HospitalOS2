@@ -172,7 +172,12 @@ export async function getPXReportData(params: PXReportParams): Promise<PXReportD
     const domainKey = (v.domainKey || '').toUpperCase();
     return typeKey.includes('PRAISE') || domainKey.includes('PRAISE');
   }).length;
-  const totalComplaints = totalVisits - praises;
+  const satisfactions = visits.filter(v => {
+    const typeKey = (v.typeKey || '').toUpperCase();
+    const domainKey = (v.domainKey || '').toUpperCase();
+    return domainKey === 'SATISFACTION' || typeKey === 'PATIENT_SATISFACTION';
+  }).length;
+  const totalComplaints = totalVisits - praises - satisfactions;
   const avgSatisfaction = totalVisits > 0 ? (praises / totalVisits) * 100 : 0;
 
   const totalCases = cases.length;

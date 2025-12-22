@@ -2,12 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
 import { z } from 'zod';
 import OpenAI from 'openai';
+import { env } from '@/lib/env';
 
 export const dynamic = 'force-dynamic';
 
 function getOpenAIClient() {
+  if (!env.OPENAI_API_KEY) {
+    throw new Error('OPENAI_API_KEY is not configured');
+  }
   return new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
+    apiKey: env.OPENAI_API_KEY,
   });
 }
 
@@ -21,7 +25,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { documentIds, topicQuery } = harmonizeSchema.parse(body);
 
-    if (!process.env.OPENAI_API_KEY) {
+    if (!env.OPENAI_API_KEY) {
       return NextResponse.json(
         { error: 'OpenAI API key is not configured' },
         { status: 500 }

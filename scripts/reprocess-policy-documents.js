@@ -17,9 +17,15 @@ const { v4: uuidv4 } = require('uuid');
 // Import chunking function (we'll need to adapt it for CommonJS)
 // For now, we'll inline a simplified version
 
-const MONGO_URL = process.env.MONGO_URL || 'mongodb+srv://Hospitalos_admin:ab9VtwZxaGiftB0O@hospitalos-cluster.hqi1xpu.mongodb.net/hospital_ops?retryWrites=true&w=majority&appName=HospitalOS-Cluster';
+const MONGO_URL = process.env.MONGO_URL;
 const DB_NAME = process.env.DB_NAME || 'hospital_ops';
 const POLICIES_DIR = process.env.POLICIES_DIR || path.join(process.cwd(), 'storage', 'policies');
+
+if (!MONGO_URL) {
+  console.error('ERROR: MONGO_URL environment variable is required');
+  console.error('Please set MONGO_URL in your environment or .env file');
+  process.exit(1);
+}
 
 // Simplified chunking function (inline version)
 function chunkTextWithLines(text, totalPages, minWords = 800, maxWords = 1200, overlapWords = 175) {

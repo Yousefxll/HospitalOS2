@@ -5,6 +5,7 @@
  */
 
 import { getOpenAI } from '@/lib/openai/server';
+import { env } from '@/lib/env';
 
 type TranslationProvider = 'none' | 'openai';
 
@@ -35,7 +36,7 @@ export async function translateToEnglish(
   }
 
   // Get translation provider from environment
-  const provider = (process.env.TRANSLATION_PROVIDER || 'none') as TranslationProvider;
+  const provider = env.TRANSLATION_PROVIDER as TranslationProvider;
 
   // If provider is 'none', use fallback (return original text but store in detailsEn)
   if (provider === 'none') {
@@ -55,7 +56,7 @@ export async function translateToEnglish(
       }
 
       // Get model from env or use default
-      const model = process.env.OPENAI_TRANSLATION_MODEL || 'gpt-4o-mini';
+      const model = env.OPENAI_TRANSLATION_MODEL;
 
       const completion = await openai.chat.completions.create({
         model,

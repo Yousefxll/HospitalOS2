@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { runPxSla } from '@/lib/patient-experience/runSla';
+import { env } from '@/lib/env';
 
 /**
  * GET /api/cron/patient-experience/run-sla
@@ -14,9 +15,7 @@ import { runPxSla } from '@/lib/patient-experience/runSla';
 export async function GET(request: NextRequest) {
   try {
     // Get CRON_SECRET from environment
-    const cronSecret = process.env.CRON_SECRET;
-    
-    if (!cronSecret) {
+    if (!env.CRON_SECRET) {
       console.error('CRON_SECRET environment variable is not set');
       return NextResponse.json(
         { error: 'Cron secret not configured' },
@@ -29,7 +28,7 @@ export async function GET(request: NextRequest) {
     const querySecret = request.nextUrl.searchParams.get('secret');
     const providedSecret = headerSecret || querySecret;
 
-    if (!providedSecret || providedSecret !== cronSecret) {
+    if (!providedSecret || providedSecret !== env.CRON_SECRET) {
       console.warn('Unauthorized cron request - invalid secret');
       return NextResponse.json(
         { error: 'Unauthorized' },

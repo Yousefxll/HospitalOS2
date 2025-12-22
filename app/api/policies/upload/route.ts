@@ -21,7 +21,8 @@ async function getPdfJs() {
 
 export const runtime = 'nodejs';
 
-const POLICIES_DIR = process.env.POLICIES_DIR || path.join(process.cwd(), 'storage', 'policies');
+import { env } from '@/lib/env';
+const POLICIES_DIR = env.POLICIES_DIR;
 
 // Ensure directory exists
 if (!fs.existsSync(POLICIES_DIR)) {
@@ -266,7 +267,7 @@ export async function POST(request: NextRequest) {
         { 
           error: errorMessage,
           details: errorDetails,
-          technicalDetails: process.env.NODE_ENV === 'development' ? parseError.message : undefined
+          technicalDetails: env.isDev ? parseError.message : undefined
         },
         { status: 400 }
       );
@@ -499,7 +500,7 @@ export async function POST(request: NextRequest) {
       { 
         error: 'Failed to upload policy', 
         details: error.message,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        stack: env.isDev ? error.stack : undefined
       },
       { status: 500 }
     );
