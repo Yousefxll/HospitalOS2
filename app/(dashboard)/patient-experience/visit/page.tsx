@@ -1244,70 +1244,9 @@ export default function PatientExperienceVisitPage() {
                   </div>
                 </>
               )}
-              
-                    {classification.domainKey && (
-                <div className="space-y-2">
-                        <Label>{t.px.visit.classification} *</Label>
-                  <Select
-                          value={classification.typeKey}
-                          onValueChange={(value) => updateClassification(classification.id, { typeKey: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={language === 'ar' ? 'اختر التصنيف' : 'Select classification'} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {complaintTypes
-                              .filter(type => type.domainKey === classification.domainKey)
-                        .map((type) => (
-                          <SelectItem key={type.id} value={type.key || type.typeKey}>
-                            {language === 'ar' ? (type.label_ar || type.labelAr || type.name) : (type.label_en || type.labelEn || type.name)}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-                    <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                        <Label>{t.px.visit.severity} *</Label>
-                <Select
-                          value={classification.severity}
-                          onValueChange={(value) => updateClassification(classification.id, { severity: value as any })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={language === 'ar' ? 'اختر مستوى الخطورة' : 'Select severity'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="LOW">{language === 'ar' ? 'منخفض' : 'Low'}</SelectItem>
-                    <SelectItem value="MEDIUM">{language === 'ar' ? 'متوسط' : 'Medium'}</SelectItem>
-                    <SelectItem value="HIGH">{language === 'ar' ? 'عالي' : 'High'}</SelectItem>
-                    <SelectItem value="CRITICAL">{language === 'ar' ? 'حرج' : 'Critical'}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-                      <div className="space-y-2">
-                        <Label>{language === 'ar' ? 'الشيفت' : 'Shift'} *</Label>
-                        <Select
-                          value={classification.shift}
-                          onValueChange={(value) => updateClassification(classification.id, { shift: value as any })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder={language === 'ar' ? 'اختر الشيفت' : 'Select shift'} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="DAY">{language === 'ar' ? 'داي شيفت' : 'Day Shift'}</SelectItem>
-                            <SelectItem value="NIGHT">{language === 'ar' ? 'نايت شيفت' : 'Night Shift'}</SelectItem>
-                            <SelectItem value="DAY_NIGHT">{language === 'ar' ? 'داي ونايت' : 'Day & Night'}</SelectItem>
-                            <SelectItem value="BOTH">{language === 'ar' ? 'الشفتين' : 'Both Shifts'}</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              ))}
+            </div>
+          </Card>
+        ))}
 
               {/* Add Classification Button */}
               <Button
