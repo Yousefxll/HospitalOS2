@@ -6,12 +6,20 @@ import { detectLang } from '@/lib/translate/detectLang';
  * Helper to resolve keys to English labels
  */
 async function resolveLabels(records: any[]): Promise<any[]> {
-  // Get all unique keys
+  // Get all unique keys (including from classifications array)
   const floorKeys = Array.from(new Set(records.map(r => r.floorKey).filter(Boolean)));
   const departmentKeys = Array.from(new Set(records.map(r => r.departmentKey).filter(Boolean)));
   const roomKeys = Array.from(new Set(records.map(r => r.roomKey).filter(Boolean)));
-  const domainKeys = Array.from(new Set(records.map(r => r.domainKey).filter(Boolean)));
-  const typeKeys = Array.from(new Set(records.map(r => r.typeKey).filter(Boolean)));
+  
+  // Get domain and type keys from both old format and new classifications array
+  const domainKeys = Array.from(new Set([
+    ...records.map(r => r.domainKey).filter(Boolean),
+    ...records.flatMap(r => (r.classifications || []).map((c: any) => c.domainKey).filter(Boolean))
+  ]));
+  const typeKeys = Array.from(new Set([
+    ...records.map(r => r.typeKey).filter(Boolean),
+    ...records.flatMap(r => (r.classifications || []).map((c: any) => c.typeKey).filter(Boolean))
+  ]));
 
   // Fetch all labels in parallel
   const floorsCollection = await getCollection('floors');
@@ -46,17 +54,30 @@ async function resolveLabels(records: any[]): Promise<any[]> {
   const typeMap = new Map(types.map(t => [t.key, t.label_en || t.labelEn || t.name || '']));
 
   // Resolve labels for each record
-  return records.map(record => ({
-    ...record,
-    // English labels for structured fields
-    floorLabel: record.floorKey ? floorMap.get(record.floorKey) || record.floorKey : null,
-    departmentLabel: record.departmentKey ? departmentMap.get(record.departmentKey) || record.departmentKey : null,
-    roomLabel: record.roomKey ? roomMap.get(record.roomKey) || record.roomKey : null,
-    domainLabel: record.domainKey ? domainMap.get(record.domainKey) || record.domainKey : null,
-    typeLabel: record.typeKey ? typeMap.get(record.typeKey) || record.typeKey : null,
-    // Ensure detailsEn exists (for dashboard)
-    detailsEn: record.detailsEn || record.detailsOriginal || record.details || '',
-  }));
+  return records.map(record => {
+    // Resolve classifications if they exist
+    const resolvedClassifications = record.classifications 
+      ? record.classifications.map((c: any) => ({
+          ...c,
+          domainLabel: c.domainKey ? domainMap.get(c.domainKey) || c.domainKey : null,
+          typeLabel: c.typeKey ? typeMap.get(c.typeKey) || c.typeKey : null,
+        }))
+      : undefined;
+
+    return {
+      ...record,
+      // English labels for structured fields (backward compatibility)
+      floorLabel: record.floorKey ? floorMap.get(record.floorKey) || record.floorKey : null,
+      departmentLabel: record.departmentKey ? departmentMap.get(record.departmentKey) || record.departmentKey : null,
+      roomLabel: record.roomKey ? roomMap.get(record.roomKey) || record.roomKey : null,
+      domainLabel: record.domainKey ? domainMap.get(record.domainKey) || record.domainKey : null,
+      typeLabel: record.typeKey ? typeMap.get(record.typeKey) || record.typeKey : null,
+      // Resolved classifications with labels
+      classifications: resolvedClassifications,
+      // Ensure detailsEn exists (for dashboard)
+      detailsEn: record.detailsEn || record.detailsOriginal || record.details || '',
+    };
+  });
 }
 
 /**

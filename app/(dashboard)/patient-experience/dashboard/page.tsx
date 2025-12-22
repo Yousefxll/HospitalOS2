@@ -45,6 +45,15 @@ interface KPISummary {
   unresolvedComplaints: number;
 }
 
+interface Classification {
+  domainKey: string;
+  typeKey: string;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  shift: 'DAY' | 'NIGHT' | 'DAY_NIGHT' | 'BOTH';
+  domainLabel?: string;
+  typeLabel?: string;
+}
+
 interface VisitRecord {
   id: string;
   createdAt: string;
@@ -55,17 +64,18 @@ interface VisitRecord {
   floorKey: string;
   departmentKey: string;
   roomKey: string;
-  domainKey: string;
-  typeKey: string;
-  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  domainKey: string; // For backward compatibility
+  typeKey: string; // For backward compatibility
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'; // For backward compatibility
+  classifications?: Classification[]; // New: multiple classifications
   status: 'PENDING' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
   detailsEn: string;
   // Resolved labels
   floorLabel?: string;
   departmentLabel?: string;
   roomLabel?: string;
-  domainLabel?: string;
-  typeLabel?: string;
+  domainLabel?: string; // For backward compatibility
+  typeLabel?: string; // For backward compatibility
 }
 
 export default function PatientExperienceDashboardPage() {
@@ -562,17 +572,54 @@ export default function PatientExperienceDashboardPage() {
                               : visit.floorKey || '-'}
                           </TableCell>
                           <TableCell>
-                            {visit.domainLabel && visit.typeLabel
-                              ? `${visit.domainLabel} - ${visit.typeLabel}`
-                              : visit.typeKey || '-'}
+                            {visit.classifications && visit.classifications.length > 0 ? (
+                              <div className="space-y-1">
+                                {visit.classifications.map((classification, idx) => {
+                                  const shiftLabels: Record<string, { ar: string; en: string }> = {
+                                    DAY: { ar: 'داي شيفت', en: 'Day Shift' },
+                                    NIGHT: { ar: 'نايت شيفت', en: 'Night Shift' },
+                                    DAY_NIGHT: { ar: 'داي ونايت', en: 'Day & Night' },
+                                    BOTH: { ar: 'الشفتين', en: 'Both Shifts' },
+                                  };
+                                  return (
+                                    <div key={idx} className="flex items-center gap-2">
+                                      <span className="text-sm">
+                                        {classification.domainLabel || classification.domainKey} - {classification.typeLabel || classification.typeKey}
+                                      </span>
+                                      <Badge variant="outline" className="text-xs">
+                                        {displayLanguage === 'ar' ? shiftLabels[classification.shift]?.ar : shiftLabels[classification.shift]?.en}
+                                      </Badge>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              visit.domainLabel && visit.typeLabel
+                                ? `${visit.domainLabel} - ${visit.typeLabel}`
+                                : visit.typeKey || '-'
+                            )}
                           </TableCell>
                           <TableCell>
-                            <Badge 
-                              className={`${getSeverityColor(visit.severity)} border-0`}
-                              style={{ backgroundColor: getSeverityColorValue(visit.severity), color: 'white' }}
-                            >
-                              {visit.severity}
-                            </Badge>
+                            {visit.classifications && visit.classifications.length > 0 ? (
+                              <div className="space-y-1">
+                                {visit.classifications.map((classification, idx) => (
+                                  <Badge 
+                                    key={idx}
+                                    className={`${getSeverityColor(classification.severity)} border-0`}
+                                    style={{ backgroundColor: getSeverityColorValue(classification.severity), color: 'white' }}
+                                  >
+                                    {classification.severity}
+                                  </Badge>
+                                ))}
+                              </div>
+                            ) : (
+                              <Badge 
+                                className={`${getSeverityColor(visit.severity)} border-0`}
+                                style={{ backgroundColor: getSeverityColorValue(visit.severity), color: 'white' }}
+                              >
+                                {visit.severity}
+                              </Badge>
+                            )}
                           </TableCell>
                           <TableCell>
                             <Badge 

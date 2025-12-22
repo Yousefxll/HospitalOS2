@@ -33,6 +33,15 @@ import { useLang } from '@/hooks/use-lang';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { format } from 'date-fns';
 
+interface Classification {
+  domainKey: string;
+  typeKey: string;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  shift: 'DAY' | 'NIGHT' | 'DAY_NIGHT' | 'BOTH';
+  domainLabel?: string;
+  typeLabel?: string;
+}
+
 interface VisitRecord {
   id: string;
   createdAt: string;
@@ -43,9 +52,10 @@ interface VisitRecord {
   floorKey: string;
   departmentKey: string;
   roomKey: string;
-  domainKey: string;
-  typeKey: string;
-  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  domainKey: string; // For backward compatibility
+  typeKey: string; // For backward compatibility
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'; // For backward compatibility
+  classifications?: Classification[]; // New: multiple classifications
   status: 'PENDING' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
   detailsEn: string;
   resolutionEn?: string;
@@ -53,8 +63,8 @@ interface VisitRecord {
   floorLabel?: string;
   departmentLabel?: string;
   roomLabel?: string;
-  domainLabel?: string;
-  typeLabel?: string;
+  domainLabel?: string; // For backward compatibility
+  typeLabel?: string; // For backward compatibility
 }
 
 interface PaginationInfo {
@@ -240,27 +250,67 @@ export default function PatientExperienceVisitsPage() {
       'Domain',
       'Type',
       'Severity',
+      'Shift',
       'Status',
       'Details (English)',
       'Resolution (English)',
     ];
 
-    const rows = visits.map((visit) => [
-      format(new Date(visit.createdAt), 'yyyy-MM-dd HH:mm'),
-      visit.staffName,
-      visit.staffId,
-      visit.patientName,
-      visit.patientFileNumber,
-      visit.floorLabel && visit.departmentLabel && visit.roomLabel
-        ? `${visit.floorLabel} / ${visit.departmentLabel} / ${visit.roomLabel}`
-        : visit.floorKey || '-',
-      visit.domainLabel || visit.domainKey || '-',
-      visit.typeLabel || visit.typeKey || '-',
-      visit.severity,
-      visit.status,
-      visit.detailsEn || '',
-      visit.resolutionEn || '',
-    ]);
+    const rows: any[] = [];
+    visits.forEach((visit) => {
+      const baseRow = [
+        format(new Date(visit.createdAt), 'yyyy-MM-dd HH:mm'),
+        visit.staffName,
+        visit.staffId,
+        visit.patientName,
+        visit.patientFileNumber,
+        visit.floorLabel && visit.departmentLabel && visit.roomLabel
+          ? `${visit.floorLabel} / ${visit.departmentLabel} / ${visit.roomLabel}`
+          : visit.floorKey || '-',
+      ];
+
+      const location = baseRow[5];
+
+      if (visit.classifications && visit.classifications.length > 0) {
+        // Create a row for each classification
+        visit.classifications.forEach((classification) => {
+          const shiftLabels: Record<string, string> = {
+            DAY: 'Day Shift',
+            NIGHT: 'Night Shift',
+            DAY_NIGHT: 'Day & Night',
+            BOTH: 'Both Shifts',
+          };
+          rows.push([
+            ...baseRow,
+            classification.domainLabel || classification.domainKey || '-',
+            classification.typeLabel || classification.typeKey || '-',
+            classification.severity,
+            shiftLabels[classification.shift] || classification.shift,
+            visit.status,
+            visit.detailsEn || '',
+            visit.resolutionEn || '',
+          ]);
+        });
+      } else {
+        // Backward compatibility: single classification
+        const shiftLabels: Record<string, string> = {
+          DAY: 'Day Shift',
+          NIGHT: 'Night Shift',
+          DAY_NIGHT: 'Day & Night',
+          BOTH: 'Both Shifts',
+        };
+        rows.push([
+          ...baseRow,
+          visit.domainLabel || visit.domainKey || '-',
+          visit.typeLabel || visit.typeKey || '-',
+          visit.severity,
+          '-', // No shift for old format
+          visit.status,
+          visit.detailsEn || '',
+          visit.resolutionEn || '',
+        ]);
+      }
+    });
 
     const csvContent = [
       headers.join(','),
@@ -535,17 +585,54 @@ export default function PatientExperienceVisitsPage() {
                             : visit.floorKey || '-'}
                         </TableCell>
                         <TableCell>
-                          {visit.domainLabel && visit.typeLabel
-                            ? `${visit.domainLabel} - ${visit.typeLabel}`
-                            : visit.typeKey || '-'}
+                          {visit.classifications && visit.classifications.length > 0 ? (
+                            <div className="space-y-1">
+                              {visit.classifications.map((classification, idx) => {
+                                const shiftLabels: Record<string, { ar: string; en: string }> = {
+                                  DAY: { ar: 'داي شيفت', en: 'Day Shift' },
+                                  NIGHT: { ar: 'نايت شيفت', en: 'Night Shift' },
+                                  DAY_NIGHT: { ar: 'داي ونايت', en: 'Day & Night' },
+                                  BOTH: { ar: 'الشفتين', en: 'Both Shifts' },
+                                };
+                                return (
+                                  <div key={idx} className="flex items-center gap-2">
+                                    <span className="text-sm">
+                                      {classification.domainLabel || classification.domainKey} - {classification.typeLabel || classification.typeKey}
+                                    </span>
+                                    <Badge variant="outline" className="text-xs">
+                                      {language === 'ar' ? shiftLabels[classification.shift]?.ar : shiftLabels[classification.shift]?.en}
+                                    </Badge>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            visit.domainLabel && visit.typeLabel
+                              ? `${visit.domainLabel} - ${visit.typeLabel}`
+                              : visit.typeKey || '-'
+                          )}
                         </TableCell>
                         <TableCell>
-                          <Badge 
-                            className={`${getSeverityColor(visit.severity)} border-0`}
-                            style={{ backgroundColor: getSeverityColorValue(visit.severity), color: 'white' }}
-                          >
-                            {visit.severity}
-                          </Badge>
+                          {visit.classifications && visit.classifications.length > 0 ? (
+                            <div className="space-y-1">
+                              {visit.classifications.map((classification, idx) => (
+                                <Badge 
+                                  key={idx}
+                                  className={`${getSeverityColor(classification.severity)} border-0`}
+                                  style={{ backgroundColor: getSeverityColorValue(classification.severity), color: 'white' }}
+                                >
+                                  {classification.severity}
+                                </Badge>
+                              ))}
+                            </div>
+                          ) : (
+                            <Badge 
+                              className={`${getSeverityColor(visit.severity)} border-0`}
+                              style={{ backgroundColor: getSeverityColorValue(visit.severity), color: 'white' }}
+                            >
+                              {visit.severity}
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell>
                           <Badge 
