@@ -362,6 +362,13 @@ export default function PoliciesConflictsPage() {
 
       if (response.ok) {
         const data = await response.json();
+        // Check if service is unavailable
+        if (data.serviceUnavailable === true) {
+          setServiceUnavailable(true);
+          setAiIssues([]);
+          return; // Don't show error toast
+        }
+        setServiceUnavailable(false);
         setAiIssues(data.issues || []);
         setAiMeta(data.meta || {});
         toast({
@@ -373,12 +380,14 @@ export default function PoliciesConflictsPage() {
         // Check if service is unavailable
         if (response.status === 503 || errorData.error?.includes('not available')) {
           setServiceUnavailable(true);
+          setAiIssues([]);
+          return; // Don't show error toast
         }
         throw new Error(errorData.error || 'Failed to run AI review');
       }
     } catch (error: any) {
       // Don't show error toast if service is unavailable - banner will show instead
-      if (!serviceUnavailable) {
+      if (!serviceUnavailable && !error.message?.includes('not available')) {
         toast({
           title: 'Error',
           description: error.message || 'Failed to run AI review',
@@ -1196,6 +1205,15 @@ export default function PoliciesConflictsPage() {
           <CardTitle>Scan Configuration</CardTitle>
           <CardDescription>Select mode and configure scan parameters</CardDescription>
         </CardHeader>
+        {serviceUnavailable && (
+          <div className="px-6 pb-4">
+            <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+              <p className="text-sm text-blue-900 dark:text-blue-200">
+                <span className="font-medium">Policy Engine is offline.</span> Policy AI features are disabled.
+              </p>
+            </div>
+          </div>
+        )}
         <CardContent>
           <div className="space-y-6">
             {/* Mode Selector Tabs */}
