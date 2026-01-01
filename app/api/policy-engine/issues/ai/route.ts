@@ -39,10 +39,11 @@ export async function POST(request: NextRequest) {
       console.error('Failed to connect to policy-engine:', fetchError);
       return NextResponse.json(
         { 
-          error: 'SIRA service is not available. Please ensure the service is running on port 8001.',
-          details: fetchError instanceof Error ? fetchError.message : String(fetchError)
+          error: 'Policy Engine service is not available. Policy AI features are disabled.',
+          serviceUnavailable: true,
+          issues: [],
         },
-        { status: 503 }
+        { status: 200 }
       );
     }
 

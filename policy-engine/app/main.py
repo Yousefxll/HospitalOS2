@@ -1,4 +1,5 @@
 """FastAPI application entry point"""
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api import routes_ingest, routes_status, routes_search, routes_conflicts, routes_harmonize, routes_generate, routes_policies, routes_issues
@@ -8,10 +9,19 @@ from app.config import settings
 
 app = FastAPI(title="SIRA API", version="1.0.0")
 
-# CORS middleware
+# CORS configuration
+# Parse ALLOWED_ORIGINS from environment variable (comma-separated)
+# Defaults to allowing all origins in development, restricted in production
+allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "*")
+if allowed_origins_env == "*":
+    allowed_origins = ["*"]
+else:
+    # Parse comma-separated origins and strip whitespace
+    allowed_origins = [origin.strip() for origin in allowed_origins_env.split(",") if origin.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, restrict this
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -31,7 +41,7 @@ app.include_router(routes_issues.router)
 @app.get("/health")
 async def health():
     """Health check endpoint"""
-    return {"ok": True}
+    return {"status": "ok"}
 
 
 @app.on_event("startup")

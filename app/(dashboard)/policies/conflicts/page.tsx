@@ -101,6 +101,7 @@ export default function PoliciesConflictsPage() {
   const [selectedAIIssue, setSelectedAIIssue] = useState<AIIssue | null>(null);
   const [isAIDetailsOpen, setIsAIDetailsOpen] = useState(false);
   const [copiedRecommendation, setCopiedRecommendation] = useState<string | null>(null);
+  const [serviceUnavailable, setServiceUnavailable] = useState(false);
 
   // AI Rewrite state
   const [isAIRewriteSelectorOpen, setIsAIRewriteSelectorOpen] = useState(false);
@@ -194,6 +195,7 @@ export default function PoliciesConflictsPage() {
         });
         if (response.ok) {
           const data = await response.json();
+          setServiceUnavailable(data.serviceUnavailable === true);
           const readyPolicies = (data.policies || []).filter(
             (p: Policy) => p.status === 'READY'
           );
@@ -368,14 +370,21 @@ export default function PoliciesConflictsPage() {
         });
       } else {
         const errorData = await response.json().catch(() => ({ error: 'AI review failed' }));
+        // Check if service is unavailable
+        if (response.status === 503 || errorData.error?.includes('not available')) {
+          setServiceUnavailable(true);
+        }
         throw new Error(errorData.error || 'Failed to run AI review');
       }
     } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to run AI review',
-        variant: 'destructive',
-      });
+      // Don't show error toast if service is unavailable - banner will show instead
+      if (!serviceUnavailable) {
+        toast({
+          title: 'Error',
+          description: error.message || 'Failed to run AI review',
+          variant: 'destructive',
+        });
+      }
     } finally {
       setIsAIRunning(false);
     }

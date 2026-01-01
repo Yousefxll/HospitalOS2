@@ -655,6 +655,15 @@ export default function PoliciesLibraryPage() {
           <CardTitle>{t.policies.library.policies}</CardTitle>
           <CardDescription>{t.policies.library.listDescription}</CardDescription>
         </CardHeader>
+        {serviceUnavailable && (
+          <div className="px-6 pb-4">
+            <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+              <p className="text-sm text-blue-900 dark:text-blue-200">
+                <span className="font-medium">Policy Engine is offline.</span> Policy AI features are disabled.
+              </p>
+            </div>
+          </div>
+        )}
         <CardContent>
           {/* Upload Progress Bar */}
           {isUploading && (
@@ -769,8 +778,8 @@ export default function PoliciesLibraryPage() {
             <div className="text-center py-8">
               {serviceUnavailable ? (
                 <div className="space-y-2">
-                  <p className="text-muted-foreground font-medium">Policy Engine service is not available</p>
-                  <p className="text-sm text-muted-foreground">Policy features are currently disabled. Please contact your administrator.</p>
+                  <p className="text-muted-foreground font-medium">Policy Engine is offline</p>
+                  <p className="text-sm text-muted-foreground">Policy AI features are disabled.</p>
                 </div>
               ) : (
                 <p className="text-muted-foreground">{t.policies.library.noPoliciesFound}</p>
