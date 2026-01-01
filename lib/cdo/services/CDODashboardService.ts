@@ -230,8 +230,6 @@ export class CDODashboardService {
       periodEnd,
       careSetting: careSetting as any,
       numerator: avgMinutes,
-      metricValue: avgMinutes,
-      metricUnit: 'minutes',
       exceedsTarget: false,
       exceedsBenchmark: false,
       createdAt: new Date(),
@@ -274,8 +272,6 @@ export class CDODashboardService {
       periodEnd,
       careSetting: careSetting as any,
       numerator: avgMinutes,
-      metricValue: avgMinutes,
-      metricUnit: 'minutes',
       exceedsTarget: thresholdViolations > 0,
       exceedsBenchmark: false,
       metadata: {
