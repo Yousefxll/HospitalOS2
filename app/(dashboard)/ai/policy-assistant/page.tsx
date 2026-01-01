@@ -325,8 +325,10 @@ export default function PolicyAssistantPage() {
     }
 
     try {
-      const response = await fetch(`/api/policies/${documentId}`, {
+      // Use policy-engine endpoint for deletion (standard endpoint)
+      const response = await fetch(`/api/policy-engine/policies/${documentId}`, {
         method: 'DELETE',
+        credentials: 'include',
       });
 
       if (response.ok) {

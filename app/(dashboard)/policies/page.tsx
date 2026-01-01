@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from '@/hooks/use-translation';
-import { Upload, Eye, Trash2, Loader2, X, RefreshCw } from 'lucide-react';
+import { Upload, Eye, Trash2, Loader2, X, RefreshCw, UploadCloud } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import {
   Dialog,
@@ -287,6 +287,25 @@ export default function PoliciesLibraryPage() {
 
     console.log('Starting upload for', files.length, 'file(s)');
     
+    // Check for duplicate files before uploading
+    try {
+      const fileNames = Array.from(files).map(f => f.name);
+      const existingFiles = policies.filter(p => fileNames.includes(p.filename));
+      
+      if (existingFiles.length > 0) {
+        const duplicateNames = existingFiles.map(p => p.filename).join(', ');
+        toast({
+          title: t.policies.library.fileAlreadyExists,
+          description: `${t.policies.library.followingFilesExist} ${duplicateNames}`,
+          variant: 'destructive',
+        });
+        return;
+      }
+    } catch (error) {
+      console.error('Error checking for duplicates:', error);
+      // Continue with upload if check fails
+    }
+
     setIsUploading(true);
     setUploadProgress(10);
     
@@ -296,42 +315,91 @@ export default function PoliciesLibraryPage() {
         formData.append('files', files[i]);
       }
 
-      setUploadProgress(30);
-      const response = await fetch('/api/policies/bulk-upload', {
+      setUploadProgress(30); // Upload started
+
+      const response = await fetch('/api/policy-engine/ingest', {
         method: 'POST',
         body: formData,
         credentials: 'include',
       });
 
+      console.log('Upload response status:', response.status);
       setUploadProgress(70);
 
       if (response.ok) {
         const data = await response.json();
+        console.log('Upload response:', data);
+        
+        // Extract job IDs from response - handle different response formats
+        let jobIds: string[] = [];
+        if (data.jobs && Array.isArray(data.jobs)) {
+          jobIds = data.jobs.map((job: any) => job.jobId || job).filter(Boolean);
+        } else if (data.jobId) {
+          jobIds = [data.jobId];
+        } else if (Array.isArray(data)) {
+          jobIds = data.map((job: any) => job.jobId || job).filter(Boolean);
+        }
+        
         setUploadProgress(100);
         
         toast({
-          title: 'Success',
-          description: `${data.policies?.length || files.length} file(s) uploaded successfully. AI tagging in progress.`,
+          title: t.common.success,
+          description: `${files.length} ${t.common.import}(s) ${t.policies.library.uploading.toLowerCase()}. ${t.policies.library.processingIndexing.toLowerCase()}`,
         });
-
-        // Refresh policies list after a brief delay
+        
+        // Add jobs to activeJobs and start polling immediately
+        if (jobIds.length > 0) {
+          jobIds.forEach(jobId => {
+            activeJobIdsRef.current.add(jobId);
+            setActiveJobs(prev => ({
+              ...prev,
+              [jobId]: {
+                status: 'QUEUED',
+                progress: {},
+              },
+            }));
+            // Poll immediately (no wait for interval)
+            pollJob(jobId);
+          });
+        }
+        
+        // Refresh list to get initial policy entries
         setTimeout(() => {
           fetchPolicies();
+        }, 300);
+        
+        // Keep progress bar visible a bit longer, then reset
+        setTimeout(() => {
           setUploadProgress(0);
           setIsUploading(false);
-        }, 1000);
+        }, 1500);
       } else {
         const errorData = await response.json().catch(() => ({ error: 'Upload failed' }));
-        throw new Error(errorData.error || 'Upload failed');
+        const errorMessage = errorData.error || errorData.message || 'Upload failed';
+        
+        // Handle duplicate file error from backend
+        if (errorMessage.toLowerCase().includes('already exists') || errorMessage.toLowerCase().includes('duplicate')) {
+          toast({
+            title: t.policies.library.fileAlreadyExists,
+            description: errorMessage,
+            variant: 'destructive',
+          });
+        } else {
+          throw new Error(errorMessage);
+        }
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to upload files';
-      toast({
-        title: 'Error',
-        description: errorMessage,
-        variant: 'destructive',
-      });
       setUploadProgress(0);
+      const errorMessage = error instanceof Error ? error.message : 'An error occurred';
+      
+      // Only show error toast if it's not already shown above
+      if (!errorMessage.includes('already exists')) {
+        toast({
+          title: t.common.error,
+          description: errorMessage,
+          variant: 'destructive',
+        });
+      }
       setIsUploading(false);
     } finally {
       if (fileInputRef.current) {
@@ -340,6 +408,64 @@ export default function PoliciesLibraryPage() {
     }
   }
 
+  async function handleBulkUpload() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf';
+    input.multiple = true;
+    input.onchange = async (e) => {
+      const files = (e.target as HTMLInputElement).files;
+      if (!files || files.length === 0) return;
+
+      setIsUploading(true);
+      setUploadProgress(10);
+
+      try {
+        const formData = new FormData();
+        for (let i = 0; i < files.length; i++) {
+          formData.append('files', files[i]);
+        }
+
+        setUploadProgress(30);
+        const response = await fetch('/api/policies/bulk-upload', {
+          method: 'POST',
+          body: formData,
+          credentials: 'include',
+        });
+
+        setUploadProgress(70);
+
+        if (response.ok) {
+          const data = await response.json();
+          setUploadProgress(100);
+          
+          toast({
+            title: 'Success',
+            description: `${data.policies?.length || files.length} file(s) uploaded. Redirecting to review queue...`,
+          });
+
+          // Redirect to review queue after a brief delay
+          setTimeout(() => {
+            router.push('/policies/tag-review-queue');
+          }, 1000);
+        } else {
+          const errorData = await response.json().catch(() => ({ error: 'Upload failed' }));
+          throw new Error(errorData.error || 'Upload failed');
+        }
+      } catch (error) {
+        console.error('Bulk upload error:', error);
+        toast({
+          title: 'Error',
+          description: error instanceof Error ? error.message : 'Failed to upload files',
+          variant: 'destructive',
+        });
+      } finally {
+        setUploadProgress(0);
+        setIsUploading(false);
+      }
+    };
+    input.click();
+  }
 
   async function handleReprocess(policyId: string, mode: 'ocr_only' | 'full' = 'ocr_only') {
     if (reprocessingPolicyId === policyId) {
@@ -560,27 +686,36 @@ export default function PoliciesLibraryPage() {
             ref={fileInputRef}
             type="file"
             accept=".pdf"
-            multiple
             className="hidden"
             onChange={(e) => handleUpload(e.target.files)}
           />
-          <Button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isUploading || isLoading}
-            variant="default"
-          >
-            {isUploading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {t.policies.library.uploading}
-              </>
-            ) : (
-              <>
-                <Upload className="mr-2 h-4 w-4" />
-                Upload Policy
-              </>
-            )}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading || isLoading}
+              variant="default"
+            >
+              {isUploading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {t.policies.library.uploading}
+                </>
+              ) : (
+                <>
+                  <Upload className="mr-2 h-4 w-4" />
+                  Upload Policy
+                </>
+              )}
+            </Button>
+            <Button
+              onClick={handleBulkUpload}
+              disabled={isUploading || isLoading}
+              variant="outline"
+            >
+              <UploadCloud className="mr-2 h-4 w-4" />
+              Bulk Upload
+            </Button>
+          </div>
         </div>
       </div>
 

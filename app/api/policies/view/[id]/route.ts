@@ -26,11 +26,15 @@ export async function GET(
     }
 
     const { tenantId } = authResult;
-    const documentId = params.id;
+    const idParam = params.id; // Accept id param (can be documentId or policy id)
 
     const policiesCollection = await getCollection('policy_documents');
+    // Try to find by documentId first, then by id
     const document = await policiesCollection.findOne({
-      documentId,
+      $or: [
+        { documentId: idParam },
+        { id: idParam },
+      ],
       // Tenant isolation: only allow viewing policies in same tenant
       $or: [
         { tenantId: tenantId },
