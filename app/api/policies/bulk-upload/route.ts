@@ -139,17 +139,21 @@ export async function POST(request: NextRequest) {
         await policiesCollection.insertOne(document as any);
 
         // Trigger AI tagging in background (async, non-blocking)
-        // Use setTimeout to avoid blocking the response
-        setTimeout(() => {
-          fetch(`${request.nextUrl.origin}/api/policies/${policyId}/suggest-tags`, {
-            method: 'POST',
-            headers: {
-              'Cookie': request.headers.get('Cookie') || '',
-            },
-          }).catch(err => {
-            console.error(`Failed to trigger AI tagging for ${policyId}:`, err);
-          });
-        }, 100);
+        // Don't await - let it run in background
+        // Use immediate fetch without setTimeout for more reliability
+        const suggestTagsUrl = `${request.nextUrl.origin}/api/policies/${policyId}/suggest-tags`;
+        const cookies = request.headers.get('Cookie') || '';
+        
+        // Fire and forget - don't block response
+        fetch(suggestTagsUrl, {
+          method: 'POST',
+          headers: {
+            'Cookie': cookies,
+            'Content-Type': 'application/json',
+          },
+        }).catch(err => {
+          console.error(`Failed to trigger AI tagging for ${policyId}:`, err);
+        });
 
         uploadedPolicies.push({
           id: policyId,
