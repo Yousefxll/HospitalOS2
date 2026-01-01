@@ -94,7 +94,7 @@ export default function TagReviewQueuePage() {
     try {
       const params = new URLSearchParams();
       if (lowConfidenceOnly) params.append('lowConfidenceOnly', 'true');
-      if (statusFilter) params.append('status', statusFilter);
+      if (statusFilter && statusFilter !== 'all') params.append('status', statusFilter);
 
       const response = await fetch(`/api/policies/tag-review-queue?${params.toString()}`, {
         credentials: 'include',
@@ -292,7 +292,7 @@ export default function TagReviewQueuePage() {
                 <SelectContent>
                   <SelectItem value="needs-review">Needs Review</SelectItem>
                   <SelectItem value="auto-approved">Auto-Approved</SelectItem>
-                  <SelectItem value="">All</SelectItem>
+                  <SelectItem value="all">All</SelectItem>
                 </SelectContent>
               </Select>
             </div>
