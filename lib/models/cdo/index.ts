@@ -5,11 +5,11 @@
  * These are the ONLY entities allowed for the CDO module.
  */
 
-export { ClinicalDecisionPrompt } from './ClinicalDecisionPrompt';
-export { OutcomeEvent } from './OutcomeEvent';
-export { RiskFlag } from './RiskFlag';
-export { ResponseTimeMetric } from './ResponseTimeMetric';
-export { TransitionOutcome } from './TransitionOutcome';
-export { ReadmissionEvent } from './ReadmissionEvent';
-export { QualityIndicator } from './QualityIndicator';
+export type { ClinicalDecisionPrompt } from './ClinicalDecisionPrompt';
+export type { OutcomeEvent } from './OutcomeEvent';
+export type { RiskFlag } from './RiskFlag';
+export type { ResponseTimeMetric } from './ResponseTimeMetric';
+export type { TransitionOutcome } from './TransitionOutcome';
+export type { ReadmissionEvent } from './ReadmissionEvent';
+export type { QualityIndicator } from './QualityIndicator';
 
