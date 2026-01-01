@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export async function GET(
   request: NextRequest,
-  { params }: { params: { documentId: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
     // Authentication and tenant isolation
@@ -26,7 +26,7 @@ export async function GET(
     }
 
     const { tenantId } = authResult;
-    const { documentId } = params;
+    const documentId = params.id;
 
     const policiesCollection = await getCollection('policy_documents');
     const document = await policiesCollection.findOne({
