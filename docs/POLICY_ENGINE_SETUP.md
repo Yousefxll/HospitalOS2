@@ -74,14 +74,20 @@ The Policy Engine is a **separate microservice** (FastAPI/Python) that handles p
 
 1. Go to [Render Dashboard](https://dashboard.render.com)
 2. Click **"New +"** → **"Web Service"**
-3. Connect your GitHub repository: `Yousefxll/HospitalOS2`
+3. **Connect Repository:**
+   - Select **"Connect a repository"**
+   - Choose **GitHub** as the Git provider
+   - Search for and select: **`Yousefxll/HospitalOS2`** ✅
+   - ⚠️ **CRITICAL**: Make sure it's `Yousefxll/HospitalOS2`, NOT `HMG-Dashboard`
+   - Click **"Connect"**
+
 4. Configure the service:
 
    **Basic Settings:**
    - **Name**: `policy-engine`
    - **Region**: Choose closest to your MongoDB/Next.js app
    - **Branch**: `main`
-   - **Root Directory**: `policy-engine` ⚠️ **IMPORTANT**: Set this to the policy-engine subdirectory
+   - **Root Directory**: `policy-engine` ⚠️ **CRITICAL**: Must be `policy-engine` (not empty, not `/`)
 
    **Build & Deploy:**
    - **Environment**: `Python 3`
@@ -104,6 +110,11 @@ The Policy Engine is a **separate microservice** (FastAPI/Python) that handles p
 In Render Dashboard → policy-engine service → Environment:
 
 **Required:**
+```bash
+PYTHON_VERSION=3.11.11
+```
+⚠️ **CRITICAL**: Set this to avoid Pillow build failures on Python 3.13
+
 ```bash
 OPENAI_API_KEY=sk-...your-key...
 EMBEDDINGS_PROVIDER=openai

@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: policy-engine
+    runtime: python
+    repo: https://github.com/Yousefxll/HospitalOS2
+    branch: main
+    rootDir: policy-engine
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.11
+      - key: OPENAI_API_KEY
+        sync: false  # Set manually in Render dashboard
+      - key: EMBEDDINGS_PROVIDER
+        value: openai
+      - key: OCR_PROVIDER
+        value: vision
+      - key: ALLOWED_ORIGINS
+        value: https://brand-xl.com,https://hospitalos2.onrender.com,http://localhost:3000
+    healthCheckPath: /health
+    plan: starter  # Upgrade to standard for better performance
