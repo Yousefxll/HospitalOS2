@@ -5,7 +5,15 @@
  */
 
 // Models
-export * from '../models/cdo';
+export type { 
+  ClinicalDecisionPrompt,
+  OutcomeEvent,
+  RiskFlag,
+  ResponseTimeMetric,
+  TransitionOutcome,
+  ReadmissionEvent,
+  QualityIndicator,
+} from '../models/cdo';
 
 // Repositories
 export { ERRepository } from './repositories/ERRepository';
