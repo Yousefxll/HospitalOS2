@@ -7,10 +7,7 @@
 
 import { MongoClient } from 'mongodb';
 // Note: This script should be run with ts-node or compiled separately
-// dotenv is not needed as environment variables are loaded by the runtime
-
-// Load environment variables
-dotenv.config({ path: resolve(process.cwd(), '.env.local') });
+// Environment variables are loaded by the runtime (Node.js or tsx)
 
 const MONGO_URL = process.env.MONGO_URL || 'mongodb://localhost:27017';
 const DB_NAME = process.env.DB_NAME || 'hospital_ops';
