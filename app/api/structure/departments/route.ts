@@ -29,9 +29,10 @@ export async function GET(request: NextRequest) {
       code: dept.code,
       label_en: dept.label_en || dept.name,
       label_ar: dept.label_ar || dept.name,
+      departmentName: dept.name, // For compatibility with FloorDepartment type
     }));
 
-    return NextResponse.json({ departments: departmentList });
+    return NextResponse.json({ success: true, data: departmentList });
   } catch (error) {
     console.error('Get departments error:', error);
     return NextResponse.json(
