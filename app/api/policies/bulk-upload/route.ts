@@ -81,16 +81,16 @@ export async function POST(request: NextRequest) {
         // Calculate hash
         const fileHash = calculateFileHash(buffer);
 
-        // Check for duplicate by filename (more user-friendly than fileHash)
+        // Check for duplicate by fileHash (more accurate than filename)
         // Only check active policies to allow re-uploading deleted ones
-        const existingByFilename = await policiesCollection.findOne({
-          originalFileName: file.name,
+        const existingByHash = await policiesCollection.findOne({
+          fileHash,
           tenantId,
           isActive: true,
         });
 
-        if (existingByFilename) {
-          console.warn(`Duplicate file skipped (same filename): ${file.name}`);
+        if (existingByHash) {
+          console.warn(`Duplicate file skipped (same content): ${file.name}`);
           // Add to skipped list but don't block other files
           continue;
         }
