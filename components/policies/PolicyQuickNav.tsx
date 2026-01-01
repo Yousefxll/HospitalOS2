@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { FileText, AlertTriangle, Sparkles, FilePlus, Merge, Shield } from 'lucide-react';
+import { FileText, AlertTriangle, Sparkles, FilePlus, Merge, Shield, Filter } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface PolicyNavItem {
@@ -42,6 +42,11 @@ const policyNavItems: PolicyNavItem[] = [
     href: '/policies/risk-detector',
     label: 'Risk Detector',
     icon: Shield,
+  },
+  {
+    href: '/policies/tag-review-queue',
+    label: 'Tag Review Queue',
+    icon: Filter,
   },
 ];
 
