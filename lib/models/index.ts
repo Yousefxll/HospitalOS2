@@ -4,8 +4,8 @@
  * Central export for all domain models
  */
 
-export { User, UserSession } from './User';
-export { Group } from './Group';
-export { Hospital } from './Hospital';
-export { Session } from './Session';
+export type { User, UserSession } from './User';
+export type { Group } from './Group';
+export type { Hospital } from './Hospital';
+export type { Session } from './Session';
 
