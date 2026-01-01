@@ -317,6 +317,8 @@ export default function PoliciesLibraryPage() {
         // Refresh policies list after a brief delay
         setTimeout(() => {
           fetchPolicies();
+          setUploadProgress(0);
+          setIsUploading(false);
         }, 1000);
       } else {
         const errorData = await response.json().catch(() => ({ error: 'Upload failed' }));
