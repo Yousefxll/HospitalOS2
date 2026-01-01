@@ -311,25 +311,25 @@ export default function PoliciesLibraryPage() {
         
         toast({
           title: 'Success',
-          description: `${data.policies?.length || files.length} file(s) uploaded. Redirecting to review queue...`,
+          description: `${data.policies?.length || files.length} file(s) uploaded successfully. AI tagging in progress.`,
         });
 
-        // Redirect to review queue after a brief delay
+        // Refresh policies list after a brief delay
         setTimeout(() => {
-          router.push('/policies/tag-review-queue');
+          fetchPolicies();
         }, 1000);
       } else {
         const errorData = await response.json().catch(() => ({ error: 'Upload failed' }));
         throw new Error(errorData.error || 'Upload failed');
       }
     } catch (error) {
-      setUploadProgress(0);
       const errorMessage = error instanceof Error ? error.message : 'Failed to upload files';
       toast({
         title: 'Error',
         description: errorMessage,
         variant: 'destructive',
       });
+      setUploadProgress(0);
       setIsUploading(false);
     } finally {
       if (fileInputRef.current) {
