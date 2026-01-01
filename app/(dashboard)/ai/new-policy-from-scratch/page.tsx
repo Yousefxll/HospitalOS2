@@ -9,8 +9,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Download, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useTranslation } from '@/hooks/use-translation';
+import { PolicyQuickNav } from '@/components/policies/PolicyQuickNav';
 
 export default function NewPolicyFromScratchPage() {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedText, setGeneratedText] = useState('');
@@ -30,8 +33,8 @@ export default function NewPolicyFromScratchPage() {
   async function handleGenerate() {
     if (!formData.title.trim()) {
       toast({
-        title: 'Error',
-        description: 'Please enter a policy title',
+        title: t.common.error,
+        description: t.policies.newPolicy.pleaseEnterPolicyTitle,
         variant: 'destructive',
       });
       return;
@@ -52,15 +55,15 @@ export default function NewPolicyFromScratchPage() {
       if (response.ok) {
         setGeneratedText(data.policyText || '');
         toast({
-          title: 'Success',
-          description: 'Policy generated successfully',
+          title: t.common.success,
+          description: t.policies.newPolicy.generatePolicy + ' ' + t.common.success.toLowerCase(),
         });
       } else {
         throw new Error(data.error || 'Generation failed');
       }
     } catch (error: any) {
       toast({
-        title: 'Error',
+        title: t.common.error,
         description: error.message || 'Failed to generate policy',
         variant: 'destructive',
       });
@@ -72,7 +75,7 @@ export default function NewPolicyFromScratchPage() {
   function handleDownload() {
     if (!generatedText) {
       toast({
-        title: 'Error',
+        title: t.common.error,
         description: 'No policy text to download',
         variant: 'destructive',
       });
@@ -90,17 +93,18 @@ export default function NewPolicyFromScratchPage() {
     URL.revokeObjectURL(url);
 
     toast({
-      title: 'Success',
-      description: 'Policy downloaded',
+      title: t.common.success,
+      description: t.policies.newPolicy.downloadPolicy,
     });
   }
 
   return (
     <div className="space-y-6">
+      <PolicyQuickNav />
       <div>
-        <h1 className="text-3xl font-bold">AI New Policy Creator</h1>
+        <h1 className="text-3xl font-bold">{t.policies.newPolicy.title}</h1>
         <p className="text-muted-foreground">
-          Generate new hospital policies from scratch using AI
+          {t.policies.newPolicy.subtitle}
         </p>
       </div>
 
@@ -108,15 +112,15 @@ export default function NewPolicyFromScratchPage() {
         {/* Form */}
         <Card>
           <CardHeader>
-            <CardTitle>Policy Details</CardTitle>
+            <CardTitle>{t.policies.newPolicy.policyDetails}</CardTitle>
             <CardDescription>
-              Fill in the details to generate a new policy
+              {t.policies.newPolicy.fillInDetails}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="title">Title *</Label>
+                <Label htmlFor="title">{t.policies.newPolicy.policyTitle} *</Label>
                 <Input
                   id="title"
                   placeholder="e.g., Patient Fall Prevention Policy"
@@ -126,7 +130,7 @@ export default function NewPolicyFromScratchPage() {
               </div>
 
               <div>
-                <Label htmlFor="domain">Domain</Label>
+                <Label htmlFor="domain">{t.policies.newPolicy.domain}</Label>
                 <Input
                   id="domain"
                   placeholder="e.g., Patient Safety, Nursing, Emergency"
@@ -136,7 +140,7 @@ export default function NewPolicyFromScratchPage() {
               </div>
 
               <div>
-                <Label htmlFor="detailLevel">Detail Level</Label>
+                <Label htmlFor="detailLevel">{t.policies.newPolicy.detailLevel}</Label>
                 <Select
                   value={formData.detailLevel}
                   onValueChange={(value: 'brief' | 'standard' | 'detailed') =>
@@ -147,15 +151,15 @@ export default function NewPolicyFromScratchPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="brief">Brief</SelectItem>
-                    <SelectItem value="standard">Standard</SelectItem>
-                    <SelectItem value="detailed">Detailed</SelectItem>
+                    <SelectItem value="brief">{t.policies.newPolicy.brief}</SelectItem>
+                    <SelectItem value="standard">{t.policies.newPolicy.standard}</SelectItem>
+                    <SelectItem value="detailed">{t.policies.newPolicy.detailed}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
-                <Label htmlFor="accreditationFocus">Accreditation Focus</Label>
+                <Label htmlFor="accreditationFocus">{t.policies.newPolicy.accreditationFocus}</Label>
                 <Input
                   id="accreditationFocus"
                   placeholder="e.g., JCI, CBAHI, ISO"
@@ -165,7 +169,7 @@ export default function NewPolicyFromScratchPage() {
               </div>
 
               <div>
-                <Label htmlFor="riskLevel">Risk Level</Label>
+                <Label htmlFor="riskLevel">{t.policies.newPolicy.riskLevel}</Label>
                 <Select
                   value={formData.riskLevel || undefined}
                   onValueChange={(value: 'low' | 'medium' | 'high' | 'critical') =>
@@ -173,19 +177,19 @@ export default function NewPolicyFromScratchPage() {
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select risk level (optional)" />
+                    <SelectValue placeholder={t.policies.newPolicy.selectRiskLevelOptional} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="critical">Critical</SelectItem>
+                    <SelectItem value="low">{t.policies.newPolicy.low}</SelectItem>
+                    <SelectItem value="medium">{t.policies.newPolicy.medium}</SelectItem>
+                    <SelectItem value="high">{t.policies.newPolicy.high}</SelectItem>
+                    <SelectItem value="critical">{t.policies.newPolicy.critical}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
-                <Label htmlFor="purpose">Purpose</Label>
+                <Label htmlFor="purpose">{t.policies.newPolicy.purpose}</Label>
                 <Textarea
                   id="purpose"
                   placeholder="Describe the purpose of this policy"
@@ -196,7 +200,7 @@ export default function NewPolicyFromScratchPage() {
               </div>
 
               <div>
-                <Label htmlFor="scope">Scope</Label>
+                <Label htmlFor="scope">{t.policies.newPolicy.scope}</Label>
                 <Textarea
                   id="scope"
                   placeholder="Describe the scope and applicability"
@@ -207,7 +211,7 @@ export default function NewPolicyFromScratchPage() {
               </div>
 
               <div>
-                <Label htmlFor="keyRules">Key Rules/Requirements</Label>
+                <Label htmlFor="keyRules">{t.policies.newPolicy.keyRules}</Label>
                 <Textarea
                   id="keyRules"
                   placeholder="List key rules or requirements"
@@ -218,7 +222,7 @@ export default function NewPolicyFromScratchPage() {
               </div>
 
               <div>
-                <Label htmlFor="monitoring">Monitoring Requirements</Label>
+                <Label htmlFor="monitoring">{t.policies.newPolicy.monitoring}</Label>
                 <Textarea
                   id="monitoring"
                   placeholder="Describe monitoring and compliance requirements"
@@ -229,7 +233,7 @@ export default function NewPolicyFromScratchPage() {
               </div>
 
               <div>
-                <Label htmlFor="notes">Additional Notes</Label>
+                <Label htmlFor="notes">{t.policies.newPolicy.notes}</Label>
                 <Textarea
                   id="notes"
                   placeholder="Any additional notes or special considerations"
@@ -247,12 +251,12 @@ export default function NewPolicyFromScratchPage() {
                 {isGenerating ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Generating...
+                    {t.policies.newPolicy.generating}
                   </>
                 ) : (
                   <>
                     <FileText className="h-4 w-4 mr-2" />
-                    Generate Policy
+                    {t.policies.newPolicy.generatePolicy}
                   </>
                 )}
               </Button>
@@ -265,15 +269,15 @@ export default function NewPolicyFromScratchPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle>Generated Policy</CardTitle>
+                <CardTitle>{t.policies.newPolicy.generatedPolicy}</CardTitle>
                 <CardDescription>
-                  AI-generated policy document
+                  {t.policies.newPolicy.aiGeneratedPolicyDocument}
                 </CardDescription>
               </div>
               {generatedText && (
                 <Button onClick={handleDownload} variant="outline" size="sm">
                   <Download className="h-4 w-4 mr-2" />
-                  Download .txt
+                  {t.policies.newPolicy.downloadAsText}
                 </Button>
               )}
             </div>
@@ -287,8 +291,8 @@ export default function NewPolicyFromScratchPage() {
             ) : (
               <div className="text-center text-muted-foreground py-12">
                 <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Generated policy will appear here</p>
-                <p className="text-sm mt-2">Fill in the form and click "Generate Policy"</p>
+                <p>{t.policies.newPolicy.generatedPolicyWillAppear}</p>
+                <p className="text-sm mt-2">{t.policies.newPolicy.fillFormAndClick}</p>
               </div>
             )}
           </CardContent>

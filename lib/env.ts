@@ -69,6 +69,8 @@ export const env = {
   // Optional variables (can be undefined)
   OPENAI_API_KEY: getOptionalEnv('OPENAI_API_KEY'),
   CRON_SECRET: getOptionalEnv('CRON_SECRET'),
+  POLICY_ENGINE_URL: getEnv('POLICY_ENGINE_URL', 'http://localhost:8001'),
+  POLICY_ENGINE_TENANT_ID: getEnv('POLICY_ENGINE_TENANT_ID', 'default'),
   
   // NODE_ENV is always available in Next.js
   NODE_ENV: process.env.NODE_ENV || 'development',

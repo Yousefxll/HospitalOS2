@@ -1,7 +1,7 @@
 # Language Toggle Component
 
 ## Overview
-The Language Toggle button is now a core component that appears on all pages of the HospitalOS application. It allows users to switch between Arabic (AR) and English (EN) languages.
+The Language Toggle button is now a core component that appears on all pages of the SIRA application. It allows users to switch between Arabic (AR) and English (EN) languages.
 
 ## Implementation
 

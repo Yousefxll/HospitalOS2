@@ -111,7 +111,9 @@ export default function PatientExperienceVisitPage() {
 
   async function loadCurrentUser() {
     try {
-      const response = await fetch('/api/auth/me');
+      const response = await fetch('/api/auth/me', {
+        credentials: 'include', // Ensure cookies are sent
+      });
       if (!response.ok) {
         if (response.status === 401) {
           console.warn('Unauthorized: Please login again');

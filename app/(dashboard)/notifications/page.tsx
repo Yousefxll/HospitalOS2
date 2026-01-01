@@ -75,11 +75,17 @@ export default function NotificationsPage() {
         params.append('unread', '1');
       }
 
-      const response = await fetch(`/api/notifications?${params.toString()}`);
+      const response = await fetch(`/api/notifications?${params.toString()}`, {
+        credentials: 'include', // Ensure cookies are sent
+      });
       if (response.ok) {
         const data = await response.json();
         setNotifications(data.data || []);
         setUnreadCount(data.unreadCount || 0);
+      } else if (response.status === 401) {
+        // Not authenticated, silently fail (user will be redirected by middleware)
+        setNotifications([]);
+        setUnreadCount(0);
       } else {
         toast({
           title: 'Error',
@@ -102,6 +108,7 @@ export default function NotificationsPage() {
   async function handleMarkRead(notificationId: string) {
     try {
       const response = await fetch(`/api/notifications/${notificationId}`, {
+        credentials: 'include', // Ensure cookies are sent
         method: 'PATCH',
       });
 
@@ -120,6 +127,7 @@ export default function NotificationsPage() {
   async function handleMarkAllRead() {
     try {
       const response = await fetch('/api/notifications/mark-all-read', {
+        credentials: 'include', // Ensure cookies are sent
         method: 'PATCH',
       });
 

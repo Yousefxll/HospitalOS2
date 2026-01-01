@@ -9,7 +9,10 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Send, FileText, ExternalLink, Eye, Trash2, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useTranslation } from '@/hooks/use-translation';
 import { useRouter } from 'next/navigation';
+import { Checkbox } from '@/components/ui/checkbox';
+import { PolicyQuickNav } from '@/components/policies/PolicyQuickNav';
 
 interface PolicySearchMatch {
   pageNumber: number;
@@ -36,6 +39,7 @@ interface PolicyAISource {
   startLine: number;
   endLine: number;
   snippet: string;
+  score?: number;
 }
 
 interface PolicyAIResponse {
@@ -51,6 +55,7 @@ interface PolicyAIResponse {
 export default function PolicyAssistantPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const { t } = useTranslation();
   const [question, setQuestion] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [isAsking, setIsAsking] = useState(false);
@@ -60,6 +65,173 @@ export default function PolicyAssistantPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [topK, setTopK] = useState(5);
   const [previewDocumentId, setPreviewDocumentId] = useState<string | null>(null);
+  const [includeSupporting, setIncludeSupporting] = useState(false);
+  const [relevanceStrictness, setRelevanceStrictness] = useState<'Strict' | 'Balanced'>('Strict');
+
+  // English stopwords (common words to exclude from highlighting)
+  const ENGLISH_STOPWORDS = new Set([
+    'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by',
+    'from', 'up', 'about', 'into', 'through', 'during', 'including', 'until', 'against',
+    'among', 'throughout', 'despite', 'towards', 'upon', 'concerning', 'to', 'of', 'in', 'for',
+    'on', 'at', 'by', 'from', 'with', 'is', 'are', 'was', 'were', 'been', 'be', 'being',
+    'have', 'has', 'had', 'having', 'do', 'does', 'did', 'doing', 'will', 'would', 'should',
+    'could', 'may', 'might', 'must', 'can', 'this', 'that', 'these', 'those', 'i', 'you',
+    'he', 'she', 'it', 'we', 'they', 'what', 'which', 'who', 'whom', 'whose', 'where',
+    'when', 'why', 'how', 'all', 'each', 'every', 'both', 'few', 'more', 'most', 'other',
+    'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very'
+  ]);
+
+  // Build highlight terms by filtering stopwords and short terms
+  function buildHighlightTerms(query: string): string[] {
+    if (!query || query.trim().length === 0) return [];
+    
+    // Normalize: lowercase, trim, collapse spaces
+    const normalized = query.trim().toLowerCase().replace(/\s+/g, ' ');
+    
+    // Split into tokens
+    const tokens = normalized.split(/\s+/).filter(w => w.length > 0);
+    
+    // Filter: remove stopwords and tokens < 3 chars
+    const meaningfulTerms = tokens.filter(token => 
+      token.length >= 3 && !ENGLISH_STOPWORDS.has(token)
+    );
+    
+    // Deduplicate
+    const uniqueTerms = Array.from(new Set(meaningfulTerms));
+    
+    // If query is a phrase (>= 6 chars with space), also include full phrase if meaningful
+    if (normalized.length >= 6 && normalized.includes(' ')) {
+      // Check if phrase has meaningful content (at least one non-stopword word >= 3 chars)
+      const phraseWords = normalized.split(/\s+/);
+      const hasMeaningful = phraseWords.some(w => w.length >= 3 && !ENGLISH_STOPWORDS.has(w));
+      if (hasMeaningful && uniqueTerms.length > 0) {
+        // Add phrase as an additional term (will be matched as phrase first)
+        return [normalized, ...uniqueTerms];
+      }
+    }
+    
+    return uniqueTerms;
+  }
+
+  // Highlight search terms in text (only meaningful terms)
+  function highlightText(text: string, query: string): string {
+    if (!query || !text) return text;
+    
+    const highlightTerms = buildHighlightTerms(query);
+    
+    // If no meaningful terms, return text without highlighting
+    if (highlightTerms.length === 0) return text;
+    
+    // Build regex pattern: try phrase match first, then individual terms
+    const patterns: string[] = [];
+    
+    // Check if first term is a phrase (contains space)
+    const firstTermIsPhrase = highlightTerms.length > 0 && highlightTerms[0]?.includes(' ');
+    
+    // Add full phrase if it exists
+    if (firstTermIsPhrase) {
+      patterns.push(highlightTerms[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    }
+    
+    // Add individual terms (skip first if it was the phrase)
+    const termsToAdd = firstTermIsPhrase ? highlightTerms.slice(1) : highlightTerms;
+    for (const term of termsToAdd) {
+      patterns.push(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    }
+    
+    if (patterns.length === 0) return text;
+    
+    // Create regex that matches any of the patterns (case insensitive, word boundaries for single words)
+    const regexPattern = patterns
+      .map((pattern, idx) => {
+        // If it's a phrase (contains space), match as phrase
+        if (pattern.includes(' ')) {
+          return `(${pattern})`;
+        }
+        // For single words, use word boundaries to avoid partial matches
+        return `\\b(${pattern})\\b`;
+      })
+      .join('|');
+    
+    const regex = new RegExp(regexPattern, 'gi');
+    
+    // Replace matches with highlighted version
+    return text.replace(regex, '<mark class="bg-yellow-200 dark:bg-yellow-800 font-semibold">$&</mark>');
+  }
+
+  // Determine policy category from filename
+  function getPolicyCategory(filename: string): 'supporting' | 'core' {
+    const lowerFilename = filename.toLowerCase();
+    const supportingKeywords = ['communication', 'collaboration', 'interdisciplinary', 'handover', 'reporting'];
+    return supportingKeywords.some(keyword => lowerFilename.includes(keyword)) ? 'supporting' : 'core';
+  }
+
+  // Get minScore threshold based on strictness
+  function getMinScore(strictness: 'Strict' | 'Balanced'): number {
+    return strictness === 'Strict' ? 0.78 : 0.70;
+  }
+
+  // Filter policies based on checkbox and thresholds
+  // Primary policy is ALWAYS the first cited source in the answer (sources[0])
+  function filterPolicies(
+    policies: Array<{ documentId: string; title: string; fileName: string }>,
+    sources: PolicyAISource[],
+    includeSupporting: boolean,
+    minScore: number
+  ): Array<{ documentId: string; title: string; fileName: string; category: 'primary' | 'supporting' }> {
+    if (policies.length === 0 || sources.length === 0) return [];
+
+    // Primary policy is ALWAYS the first source cited in the answer
+    const primaryDocumentId = sources[0].documentId;
+    const primaryPolicy = policies.find(p => p.documentId === primaryDocumentId);
+    
+    if (!primaryPolicy) {
+      // If primary policy not found in matchedDocuments, log warning
+      console.warn(`Primary policy ${primaryDocumentId} not found in matchedDocuments. Using first policy as fallback.`);
+      // Fallback: use first policy (but this should not happen in normal flow)
+      if (policies.length === 0) return [];
+      const fallback = policies[0];
+      return [{ ...fallback, category: 'primary' as const }];
+    }
+
+    const result: Array<{ documentId: string; title: string; fileName: string; category: 'primary' | 'supporting' }> = [
+      { ...primaryPolicy, category: 'primary' }
+    ];
+
+    if (!includeSupporting) {
+      return result;
+    }
+
+    // Compute scores for remaining policies (for filtering)
+    const policyMaxScores = new Map<string, number>();
+    for (const source of sources) {
+      if (source.documentId === primaryDocumentId) continue; // Skip primary
+      const currentMax = policyMaxScores.get(source.documentId) || 0;
+      const score = source.score !== undefined ? source.score : (1.0 - (sources.indexOf(source) * 0.01));
+      policyMaxScores.set(source.documentId, Math.max(currentMax, score));
+    }
+
+    // Filter supporting policies with stricter threshold
+    const supportingMinScore = minScore + 0.06;
+    const supportingPolicies = policies
+      .filter(policy => policy.documentId !== primaryDocumentId)
+      .filter(policy => {
+        const maxScore = policyMaxScores.get(policy.documentId) || 0;
+        const category = getPolicyCategory(policy.fileName);
+        
+        // Supporting category policies need higher threshold
+        if (category === 'supporting') {
+          return maxScore >= supportingMinScore;
+        }
+        // Core policies can use regular threshold
+        return maxScore >= minScore;
+      })
+      .map(p => ({ ...p, category: 'supporting' as const }));
+
+    result.push(...supportingPolicies);
+
+    return result;
+  }
 
   async function handleSearch() {
     if (!question.trim()) {
@@ -186,6 +358,7 @@ export default function PolicyAssistantPage() {
 
   return (
     <div className="space-y-6">
+      <PolicyQuickNav />
       <div>
         <h1 className="text-3xl font-bold">Policy Assistant</h1>
         <p className="text-muted-foreground">
@@ -267,63 +440,146 @@ export default function PolicyAssistantPage() {
                 />
               </div>
             </div>
+
+            {/* Relevance Controls */}
+            <div className="flex items-center gap-6 pt-2 border-t">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="include-supporting"
+                  checked={includeSupporting}
+                  onCheckedChange={(checked) => setIncludeSupporting(checked === true)}
+                />
+                <Label
+                  htmlFor="include-supporting"
+                  className="text-sm font-normal cursor-pointer"
+                >
+                  Include supporting policies (communication/admin)
+                </Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Label className="text-sm">Relevance strictness:</Label>
+                <Select value={relevanceStrictness} onValueChange={(value: 'Strict' | 'Balanced') => setRelevanceStrictness(value)}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Strict">Strict</SelectItem>
+                    <SelectItem value="Balanced">Balanced</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
 
       {/* AI Answer */}
-      {aiResponse && (
-        <Card>
-          <CardHeader>
-            <CardTitle>AI Answer</CardTitle>
-            <CardDescription>
-              Based on {aiResponse.matchedDocuments.length} policy document(s)
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="prose max-w-none whitespace-pre-wrap mb-4">
-              {aiResponse.answer}
-            </div>
+      {aiResponse && (() => {
+        const minScore = getMinScore(relevanceStrictness);
+        const filteredPolicies = filterPolicies(
+          aiResponse.matchedDocuments,
+          aiResponse.sources,
+          includeSupporting,
+          minScore
+        );
+        
+        const primaryPolicy = filteredPolicies.find(p => p.category === 'primary');
+        const supportingPolicies = filteredPolicies.filter(p => p.category === 'supporting');
 
-            {/* Related Policies */}
-            {aiResponse.matchedDocuments.length > 0 && (
-              <div className="mt-4">
-                <h3 className="font-semibold mb-2">Related Policies</h3>
-                <div className="space-y-2">
-                  {aiResponse.matchedDocuments.map((doc, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-2 border rounded">
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>AI Answer</CardTitle>
+              <CardDescription>
+                Based on {filteredPolicies.length} policy document(s)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="prose max-w-none whitespace-pre-wrap mb-4">
+                {aiResponse.answer}
+              </div>
+
+              {/* Primary Policy */}
+              {primaryPolicy && (
+                <div className="mt-4">
+                  <h3 className="font-semibold mb-2">Primary Policy</h3>
+                  <div className="flex items-center justify-between p-3 border rounded bg-blue-50 dark:bg-blue-950">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="default" className="bg-blue-600">
+                        PRIMARY
+                      </Badge>
                       <div>
-                        <span className="font-medium">{doc.title}</span>
+                        <span className="font-medium">{primaryPolicy.title}</span>
                         <Badge variant="outline" className="ml-2 font-mono text-xs">
-                          {doc.documentId}
+                          {primaryPolicy.documentId}
                         </Badge>
                       </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handlePreview(doc.documentId)}
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          Preview
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => router.push(`/api/policies/view/${doc.documentId}`)}
-                        >
-                          <Download className="h-4 w-4 mr-1" />
-                          View PDF
-                        </Button>
-                      </div>
                     </div>
-                  ))}
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePreview(primaryPolicy.documentId)}
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        Preview
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.push(`/api/policies/view/${primaryPolicy.documentId}`)}
+                      >
+                        <Download className="h-4 w-4 mr-1" />
+                        View PDF
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+              )}
+
+              {/* Supporting Policies */}
+              {includeSupporting && supportingPolicies.length > 0 && (
+                <div className="mt-4">
+                  <h3 className="font-semibold mb-2">Supporting Policies</h3>
+                  <div className="space-y-2">
+                    {supportingPolicies.map((doc, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-2 border rounded">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary">SUPPORTING</Badge>
+                          <div>
+                            <span className="font-medium">{doc.title}</span>
+                            <Badge variant="outline" className="ml-2 font-mono text-xs">
+                              {doc.documentId}
+                            </Badge>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePreview(doc.documentId)}
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            Preview
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => router.push(`/api/policies/view/${doc.documentId}`)}
+                          >
+                            <Download className="h-4 w-4 mr-1" />
+                            View PDF
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Search Results */}
       {searchResults.length > 0 && (
@@ -391,7 +647,7 @@ export default function PolicyAssistantPage() {
                               <Badge variant="secondary">Score: {match.score.toFixed(2)}</Badge>
                             )}
                           </div>
-                          <div>{match.snippet}</div>
+                          <div dangerouslySetInnerHTML={{ __html: highlightText(match.snippet, question) }} />
                         </div>
                       ))}
                     </div>
@@ -404,64 +660,91 @@ export default function PolicyAssistantPage() {
       )}
 
       {/* Sources from AI */}
-      {aiResponse && aiResponse.sources.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Sources</CardTitle>
-            <CardDescription>
-              {aiResponse.sources.length} source(s) referenced
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {aiResponse.sources.map((source, idx) => (
-                <Card key={idx} className="border-l-4 border-l-green-500">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <CardTitle className="text-lg">{source.title}</CardTitle>
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          <Badge variant="outline" className="font-mono text-xs">
-                            {source.documentId}
-                          </Badge>
-                          <Badge variant="outline">Page {source.pageNumber}</Badge>
-                          <Badge variant="outline">
-                            Lines {source.startLine}-{source.endLine}
-                          </Badge>
-                          <Badge variant="secondary">{source.fileName}</Badge>
+      {aiResponse && aiResponse.sources.length > 0 && (() => {
+        const minScore = getMinScore(relevanceStrictness);
+        const filteredPolicies = filterPolicies(
+          aiResponse.matchedDocuments,
+          aiResponse.sources,
+          includeSupporting,
+          minScore
+        );
+        
+        const primaryPolicy = filteredPolicies.find(p => p.category === 'primary');
+        const allowedDocumentIds = new Set(filteredPolicies.map(p => p.documentId));
+        
+        // Filter sources based on checkbox
+        const filteredSources = includeSupporting
+          ? aiResponse.sources.filter(s => allowedDocumentIds.has(s.documentId))
+          : aiResponse.sources.filter(s => s.documentId === primaryPolicy?.documentId);
+
+        if (filteredSources.length === 0) return null;
+
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>Sources</CardTitle>
+              <CardDescription>
+                {filteredSources.length} source(s) referenced
+                {!includeSupporting && primaryPolicy && ' (Primary policy only)'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {filteredSources.map((source, idx) => (
+                  <Card key={idx} className="border-l-4 border-l-green-500">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <CardTitle className="text-lg">{source.title}</CardTitle>
+                            {source.documentId === primaryPolicy?.documentId && (
+                              <Badge variant="default" className="bg-blue-600">PRIMARY</Badge>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            <Badge variant="outline" className="font-mono text-xs">
+                              {source.documentId}
+                            </Badge>
+                            <Badge variant="outline">Page {source.pageNumber}</Badge>
+                            <Badge variant="outline">
+                              Lines {source.startLine}-{source.endLine}
+                            </Badge>
+                            <Badge variant="secondary">{source.fileName}</Badge>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePreview(source.documentId)}
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            Preview
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => router.push(`/api/policies/view/${source.documentId}`)}
+                          >
+                            <Download className="h-4 w-4 mr-1" />
+                            View PDF
+                          </Button>
                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handlePreview(source.documentId)}
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          Preview
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => router.push(`/api/policies/view/${source.documentId}`)}
-                        >
-                          <Download className="h-4 w-4 mr-1" />
-                          View PDF
-                        </Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="p-3 bg-muted rounded text-sm">
-                      {source.snippet}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                    </CardHeader>
+                    <CardContent>
+                      <div 
+                        className="p-3 bg-muted rounded text-sm"
+                        dangerouslySetInnerHTML={{ __html: highlightText(source.snippet, question) }}
+                      />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* PDF Preview Modal */}
       {previewDocumentId && (

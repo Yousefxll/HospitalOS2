@@ -34,6 +34,9 @@ export function MobileBottomNav() {
         if (response.ok) {
           const data = await response.json();
           setUnreadCount(data.unreadCount || 0);
+        } else if (response.status === 401) {
+          // Not authenticated, silently fail
+          setUnreadCount(0);
         }
       } catch (error) {
         // Silently fail

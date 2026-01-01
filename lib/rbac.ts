@@ -1,7 +1,9 @@
-export type Role = 'admin' | 'supervisor' | 'staff' | 'viewer';
+export type Role = 'admin' | 'supervisor' | 'staff' | 'viewer' | 'group-admin' | 'hospital-admin';
 
 export const roleHierarchy: Record<Role, number> = {
-  admin: 4,
+  admin: 5,
+  'group-admin': 4,
+  'hospital-admin': 3,
   supervisor: 3,
   staff: 2,
   viewer: 1,

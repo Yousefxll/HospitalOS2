@@ -1,144 +1,140 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCollection } from '@/lib/db';
-import { z } from 'zod';
-import { PolicySearchResult } from '@/lib/models/Policy';
+import { requireAuth } from '@/lib/auth/requireAuth';
+import { env } from '@/lib/env';
 
-const searchSchema = z.object({
-  q: z.string().min(1),
-  limit: z.number().optional().default(20),
-  includeInactive: z.boolean().optional().default(false),
-  hospital: z.string().optional(), // Filter by hospital (TAK, WHH, etc.)
-  category: z.string().optional(), // Filter by category
-});
-
+/**
+ * POST /api/policies/search
+ * 
+ * Search policies using the policy-engine backend.
+ * This endpoint proxies requests to the policy-engine /v1/search endpoint.
+ * 
+ * Request body:
+ * {
+ *   q: string (search query)
+ *   limit?: number (default: 20)
+ *   hospital?: string (optional)
+ *   category?: string (optional)
+ * }
+ * 
+ * Response:
+ * {
+ *   results: Array<PolicySearchResult>
+ * }
+ */
 export async function POST(request: NextRequest) {
   try {
+    // Authenticate
+    const authResult = await requireAuth(request);
+    if (authResult instanceof NextResponse) {
+      return authResult;
+    }
+
+    // Get request body
     const body = await request.json();
-    const { q, limit, includeInactive, hospital, category } = searchSchema.parse(body);
+    const { q: query, limit = 20, hospital, category } = body;
 
-    const policiesCollection = await getCollection('policy_documents');
-    const chunksCollection = await getCollection('policy_chunks');
+    if (!query || typeof query !== 'string' || query.trim().length === 0) {
+      return NextResponse.json(
+        { error: 'Search query (q) is required' },
+        { status: 400 }
+      );
+    }
 
-    // Search chunks using text index
-    const chunksQuery: any = {
-      $text: { $search: q },
-    };
+    // Forward to policy-engine
+    const tenantId = env.POLICY_ENGINE_TENANT_ID;
+    const policyEngineUrl = `${env.POLICY_ENGINE_URL}/v1/search`;
     
-    // Add hospital filter if provided
-    if (hospital) {
-      chunksQuery.hospital = hospital;
+    const response = await fetch(policyEngineUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        tenantId,
+        query: query.trim(),
+        topK: limit,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('SIRA search error:', errorText);
+      return NextResponse.json(
+        { error: `Search failed: ${errorText}` },
+        { status: response.status }
+      );
     }
 
-    // Get matching chunks with score
-    const matchingChunks = await chunksCollection
-      .find(chunksQuery, { projection: { score: { $meta: 'textScore' } } } as any)
-      .sort({ score: { $meta: 'textScore' } })
-      .limit(limit * 5) // Get more chunks, then group
-      .toArray();
-
-    if (matchingChunks.length === 0) {
-      return NextResponse.json({
-        query: q,
-        results: [],
-        totalResults: 0,
-      });
-    }
-
-    // Group chunks by documentId
-    const chunksByDocument = new Map<string, any[]>();
-    for (const chunk of matchingChunks) {
-      if (!chunksByDocument.has(chunk.documentId)) {
-        chunksByDocument.set(chunk.documentId, []);
-      }
-      chunksByDocument.get(chunk.documentId)!.push(chunk);
-    }
-
-    // Get document IDs
-    const documentIds = Array.from(chunksByDocument.keys());
-
-    // Build document query
-    const documentQuery: any = {
-      documentId: { $in: documentIds },
-    };
-
-    if (!includeInactive) {
-      documentQuery.isActive = true;
-      documentQuery.deletedAt = { $exists: false };
-    }
+    const searchData = await response.json();
     
-    // Add hospital filter if provided (also filter at document level)
-    if (hospital) {
-      documentQuery.hospital = hospital;
-    }
+    // Transform policy-engine response to match frontend expectations
+    // Policy-engine returns: { results: Array<{ policyId, filename, score, pageNumber, lineStart, lineEnd, snippet }> }
+    // Frontend expects: { results: Array<PolicySearchResult> }
+    // PolicySearchResult: { documentId, title, originalFileName, filePath, totalPages, matches: PolicySearchMatch[] }
+    // PolicySearchMatch: { pageNumber, startLine, endLine, snippet, score? }
     
-    // Add category filter if provided
-    if (category) {
-      documentQuery.category = category;
-    }
-
-    // Get documents
-    const documents = await policiesCollection
-      .find(documentQuery)
-      .toArray();
-
-    // Build results
-    const results: PolicySearchResult[] = [];
-
-    for (const doc of documents) {
-      const docChunks = chunksByDocument.get(doc.documentId) || [];
+    // Group results by policyId (documentId)
+    const resultsByDocument = new Map<string, any[]>();
+    
+    for (const result of searchData.results || []) {
+      const documentId = result.policyId;
       
-      // Sort chunks by score (descending)
-      docChunks.sort((a, b) => (b.score || 0) - (a.score || 0));
-
-      // Create matches with snippets
-      const matches = docChunks.slice(0, 10).map((chunk: any) => {
-        // Extract snippet around query
-        const text = chunk.text;
-        const queryLower = q.toLowerCase();
-        const index = text.toLowerCase().indexOf(queryLower);
-        const snippetStart = Math.max(0, index - 100);
-        const snippetEnd = Math.min(text.length, index + q.length + 100);
-        const snippet = '...' + text.substring(snippetStart, snippetEnd) + '...';
-
-        return {
-          pageNumber: chunk.pageNumber,
-          startLine: chunk.startLine,
-          endLine: chunk.endLine,
-          snippet,
-          score: chunk.score || 0,
-        };
-      });
-
-      if (matches.length > 0) {
-        results.push({
-          documentId: doc.documentId,
-          title: doc.title,
-          originalFileName: doc.originalFileName,
-          filePath: doc.filePath,
-          totalPages: doc.totalPages,
-          matches,
-        });
+      if (!documentId) continue;
+      
+      if (!resultsByDocument.has(documentId)) {
+        resultsByDocument.set(documentId, []);
       }
+      
+      resultsByDocument.get(documentId)!.push({
+        pageNumber: result.pageNumber || 0,
+        startLine: result.lineStart || 0,
+        endLine: result.lineEnd || 0,
+        snippet: result.snippet || '',
+        score: result.score || 0,
+      });
     }
-
-    // Sort results by total score (sum of chunk scores)
-    results.sort((a, b) => {
-      const scoreA = a.matches.reduce((sum, m) => sum + (m.score || 0), 0);
-      const scoreB = b.matches.reduce((sum, m) => sum + (m.score || 0), 0);
+    
+    // Transform to frontend format
+    const transformedResults = Array.from(resultsByDocument.entries()).map(([documentId, matches]) => {
+      // Sort matches by score (descending)
+      matches.sort((a, b) => (b.score || 0) - (a.score || 0));
+      
+      // Get filename from first result (all should have same filename for same policyId)
+      const firstResult = (searchData.results || []).find((r: any) => r.policyId === documentId);
+      const filename = firstResult?.filename || 'Unknown';
+      
+      return {
+        documentId,
+        title: filename.replace(/\.pdf$/i, '').replace(/_/g, ' '),
+        originalFileName: filename,
+        filePath: '', // Not available from policy-engine
+        totalPages: 0, // Not available from policy-engine
+        matches: matches.map(m => ({
+          pageNumber: m.pageNumber,
+          startLine: m.startLine,
+          endLine: m.endLine,
+          snippet: m.snippet,
+          score: m.score,
+        })),
+      };
+    });
+    
+    // Sort by highest match score
+    transformedResults.sort((a, b) => {
+      const scoreA = a.matches[0]?.score || 0;
+      const scoreB = b.matches[0]?.score || 0;
       return scoreB - scoreA;
     });
 
     return NextResponse.json({
-      query: q,
-      results: results.slice(0, limit),
-      totalResults: results.length,
+      results: transformedResults.slice(0, limit),
     });
+
   } catch (error: any) {
-    console.error('Policy search error:', error);
+    console.error('Search error:', error);
     return NextResponse.json(
-      { error: 'Failed to search policies', details: error.message },
+      { error: 'Internal server error', details: error.message },
       { status: 500 }
     );
   }
 }
-

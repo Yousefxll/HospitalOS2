@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getCollection } from '@/lib/db';
+import { getCollection, resetConnectionCache } from '@/lib/db';
 import { comparePassword, generateToken } from '@/lib/auth';
 import { createSession, deleteUserSessions } from '@/lib/auth/sessions';
 import { User } from '@/lib/models/User';
@@ -20,8 +20,28 @@ export async function POST(request: NextRequest) {
     const { email, password } = loginSchema.parse(body);
 
     // Get user from database
-    const usersCollection = await getCollection('users');
-    const user = await usersCollection.findOne<User>({ email }) as User | null;
+    let usersCollection;
+    try {
+      usersCollection = await getCollection('users');
+    } catch (dbError) {
+      console.error('Database connection error during login:', dbError);
+      // Reset connection cache and retry once
+      resetConnectionCache();
+      try {
+        usersCollection = await getCollection('users');
+      } catch (retryError) {
+        console.error('Database connection retry failed:', retryError);
+        return NextResponse.json(
+          { 
+            error: 'Database connection failed',
+            message: env.isDev ? (retryError instanceof Error ? retryError.message : String(retryError)) : undefined
+          },
+          { status: 503 }
+        );
+      }
+    }
+    
+    const user = await usersCollection.findOne({ email }) as User | null;
 
     if (!user || !user.isActive) {
       return NextResponse.json(
@@ -48,8 +68,9 @@ export async function POST(request: NextRequest) {
                request.headers.get('x-real-ip') || 
                undefined;
 
-    // Create new session
-    const sessionId = await createSession(user.id, userAgent, ip);
+    // Create new session with tenantId from user (required)
+    const tenantId = (user as any).tenantId || 'default'; // Default tenantId if not set
+    const sessionId = await createSession(user.id, userAgent, ip, tenantId);
 
     // Generate token with sessionId
     const token = generateToken({
@@ -72,6 +93,8 @@ export async function POST(request: NextRequest) {
     });
 
     // Set httpOnly cookie
+    // In development (localhost): secure: false, sameSite: 'lax'
+    // In production: secure: true, sameSite: 'lax' (use 'none' only if cross-site is needed)
     response.headers.set(
       'Set-Cookie',
       serialize('auth-token', token, {

@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { verifyTokenEdge } from '@/lib/auth/edge';
 
-const publicPaths = ['/login', '/api/auth/login', '/api/init'];
+const publicPaths = ['/', '/login', '/api/auth/login', '/api/init'];
+const welcomePath = '/welcome';
 const apiPrefix = '/api';
 
 export async function middleware(request: NextRequest) {

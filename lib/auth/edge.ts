@@ -17,7 +17,7 @@ function getJwtSecret(): string {
 export interface TokenPayload {
   userId: string;
   email: string;
-  role: 'admin' | 'supervisor' | 'staff' | 'viewer';
+  role: 'admin' | 'supervisor' | 'staff' | 'viewer' | 'group-admin' | 'hospital-admin';
   sessionId?: string; // Session ID for single active session enforcement
 }
 

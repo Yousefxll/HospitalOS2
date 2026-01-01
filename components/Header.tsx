@@ -28,10 +28,15 @@ export default function Header({ onMenuClick }: HeaderProps) {
   useEffect(() => {
     async function fetchUser() {
       try {
-        const response = await fetch('/api/auth/me');
+        const response = await fetch('/api/auth/me', {
+          credentials: 'include', // Ensure cookies are sent
+        });
         if (response.ok) {
           const data = await response.json();
           setUser(data.user);
+        } else if (response.status === 401) {
+          // Not authenticated, silently fail (user will be redirected by middleware)
+          setUser(null);
         }
       } catch (error) {
         console.error('Failed to fetch user:', error);
@@ -42,7 +47,10 @@ export default function Header({ onMenuClick }: HeaderProps) {
 
   async function handleLogout() {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await fetch('/api/auth/logout', { 
+        method: 'POST',
+        credentials: 'include', // Ensure cookies are sent
+      });
       router.push('/login');
       router.refresh();
     } catch (error) {

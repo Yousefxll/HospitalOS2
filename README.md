@@ -1,6 +1,6 @@
-# MedFlow - Hospital Operations Platform
+# SIRA — Enterprise Policy & Procedure Platform
 
-A comprehensive hospital operations management system built with Next.js, TypeScript, and MongoDB.
+SIRA is an enterprise-grade policy and procedure management system built with Next.js, TypeScript, and MongoDB.
 
 ## Features Implemented
 

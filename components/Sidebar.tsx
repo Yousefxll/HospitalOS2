@@ -143,7 +143,8 @@ const getNavItems = (t: any): NavItem[] => {
       icon: Users,
       children: [
         { title: nav.manpowerOverview || 'Manpower Overview', href: '/opd/manpower-overview', icon: Users },
-        { title: nav.manpowerEdit || 'Manpower Edit', href: '/opd/manpower-edit', icon: Users },
+        { title: nav.manpowerEdit || 'Manpower Edit (NEW)', href: '/opd/manpower-edit', icon: Users },
+        { title: nav.opdManpower || 'OPD Manpower', href: '/opd/manpower', icon: Users },
         { title: nav.weeklyScheduling || 'Weekly Scheduling', href: '/opd/nursing-scheduling', icon: Calendar },
         { title: nav.nursingOperations || 'Nursing Operations', href: '/nursing/operations', icon: Activity },
       ],
@@ -152,8 +153,9 @@ const getNavItems = (t: any): NavItem[] => {
       title: nav.policySystem || 'Policy System',
       icon: FileText,
       children: [
-        { title: nav.uploadPolicy || 'Upload Policy', href: '/policies/upload', icon: FileText },
         { title: nav.library || 'Library', href: '/policies', icon: FileText },
+        { title: nav.policyConflicts || 'Conflicts', href: '/policies/conflicts', icon: FileText },
+        { title: nav.policyCreate || 'Create', href: '/policies/create', icon: FileText },
         { title: nav.policyAssistant || 'Policy Assistant', href: '/ai/policy-assistant', icon: FileText },
         { title: nav.newPolicyCreator || 'New Policy Creator', href: '/ai/new-policy-from-scratch', icon: FileText },
         { title: nav.policyHarmonization || 'Policy Harmonization', href: '/ai/policy-harmonization', icon: FileText },
@@ -192,9 +194,22 @@ function NavItemComponent({
   onLinkClick?: () => void;
   unreadCount?: number;
 }) {
-  const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
   const Icon = item.icon;
+  
+  // Auto-open if current path matches any child
+  const hasActiveChild = item.children?.some(child => child.href === pathname);
+  const [isOpen, setIsOpen] = useState(hasActiveChild || false);
+  
+  // Update isOpen when pathname changes
+  useEffect(() => {
+    if (item.children) {
+      const hasActive = item.children.some(child => child.href === pathname);
+      if (hasActive) {
+        setIsOpen(true);
+      }
+    }
+  }, [pathname, item.children]);
 
   if (item.children) {
     return (
@@ -334,18 +349,26 @@ export default function Sidebar({ onLinkClick, sidebarOpen, setSidebarOpen }: Si
     // Fetch user role and permissions
     async function fetchUser() {
       try {
-        const response = await fetch('/api/auth/me');
+        const response = await fetch('/api/auth/me', {
+          credentials: 'include', // Ensure cookies are sent
+        });
         if (response.ok) {
           const data = await response.json();
           setUserRole(data.user?.role || null);
           setUserPermissions(data.user?.permissions || []);
+        } else if (response.status === 401) {
+          // Not authenticated, silently fail (user will be redirected by middleware)
+          setUserRole(null);
+          setUserPermissions([]);
         }
       } catch (error) {
         console.error('Failed to fetch user:', error);
       }
     }
 
-    fetchUser();
+    if (mounted) {
+      fetchUser();
+    }
   }, [mounted]);
 
   useEffect(() => {

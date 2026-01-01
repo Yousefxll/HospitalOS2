@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
+import { requireAuth } from '@/lib/auth/requireAuth';
 
 /**
  * GET /api/notifications
@@ -14,15 +15,15 @@ import { v4 as uuidv4 } from 'uuid';
  */
 export async function GET(request: NextRequest) {
   try {
-    const userId = request.headers.get('x-user-id');
-    const userEmail = request.headers.get('x-user-email');
+    // Use centralized auth helper - reads ONLY from cookies
+    const authResult = await requireAuth(request);
     
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    // Check if auth failed
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
+
+    const { userId, departmentKey } = authResult;
 
     const { searchParams } = new URL(request.url);
     const unread = searchParams.get('unread');
@@ -38,16 +39,11 @@ export async function GET(request: NextRequest) {
     // 2. Department notifications (recipientType='department', recipientDeptKey matches user's department)
     // For MVP, we'll fetch both and let the frontend filter, or we can query user's department from user collection
     
-    // For now, let's fetch user-specific and department notifications
-    // We'll need to get user's department from user collection
-    const usersCollection = await getCollection('users');
-    const user = await usersCollection.findOne({ id: userId });
-    const userDeptKey = user?.departmentKey;
-
+    // Build query - use departmentKey from auth context
     const query: any = {
       $or: [
         { recipientType: 'user', recipientUserId: userId },
-        ...(userDeptKey ? [{ recipientType: 'department', recipientDeptKey: userDeptKey }] : []),
+        ...(departmentKey ? [{ recipientType: 'department', recipientDeptKey: departmentKey }] : []),
       ],
     };
 

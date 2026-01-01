@@ -10,5 +10,9 @@ export interface Session {
   expiresAt: Date;
   userAgent?: string;
   ip?: string;
+  // Enhanced security fields (optional for backward compatibility)
+  idleExpiresAt?: Date; // Idle timeout expiration
+  absoluteExpiresAt?: Date; // Absolute maximum lifetime
+  lastActivityAt?: Date; // Last activity timestamp
 }
 

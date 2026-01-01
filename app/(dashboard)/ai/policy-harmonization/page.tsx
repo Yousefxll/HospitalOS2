@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2, FileText, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useTranslation } from '@/hooks/use-translation';
+import { PolicyQuickNav } from '@/components/policies/PolicyQuickNav';
 
 interface PolicyDocument {
   documentId: string;
@@ -45,6 +47,7 @@ interface HarmonizationResult {
 type CompareMethod = 'topic' | 'manual' | 'all';
 
 export default function PolicyHarmonizationPage() {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const [availableDocuments, setAvailableDocuments] = useState<PolicyDocument[]>([]);
   const [selectedHospital, setSelectedHospital] = useState<string>('');
@@ -72,7 +75,7 @@ export default function PolicyHarmonizationPage() {
       setAvailableDocuments(data.documents || []);
     } catch (error) {
       toast({
-        title: 'Error',
+        title: t.common.error,
         description: 'Failed to load documents',
         variant: 'destructive',
       });
@@ -90,7 +93,7 @@ export default function PolicyHarmonizationPage() {
 
     if (docsToSummarize.length === 0) {
       toast({
-        title: 'Error',
+        title: t.common.error,
         description: 'No documents selected for summarization',
         variant: 'destructive',
       });
@@ -124,12 +127,12 @@ export default function PolicyHarmonizationPage() {
 
       setSummaries(newSummaries);
       toast({
-        title: 'Success',
-        description: `Summarized ${newSummaries.size} document(s)`,
+        title: t.common.success,
+        description: `${newSummaries.size} ${t.policies.harmonization.documentsSummarized}`,
       });
     } catch (error: any) {
       toast({
-        title: 'Error',
+        title: t.common.error,
         description: error.message || 'Failed to summarize documents',
         variant: 'destructive',
       });
@@ -172,15 +175,15 @@ export default function PolicyHarmonizationPage() {
 
     if (docsToHarmonize.length < 2) {
       toast({
-        title: 'Error',
-        description: 'At least 2 documents required for harmonization',
+        title: t.common.error,
+        description: t.policies.harmonization.atLeastTwoRequired,
         variant: 'destructive',
       });
       return;
     }
 
     if (compareMethod === 'all' && docsToHarmonize.length > 10) {
-      if (!confirm(`You are about to harmonize ${docsToHarmonize.length} documents. This may take a long time. Continue?`)) {
+      if (!confirm(t.policies.harmonization.confirmHarmonizeMany.replace('{count}', docsToHarmonize.length.toString()))) {
         return;
       }
     }
@@ -203,15 +206,15 @@ export default function PolicyHarmonizationPage() {
       if (response.ok) {
         setHarmonizationResult(data);
         toast({
-          title: 'Success',
-          description: 'Harmonization completed',
+          title: t.common.success,
+          description: t.policies.harmonization.harmonizationCompleted,
         });
       } else {
         throw new Error(data.error || 'Harmonization failed');
       }
     } catch (error: any) {
       toast({
-        title: 'Error',
+        title: t.common.error,
         description: error.message || 'Failed to harmonize policies',
         variant: 'destructive',
       });
@@ -238,29 +241,30 @@ export default function PolicyHarmonizationPage() {
 
   return (
     <div className="space-y-6">
+      <PolicyQuickNav />
       <div>
-        <h1 className="text-3xl font-bold">Policy Harmonization</h1>
+        <h1 className="text-3xl font-bold">{t.policies.harmonization.title}</h1>
         <p className="text-muted-foreground">
-          Compare and harmonize policies across multiple hospitals
+          {t.policies.harmonization.subtitle}
         </p>
       </div>
 
       {/* Filters and Method Selection */}
       <Card>
         <CardHeader>
-          <CardTitle>Select Policies</CardTitle>
+          <CardTitle>{t.policies.harmonization.selectDocuments}</CardTitle>
           <CardDescription>
-            Choose hospitals, category, and comparison method
+            {t.policies.harmonization.chooseHospitalsCategoryMethod}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <Label>Hospital</Label>
+                <Label>{t.policies.harmonization.hospital}</Label>
                 <Select value={selectedHospital || undefined} onValueChange={(value) => setSelectedHospital(value || '')}>
                   <SelectTrigger>
-                    <SelectValue placeholder="All Hospitals" />
+                    <SelectValue placeholder={t.policies.harmonization.allHospitals} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="TAK">TAK</SelectItem>
@@ -270,23 +274,23 @@ export default function PolicyHarmonizationPage() {
                 </Select>
               </div>
               <div>
-                <Label>Category</Label>
+                <Label>{t.policies.harmonization.category}</Label>
                 <Input
-                  placeholder="Category filter"
+                  placeholder={t.policies.harmonization.categoryFilter}
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
                 />
               </div>
               <div>
-                <Label>Compare Method</Label>
+                <Label>{t.policies.harmonization.compareMethod}</Label>
                 <Select value={compareMethod} onValueChange={(v: CompareMethod) => setCompareMethod(v)}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="topic">Topic Query (Auto-pick N policies)</SelectItem>
-                    <SelectItem value="manual">Manual Selection</SelectItem>
-                    <SelectItem value="all">All Policies (Warning: Heavy)</SelectItem>
+                    <SelectItem value="topic">{t.policies.harmonization.autoPickNPolicies}</SelectItem>
+                    <SelectItem value="manual">{t.policies.harmonization.manualSelection}</SelectItem>
+                    <SelectItem value="all">{t.policies.harmonization.allPoliciesWarning}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -294,9 +298,9 @@ export default function PolicyHarmonizationPage() {
 
             {compareMethod === 'topic' && (
               <div>
-                <Label>Topic Query</Label>
+                <Label>{t.policies.harmonization.topicQuery}</Label>
                 <Input
-                  placeholder="e.g., patient fall prevention"
+                  placeholder={t.policies.harmonization.topicQueryPlaceholder}
                   value={topicQuery}
                   onChange={(e) => setTopicQuery(e.target.value)}
                 />
@@ -308,12 +312,12 @@ export default function PolicyHarmonizationPage() {
                 {isSummarizing ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Summarizing...
+                    {t.policies.harmonization.summarizing}
                   </>
                 ) : (
                   <>
                     <FileText className="h-4 w-4 mr-2" />
-                    Step 1: Summarize
+                    {t.policies.harmonization.step1Summarize}
                   </>
                 )}
               </Button>
@@ -325,12 +329,12 @@ export default function PolicyHarmonizationPage() {
                 {isHarmonizing ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Harmonizing...
+                    {t.policies.harmonization.harmonizing}
                   </>
                 ) : (
                   <>
                     <CheckCircle2 className="h-4 w-4 mr-2" />
-                    Step 2: Harmonize
+                    {t.policies.harmonization.step2Harmonize}
                   </>
                 )}
               </Button>
@@ -343,9 +347,9 @@ export default function PolicyHarmonizationPage() {
       {compareMethod === 'manual' && (
         <Card>
           <CardHeader>
-            <CardTitle>Available Documents</CardTitle>
+            <CardTitle>{t.policies.harmonization.availableDocuments}</CardTitle>
             <CardDescription>
-              Select documents to compare ({selectedDocumentIds.size} selected)
+              {t.policies.harmonization.selectDocumentsToCompare} ({selectedDocumentIds.size} {t.common.select.toLowerCase()})
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -386,9 +390,9 @@ export default function PolicyHarmonizationPage() {
       {summaries.size > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Summaries</CardTitle>
+            <CardTitle>{t.policies.harmonization.summaries}</CardTitle>
             <CardDescription>
-              {summaries.size} document(s) summarized
+              {summaries.size} {t.policies.harmonization.documentsSummarized}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -423,9 +427,9 @@ export default function PolicyHarmonizationPage() {
       {harmonizationResult && (
         <Card>
           <CardHeader>
-            <CardTitle>Harmonization Result</CardTitle>
+            <CardTitle>{t.policies.harmonization.harmonizationResult}</CardTitle>
             <CardDescription>
-              Analysis of {harmonizationResult.documents.length} policy document(s)
+              {t.policies.harmonization.analysisOfDocuments} {harmonizationResult.documents.length} policy document(s)
             </CardDescription>
           </CardHeader>
           <CardContent>

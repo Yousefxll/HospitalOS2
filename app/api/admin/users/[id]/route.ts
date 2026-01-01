@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCollection } from '@/lib/db';
-import { requireRole, Role } from '@/lib/rbac';
+import { requireAuth } from '@/lib/auth/requireAuth';
 import { getDefaultPermissionsForRole } from '@/lib/permissions';
 import { hashPassword } from '@/lib/auth';
+import { createAuditLog } from '@/lib/utils/audit';
 
 const updateUserSchema = z.object({
   permissions: z.array(z.string()).optional(),
   password: z.string().min(6).optional(),
-  role: z.enum(['admin', 'supervisor', 'staff', 'viewer']).optional(),
+  role: z.enum(['admin', 'supervisor', 'staff', 'viewer', 'group-admin', 'hospital-admin']).optional(),
+  groupId: z.string().min(1).optional(),
+  hospitalId: z.string().optional().nullable(),
   department: z.string().optional(),
   staffId: z.string().optional(), // Employee/Staff ID number
   isActive: z.boolean().optional(),
@@ -20,28 +23,119 @@ const updateUserSchema = z.object({
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const userRole = request.headers.get('x-user-role') as Role | null;
-    const userId = request.headers.get('x-user-id');
+    // Authenticate and get user
+    const authResult = await requireAuth(request);
+    if (authResult instanceof NextResponse) {
+      return authResult;
+    }
 
-    if (!requireRole(userRole, ['admin'])) {
+    // Only admin and group-admin can update users
+    if (!['admin', 'group-admin'].includes(authResult.userRole)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { id } = params;
+    const { tenantId, userId, user } = authResult;
+    const resolvedParams = params instanceof Promise ? await params : params;
+    const { id } = resolvedParams;
+    
     const body = await request.json();
     const data = updateUserSchema.parse(body);
 
     const usersCollection = await getCollection('users');
-    const user = await usersCollection.findOne({ id });
+    const groupsCollection = await getCollection('groups');
+    const hospitalsCollection = await getCollection('hospitals');
 
-    if (!user) {
+    // Build query with access control
+    // For backward compatibility: if tenantId is 'default', also include users without tenantId
+    let tenantQuery: any = tenantId === 'default'
+      ? {
+          $or: [
+            { tenantId: tenantId },
+            { tenantId: { $exists: false } },
+            { tenantId: null },
+            { tenantId: '' },
+            { tenantId: 'default' }
+          ]
+        }
+      : { tenantId: tenantId };
+
+    let query: any = { id, ...tenantQuery };
+
+    if (authResult.userRole === 'group-admin' && user.groupId) {
+      query.groupId = user.groupId;
+    }
+
+    // Verify user exists and user has access
+    const existingUser = await usersCollection.findOne(query);
+
+    if (!existingUser) {
       return NextResponse.json(
-        { error: 'User not found' },
+        { error: 'User not found or access denied' },
         { status: 404 }
       );
+    }
+
+    // Validate hospitalId based on role if role is being updated
+    const targetRole = data.role !== undefined ? data.role : existingUser.role;
+    const targetHospitalId = data.hospitalId !== undefined ? data.hospitalId : existingUser.hospitalId;
+
+    if (targetRole === 'hospital-admin' || targetRole === 'staff') {
+      if (!targetHospitalId) {
+        return NextResponse.json(
+          { error: 'hospitalId is required for hospital-admin and staff roles' },
+          { status: 400 }
+        );
+      }
+    } else if (targetRole === 'group-admin') {
+      if (targetHospitalId !== null && targetHospitalId !== undefined) {
+        return NextResponse.json(
+          { error: 'hospitalId must be null for group-admin role' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // If groupId is being updated, verify it exists and belongs to tenant
+    const targetGroupId = data.groupId !== undefined ? data.groupId : existingUser.groupId;
+    if (data.groupId !== undefined) {
+      const group = await groupsCollection.findOne({
+        id: data.groupId,
+        tenantId,
+      });
+
+      if (!group) {
+        return NextResponse.json(
+          { error: 'Group not found or access denied' },
+          { status: 404 }
+        );
+      }
+
+      // If group-admin, verify they can only update users in their group
+      if (authResult.userRole === 'group-admin' && user.groupId !== data.groupId) {
+        return NextResponse.json(
+          { error: 'Cannot move user to another group' },
+          { status: 403 }
+        );
+      }
+    }
+
+    // If hospitalId is being updated, verify it exists and belongs to the group
+    if (data.hospitalId !== undefined && data.hospitalId !== null) {
+      const hospital = await hospitalsCollection.findOne({
+        id: data.hospitalId,
+        groupId: targetGroupId,
+        tenantId,
+      });
+
+      if (!hospital) {
+        return NextResponse.json(
+          { error: 'Hospital not found or does not belong to the specified group' },
+          { status: 404 }
+        );
+      }
     }
 
     // Build update object
@@ -67,6 +161,14 @@ export async function PATCH(
       }
     }
 
+    if (data.groupId !== undefined) {
+      updateData.groupId = data.groupId;
+    }
+
+    if (data.hospitalId !== undefined) {
+      updateData.hospitalId = data.hospitalId;
+    }
+
     if (data.department !== undefined) {
       updateData.department = data.department;
     }
@@ -80,14 +182,19 @@ export async function PATCH(
     }
 
     await usersCollection.updateOne(
-      { id },
+      query, // Uses tenantId + access control already
       { $set: updateData }
     );
 
     const updatedUser = await usersCollection.findOne(
-      { id },
+      query,
       { projection: { password: 0 } }
     );
+
+    // Create audit log (exclude password from changes)
+    const changesForAudit = { ...updateData };
+    delete changesForAudit.password;
+    await createAuditLog('user', id, 'update', userId, authResult.userEmail, changesForAudit, tenantId);
 
     return NextResponse.json({
       success: true,

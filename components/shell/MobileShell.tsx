@@ -16,9 +16,8 @@ interface MobileShellProps {
 // Map routes to page titles
 function getPageTitle(pathname: string, t: any): string {
   const routeTitleMap: Record<string, string> = {
-    '/dashboard': t.header.hospitalOS || 'Hospital OS',
+    '/dashboard': t.header.hospitalOS || 'SIRA',
     '/notifications': t.nav.notifications || 'Notifications',
-    '/policies': t.nav.library || 'Policies',
     '/account': t.nav.account || 'Account',
     '/opd/dashboard': t.nav.opdDashboard || 'OPD Dashboard',
     '/patient-experience': t.nav.patientExperience || 'Patient Experience',
@@ -37,7 +36,7 @@ function getPageTitle(pathname: string, t: any): string {
   }
 
   // Default: use pathname
-  return pathname.split('/').pop()?.replace(/-/g, ' ') || 'Hospital OS';
+  return pathname.split('/').pop()?.replace(/-/g, ' ') || 'SIRA';
 }
 
 export function MobileShell({ children }: MobileShellProps) {

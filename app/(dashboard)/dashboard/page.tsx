@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { canAccessMainDashboard } from '@/lib/permissions-helpers';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Activity, Users, Bed, PackagePlus, TrendingUp, AlertCircle, Scissors, Scan, Heart, Baby, Skull, Pill, Dumbbell } from 'lucide-react';
 import { useTranslation } from '@/hooks/use-translation';
@@ -35,6 +36,7 @@ interface DashboardStats {
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const { t, language } = useTranslation();
   const { isRTL } = useLang();
   const [userPermissions, setUserPermissions] = useState<string[]>([]);
@@ -67,7 +69,9 @@ export default function DashboardPage() {
     // Fetch user permissions
     async function fetchUserPermissions() {
       try {
-        const response = await fetch('/api/auth/me');
+        const response = await fetch('/api/auth/me', {
+          credentials: 'include', // Ensure cookies are sent
+        });
         if (response.ok) {
           const data = await response.json();
           const permissions = data.user?.permissions || [];
@@ -77,10 +81,19 @@ export default function DashboardPage() {
           const hasAccess = hasRoutePermission(permissions, '/dashboard');
           setHasPermission(hasAccess);
           
+          // If user doesn't have dashboard access, redirect to welcome page
+          if (!hasAccess) {
+            router.push('/welcome');
+            return;
+          }
+          
           // Only fetch data if user has permission
           if (hasAccess) {
             fetchDashboardStats();
           }
+        } else if (response.status === 401) {
+          // Not authenticated - redirect handled by middleware
+          setHasPermission(false);
         }
       } catch (error) {
         console.error('Failed to fetch user permissions:', error);
@@ -89,7 +102,7 @@ export default function DashboardPage() {
     }
     
     fetchUserPermissions();
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     if (!mounted || hasPermission === null) return;
@@ -238,27 +251,9 @@ export default function DashboardPage() {
     return null; // Still loading
   }
 
+  // Redirect handled in useEffect, but show loading state if redirecting
   if (!hasPermission) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">{t.dashboard.home}</h1>
-          {currentDateTime && (
-            <p className="text-muted-foreground">{currentDateTime}</p>
-          )}
-        </div>
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <p className="text-muted-foreground text-center">
-              {t.common.accessDenied}
-            </p>
-            <p className="text-sm text-muted-foreground mt-2">
-              {t.common.contactAdmin}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return null; // Will redirect to /welcome in useEffect
   }
 
   return (

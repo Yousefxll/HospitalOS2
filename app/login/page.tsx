@@ -11,6 +11,7 @@ import { AlertCircle } from 'lucide-react';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { useTranslation } from '@/hooks/use-translation';
 import { useToast } from '@/hooks/use-toast';
+import { hasRoutePermission } from '@/lib/permissions';
 
 function LoginPageContent() {
   const [email, setEmail] = useState('');
@@ -48,6 +49,7 @@ function LoginPageContent() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
+        credentials: 'include', // Ensure cookies are received
       });
 
       const data = await response.json();
@@ -56,8 +58,30 @@ function LoginPageContent() {
         throw new Error(data.error || 'Login failed');
       }
 
-      // Redirect to dashboard on success
-      router.push('/dashboard');
+      // Check if user has dashboard access, redirect accordingly
+      // First get user permissions to check dashboard access
+      try {
+        const meResponse = await fetch('/api/auth/me', {
+          credentials: 'include',
+        });
+        if (meResponse.ok) {
+          const meData = await meResponse.json();
+          const permissions = meData.user?.permissions || [];
+          // Check if user has dashboard.view permission
+          const hasDashboardAccess = permissions.includes('dashboard.view') || permissions.includes('admin.users');
+          if (hasDashboardAccess) {
+            router.push('/dashboard');
+          } else {
+            router.push('/welcome');
+          }
+        } else {
+          // Fallback to dashboard if we can't check permissions
+          router.push('/dashboard');
+        }
+      } catch (err) {
+        // Fallback to dashboard on error
+        router.push('/dashboard');
+      }
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');

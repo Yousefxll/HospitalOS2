@@ -32,10 +32,15 @@ export default function AccountPage() {
 
   async function fetchUser() {
     try {
-      const response = await fetch('/api/auth/me');
+      const response = await fetch('/api/auth/me', {
+        credentials: 'include', // Ensure cookies are sent
+      });
       if (response.ok) {
         const data = await response.json();
         setUser(data.user);
+      } else if (response.status === 401) {
+        // Not authenticated, silently fail
+        setUser(null);
       }
     } catch (error) {
       console.error('Failed to fetch user:', error);

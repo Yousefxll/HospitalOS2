@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
 import { hashPassword } from '@/lib/auth';
 import { ensureSessionIndexes } from '@/lib/auth/sessions';
+import { getDefaultPermissionsForRole } from '@/lib/permissions';
 import { v4 as uuidv4 } from 'uuid';
 
 export async function POST() {
@@ -18,8 +19,9 @@ export async function POST() {
       return NextResponse.json({ message: 'Admin user already exists' });
     }
 
-    // Create default admin user
+    // Create default admin user with full permissions
     const hashedPassword = await hashPassword('admin123');
+    const adminPermissions = getDefaultPermissionsForRole('admin'); // Gets ALL permissions
     await usersCollection.insertOne({
       id: uuidv4(),
       email: 'admin@hospital.com',
@@ -27,6 +29,7 @@ export async function POST() {
       firstName: 'Admin',
       lastName: 'User',
       role: 'admin',
+      permissions: adminPermissions, // Full permissions - all permissions in the system
       isActive: true,
       createdAt: new Date(),
       updatedAt: new Date(),

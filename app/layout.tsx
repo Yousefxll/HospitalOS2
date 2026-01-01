@@ -7,8 +7,8 @@ import { QueryProvider } from '@/components/providers/QueryProvider';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Hospital Operations System',
-  description: 'Comprehensive hospital operations management system',
+  title: 'SIRA — Enterprise Policy & Procedure Platform',
+  description: 'Enterprise-grade policy and procedure management system',
 };
 
 export const viewport: Viewport = {

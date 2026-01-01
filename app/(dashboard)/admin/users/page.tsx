@@ -68,6 +68,8 @@ export default function UsersPage() {
     firstName: '',
     lastName: '',
     role: 'staff',
+    groupId: '',
+    hospitalId: '',
     department: '',
     staffId: '',
     permissions: [] as string[],
@@ -111,6 +113,7 @@ export default function UsersPage() {
 
   useEffect(() => {
     fetchUsers();
+    // No longer need to fetch groups/hospitals since they're free text fields
   }, []);
 
   async function fetchUsers() {
@@ -124,6 +127,7 @@ export default function UsersPage() {
       console.error('Failed to fetch users:', error);
     }
   }
+
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -149,6 +153,8 @@ export default function UsersPage() {
           firstName: '',
           lastName: '',
           role: 'staff',
+          groupId: '',
+          hospitalId: '',
           department: '',
           staffId: '',
           permissions: getDefaultPermissionsForRole('staff'),
@@ -182,11 +188,14 @@ export default function UsersPage() {
           description: t.users.userDeletedSuccess,
         });
         fetchUsers();
+      } else {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to delete user');
       }
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to delete user',
+        description: error instanceof Error ? error.message : 'Failed to delete user',
         variant: 'destructive',
       });
     }
@@ -200,6 +209,8 @@ export default function UsersPage() {
       firstName: user.firstName,
       lastName: user.lastName,
       role: user.role,
+      groupId: (user as any).groupId || '',
+      hospitalId: (user as any).hospitalId || '',
       department: user.department || '',
       staffId: user.staffId || '',
       permissions: user.permissions || getDefaultPermissionsForRole(user.role),
@@ -244,6 +255,8 @@ export default function UsersPage() {
           firstName: '',
           lastName: '',
           role: 'staff',
+          groupId: '',
+          hospitalId: '',
           department: '',
           staffId: '',
           permissions: getDefaultPermissionsForRole('staff'),
@@ -338,9 +351,9 @@ export default function UsersPage() {
                 <Label htmlFor="role">{t.users.role}</Label>
                 <Select
                   value={formData.role}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, role: value })
-                  }
+                  onValueChange={(value) => {
+                    setFormData({ ...formData, role: value, hospitalId: '' });
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -350,9 +363,41 @@ export default function UsersPage() {
                     <SelectItem value="supervisor">{t.roles.supervisor}</SelectItem>
                     <SelectItem value="staff">{t.roles.staff}</SelectItem>
                     <SelectItem value="viewer">{t.roles.viewer}</SelectItem>
+                    <SelectItem value="group-admin">Group Admin</SelectItem>
+                    <SelectItem value="hospital-admin">Hospital Admin</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="groupId">Group (Optional)</Label>
+                <Input
+                  id="groupId"
+                  value={formData.groupId}
+                  onChange={(e) => {
+                    setFormData({ ...formData, groupId: e.target.value, hospitalId: '' });
+                  }}
+                  placeholder="Enter group name or leave empty"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Enter a custom group name, or manage groups from Admin → Groups & Hospitals
+                </p>
+              </div>
+              {(formData.role === 'staff' || formData.role === 'hospital-admin') && (
+                <div className="space-y-2">
+                  <Label htmlFor="hospitalId">Hospital (Optional)</Label>
+                  <Input
+                    id="hospitalId"
+                    value={formData.hospitalId}
+                    onChange={(e) =>
+                      setFormData({ ...formData, hospitalId: e.target.value })
+                    }
+                    placeholder="Enter hospital name or leave empty"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Enter a custom hospital name, or manage hospitals from Admin → Groups & Hospitals
+                  </p>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="department">{t.users.department}</Label>
                 <Input
@@ -390,26 +435,27 @@ export default function UsersPage() {
                     
                     return (
                       <AccordionItem key={category} value={category}>
-                        <AccordionTrigger className="text-sm">
-                          <div className="flex items-center gap-2">
-                            <Checkbox
-                              checked={allSelected}
-                              ref={(el) => {
-                                if (el && 'indeterminate' in el) {
-                                  (el as any).indeterminate = someSelected && !allSelected;
-                                }
-                              }}
-                              onCheckedChange={(checked) =>
-                                handleSelectAllCategory(category, checked === true)
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            checked={allSelected}
+                            ref={(el) => {
+                              if (el && 'indeterminate' in el) {
+                                (el as any).indeterminate = someSelected && !allSelected;
                               }
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                            <span className="font-medium">{category}</span>
-                            <span className="text-xs text-muted-foreground">
-                              ({categoryPerms.filter(k => formData.permissions.includes(k)).length}/{categoryPerms.length})
-                            </span>
-                          </div>
-                        </AccordionTrigger>
+                            }}
+                            onCheckedChange={(checked) =>
+                              handleSelectAllCategory(category, checked === true)
+                            }
+                          />
+                          <AccordionTrigger className="text-sm flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">{category}</span>
+                              <span className="text-xs text-muted-foreground">
+                                ({categoryPerms.filter(k => formData.permissions.includes(k)).length}/{categoryPerms.length})
+                              </span>
+                            </div>
+                          </AccordionTrigger>
+                        </div>
                         <AccordionContent>
                           <div className="grid grid-cols-2 gap-3 pl-6">
                             {permissions.map((permission) => (
@@ -524,26 +570,27 @@ export default function UsersPage() {
                     
                     return (
                       <AccordionItem key={category} value={category}>
-                        <AccordionTrigger className="text-sm">
-                          <div className="flex items-center gap-2">
-                            <Checkbox
-                              checked={allSelected}
-                              ref={(el) => {
-                                if (el && 'indeterminate' in el) {
-                                  (el as any).indeterminate = someSelected && !allSelected;
-                                }
-                              }}
-                              onCheckedChange={(checked) =>
-                                handleSelectAllCategory(category, checked === true)
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            checked={allSelected}
+                            ref={(el) => {
+                              if (el && 'indeterminate' in el) {
+                                (el as any).indeterminate = someSelected && !allSelected;
                               }
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                            <span className="font-medium">{category}</span>
-                            <span className="text-xs text-muted-foreground">
-                              ({categoryPerms.filter(k => formData.permissions.includes(k)).length}/{categoryPerms.length})
-                            </span>
-                          </div>
-                        </AccordionTrigger>
+                            }}
+                            onCheckedChange={(checked) =>
+                              handleSelectAllCategory(category, checked === true)
+                            }
+                          />
+                          <AccordionTrigger className="text-sm flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">{category}</span>
+                              <span className="text-xs text-muted-foreground">
+                                ({categoryPerms.filter(k => formData.permissions.includes(k)).length}/{categoryPerms.length})
+                              </span>
+                            </div>
+                          </AccordionTrigger>
+                        </div>
                         <AccordionContent>
                           <div className="grid grid-cols-2 gap-3 pl-6">
                             {permissions.map((permission) => (

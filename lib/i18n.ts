@@ -96,6 +96,8 @@ export interface Translations {
     // Policy Submenu
     uploadPolicy: string;
     library: string;
+    policyConflicts: string;
+    policyCreate: string;
     policyAssistant: string;
     newPolicyCreator: string;
     policyHarmonization: string;
@@ -274,6 +276,45 @@ export interface Translations {
 
   // Patient Experience
   px: {
+    title: string;
+    subtitle: string;
+    setup: {
+      title: string;
+      subtitle: string;
+      addData: string;
+      chooseDataType: string;
+      floor: string;
+      department: string;
+      room: string;
+      classification: string;
+      nursingClassification: string;
+      existingFloors: string;
+      existingDepartments: string;
+      existingRooms: string;
+      existingClassifications: string;
+      noFloors: string;
+      noDepartments: string;
+      noRooms: string;
+      noClassifications: string;
+      addNew: string;
+      editItem: string;
+      deleteItem: string;
+      floorNumber: string;
+      floorName: string;
+      chooseFloor: string;
+      departmentName: string;
+      roomNumber: string;
+      category: string;
+      praise: string;
+      complaint: string;
+      classificationName: string;
+      nursingType: string;
+      chooseDepartment: string;
+      chooseCategory: string;
+      nursingClassificationName: string;
+      existingNursingClassifications: string;
+      noNursingClassifications: string;
+    };
     visit: {
       title: string;
       subtitle: string;
@@ -302,6 +343,168 @@ export interface Translations {
       addStaffIdInUsersPage: string;
       staffNameRequired: string;
       staffIdRequired: string;
+    };
+  };
+
+  // Policy System
+  policies: {
+    library: {
+      title: string;
+      subtitle: string;
+      uploadPolicies: string;
+      uploading: string;
+      policies: string;
+      listDescription: string;
+      filename: string;
+      policyId: string;
+      status: string;
+      pages: string;
+      progress: string;
+      indexedAt: string;
+      actions: string;
+      loadingPolicies: string;
+      noPoliciesFound: string;
+      uploadFirstPolicy: string;
+      uploadingFiles: string;
+      processingIndexing: string;
+      policyPreview: string;
+      previewAvailableOnly: string;
+      policyNotReady: string;
+      stillProcessing: string;
+      policyNotFound: string;
+      mayHaveBeenDeleted: string;
+      reRunOcr: string;
+      reIndexAllChunks: string;
+      processing: string;
+      reIndex: string;
+      scannedPdfNotIndexed: string;
+      ocrRequired: string;
+      indexed: string;
+      notIndexed: string;
+      page: string;
+      of: string;
+      areYouSureDelete: string;
+      fileAlreadyExists: string;
+      followingFilesExist: string;
+    };
+    conflicts: {
+      title: string;
+      scanPolicies: string;
+      selectPolicyA: string;
+      selectPolicyB: string;
+      selectPolicies: string;
+      comparePolicies: string;
+      strictness: string;
+      strict: string;
+      balanced: string;
+      limitPolicies: string;
+      scan: string;
+      scanning: string;
+      issuesFound: string;
+      issueType: string;
+      severity: string;
+      summary: string;
+      recommendation: string;
+      viewDetails: string;
+      noIssuesFound: string;
+      selectPolicyToRewrite: string;
+      rewritePolicy: string;
+      rewriteAll: string;
+      rewriteAgain: string;
+      downloadPolicy: string;
+      downloadAsText: string;
+      downloadAsPdf: string;
+      copied: string;
+      recommendationCopied: string;
+      accreditation: string;
+      selectAccreditations: string;
+      customAccreditation: string;
+      enterCustomAccreditation: string;
+      aiReview: string;
+      aiIssues: string;
+      aiRewrite: string;
+      findConflictsGapsRisks: string;
+      generateAnswer: string;
+      generating: string;
+    };
+    assistant: {
+      title: string;
+      subtitle: string;
+      askQuestion: string;
+      searchPolicies: string;
+      selectHospital: string;
+      selectCategory: string;
+      generateAnswer: string;
+      generating: string;
+      questionPlaceholder: string;
+    };
+    newPolicy: {
+      title: string;
+      subtitle: string;
+      policyDetails: string;
+      fillInDetails: string;
+      policyTitle: string;
+      domain: string;
+      detailLevel: string;
+      brief: string;
+      standard: string;
+      detailed: string;
+      accreditationFocus: string;
+      riskLevel: string;
+      selectRiskLevelOptional: string;
+      low: string;
+      medium: string;
+      high: string;
+      critical: string;
+      purpose: string;
+      scope: string;
+      keyRules: string;
+      monitoring: string;
+      notes: string;
+      generatePolicy: string;
+      generating: string;
+      downloadPolicy: string;
+      downloadAsText: string;
+      downloadAsPdf: string;
+      generatedPolicy: string;
+      aiGeneratedPolicyDocument: string;
+      generatedPolicyWillAppear: string;
+      fillFormAndClick: string;
+      pleaseEnterPolicyTitle: string;
+    };
+    harmonization: {
+      title: string;
+      subtitle: string;
+      selectDocuments: string;
+      chooseHospitalsCategoryMethod: string;
+      hospital: string;
+      category: string;
+      categoryFilter: string;
+      compareMethod: string;
+      allHospitals: string;
+      topicQuery: string;
+      autoPickNPolicies: string;
+      manualSelection: string;
+      allPolicies: string;
+      allPoliciesWarning: string;
+      topicQueryPlaceholder: string;
+      step1Summarize: string;
+      step2Harmonize: string;
+      summarizing: string;
+      harmonizing: string;
+      availableDocuments: string;
+      selectDocumentsToCompare: string;
+      summaries: string;
+      documentsSummarized: string;
+      generateHarmonization: string;
+      generating: string;
+      selectAtLeastTwo: string;
+      enterTopicQuery: string;
+      harmonizationResult: string;
+      analysisOfDocuments: string;
+      harmonizationCompleted: string;
+      atLeastTwoRequired: string;
+      confirmHarmonizeMany: string;
     };
   };
 }
@@ -387,6 +590,8 @@ export const translations: Record<Language, Translations> = {
       nursingOperations: 'Nursing Operations',
       uploadPolicy: 'Upload Policy',
       library: 'Library',
+      policyConflicts: 'Conflicts & Issues',
+      policyCreate: 'Create',
       policyAssistant: 'Policy Assistant',
       newPolicyCreator: 'New Policy Creator',
       policyHarmonization: 'Policy Harmonization',
@@ -395,7 +600,7 @@ export const translations: Record<Language, Translations> = {
       users: 'Users',
     },
     header: {
-      hospitalOS: 'Hospital OS',
+      hospitalOS: 'SIRA',
       logout: 'Logout',
       welcome: 'Welcome',
     },
@@ -546,6 +751,45 @@ export const translations: Record<Language, Translations> = {
       returningPatients: 'Returning patients',
     },
     px: {
+      title: 'Patient Experience',
+      subtitle: 'Record patient complaints and feedback',
+      setup: {
+        title: 'Patient Experience Setup',
+        subtitle: 'Manage floors, departments, rooms, and classifications',
+        addData: 'Add Data',
+        chooseDataType: 'Choose the type of data to add',
+        floor: 'Floor',
+        department: 'Department',
+        room: 'Room',
+        classification: 'Classification',
+        nursingClassification: 'sub Classification',
+        existingFloors: 'Existing Floors',
+        existingDepartments: 'Existing Departments',
+        existingRooms: 'Existing Rooms',
+        existingClassifications: 'Existing Classifications',
+        noFloors: 'No floors',
+        noDepartments: 'No departments in this floor',
+        noRooms: 'No rooms',
+        noClassifications: 'No classifications',
+        addNew: 'Add New',
+        editItem: 'Edit',
+        deleteItem: 'Delete',
+        floorNumber: 'Floor Number',
+        floorName: 'Floor Name',
+        chooseFloor: 'Choose Floor',
+        departmentName: 'Department Name',
+        roomNumber: 'Room Number',
+        category: 'Category',
+        praise: 'Praise',
+        complaint: 'Complaint',
+        classificationName: 'Classification Name',
+        nursingType: 'Sub Classification Type',
+        chooseDepartment: 'Choose Department',
+        chooseCategory: 'Choose Category',
+        nursingClassificationName: 'Sub Classification Name',
+        existingNursingClassifications: 'Existing Sub Classifications',
+        noNursingClassifications: 'No sub classifications',
+      },
       visit: {
         title: 'Patient Experience Visit',
         subtitle: 'Record a new patient experience visit',
@@ -574,6 +818,166 @@ export const translations: Record<Language, Translations> = {
         addStaffIdInUsersPage: 'Add Staff ID in Users page',
         staffNameRequired: 'Staff name is required',
         staffIdRequired: 'Staff ID is required. Please add it in the Users page.',
+      },
+    },
+    policies: {
+      library: {
+        title: 'Policies Library',
+        subtitle: 'Upload, manage, and preview policy documents',
+        uploadPolicies: 'Upload Policies',
+        uploading: 'Uploading...',
+        policies: 'Policies',
+        listDescription: 'List of all policy documents',
+        filename: 'Filename',
+        policyId: 'Policy ID',
+        status: 'Status',
+        pages: 'Pages',
+        progress: 'Progress',
+        indexedAt: 'Indexed At',
+        actions: 'Actions',
+        loadingPolicies: 'Loading policies...',
+        noPoliciesFound: 'No policies found. Upload your first policy to get started.',
+        uploadFirstPolicy: 'Upload your first policy to get started.',
+        uploadingFiles: 'Uploading files...',
+        processingIndexing: 'Processing and indexing files...',
+        policyPreview: 'Policy Preview',
+        previewAvailableOnly: 'Preview available only when READY',
+        policyNotReady: 'Policy not ready',
+        stillProcessing: 'This policy is still being processed.',
+        policyNotFound: 'Policy not found',
+        mayHaveBeenDeleted: 'This policy may have been deleted.',
+        reRunOcr: 'Re-run OCR',
+        reIndexAllChunks: 'Re-index all chunks',
+        processing: 'Processing...',
+        reIndex: 'Re-index',
+        scannedPdfNotIndexed: 'Scanned PDF not indexed. OCR required to enable search.',
+        ocrRequired: 'OCR required to enable search',
+        indexed: 'Indexed ✅',
+        notIndexed: 'Not Indexed',
+        page: 'Page:',
+        of: 'of',
+        areYouSureDelete: 'Are you sure you want to delete this policy?',
+        fileAlreadyExists: 'File already exists',
+        followingFilesExist: 'The following file(s) already exist and cannot be uploaded again:',
+      },
+      conflicts: {
+        title: 'Policy Conflicts & Issues',
+        scanPolicies: 'Scan Policies',
+        selectPolicyA: 'Select Policy A',
+        selectPolicyB: 'Select Policy B',
+        selectPolicies: 'Select Policies',
+        comparePolicies: 'Compare Policies',
+        strictness: 'Strictness',
+        strict: 'Strict',
+        balanced: 'Balanced',
+        limitPolicies: 'Limit Policies',
+        scan: 'Scan',
+        scanning: 'Scanning...',
+        issuesFound: 'Issues Found',
+        issueType: 'Issue Type',
+        severity: 'Severity',
+        summary: 'Summary',
+        recommendation: 'Recommendation',
+        viewDetails: 'View Details',
+        noIssuesFound: 'No issues found',
+        selectPolicyToRewrite: 'Select Policy to Rewrite',
+        rewritePolicy: 'Rewrite Policy',
+        rewriteAll: 'Rewrite Policy (Apply All Issues)',
+        rewriteAgain: 'Rewrite Again',
+        downloadPolicy: 'Download Policy',
+        downloadAsText: 'Download as Text',
+        downloadAsPdf: 'Download as PDF',
+        copied: 'Copied',
+        recommendationCopied: 'Recommendation copied to clipboard',
+        accreditation: 'Accreditation',
+        selectAccreditations: 'Select Accreditations',
+        customAccreditation: 'Custom Accreditation',
+        enterCustomAccreditation: 'Enter custom accreditation name',
+        aiReview: 'AI Review',
+        aiIssues: 'AI Issues',
+        aiRewrite: 'AI Rewrite',
+        findConflictsGapsRisks: 'Find conflicts, gaps, and risks in these policies',
+        generateAnswer: 'Generate Answer',
+        generating: 'Generating...',
+      },
+      assistant: {
+        title: 'Policy Assistant',
+        subtitle: 'Ask questions about your policies',
+        askQuestion: 'Ask a question',
+        searchPolicies: 'Search Policies',
+        selectHospital: 'Select Hospital',
+        selectCategory: 'Select Category',
+        generateAnswer: 'Generate Answer',
+        generating: 'Generating...',
+        questionPlaceholder: 'Ask a question about your policies...',
+      },
+      newPolicy: {
+        title: 'AI New Policy Creator',
+        subtitle: 'Generate a new policy from scratch',
+        policyDetails: 'Policy Details',
+        fillInDetails: 'Fill in the details to generate a new policy',
+        policyTitle: 'Policy Title',
+        domain: 'Domain',
+        detailLevel: 'Detail Level',
+        brief: 'Brief',
+        standard: 'Standard',
+        detailed: 'Detailed',
+        accreditationFocus: 'Accreditation Focus',
+        riskLevel: 'Risk Level',
+        selectRiskLevelOptional: 'Select risk level (optional)',
+        low: 'Low',
+        medium: 'Medium',
+        high: 'High',
+        critical: 'Critical',
+        purpose: 'Purpose',
+        scope: 'Scope',
+        keyRules: 'Key Rules',
+        monitoring: 'Monitoring',
+        notes: 'Notes',
+        generatePolicy: 'Generate Policy',
+        generating: 'Generating...',
+        downloadPolicy: 'Download Policy',
+        downloadAsText: 'Download as Text',
+        downloadAsPdf: 'Download as PDF',
+        generatedPolicy: 'Generated Policy',
+        aiGeneratedPolicyDocument: 'AI-generated policy document',
+        generatedPolicyWillAppear: 'Generated policy will appear here',
+        fillFormAndClick: 'Fill in the form and click "Generate Policy"',
+        pleaseEnterPolicyTitle: 'Please enter a policy title',
+      },
+      harmonization: {
+        title: 'Policy Harmonization',
+        subtitle: 'Compare and harmonize multiple policies',
+        selectDocuments: 'Select Documents',
+        chooseHospitalsCategoryMethod: 'Choose hospitals, category, and comparison method',
+        hospital: 'Hospital',
+        category: 'Category',
+        categoryFilter: 'Category filter',
+        compareMethod: 'Compare Method',
+        allHospitals: 'All Hospitals',
+        topicQuery: 'Topic Query',
+        autoPickNPolicies: 'Topic Query (Auto-pick N policies)',
+        manualSelection: 'Manual Selection',
+        allPolicies: 'All Policies',
+        allPoliciesWarning: 'All Policies (Warning: Heavy)',
+        topicQueryPlaceholder: 'e.g., patient fall prevention',
+        step1Summarize: 'Step 1: Summarize',
+        step2Harmonize: 'Step 2: Harmonize',
+        summarizing: 'Summarizing...',
+        harmonizing: 'Harmonizing...',
+        availableDocuments: 'Available Documents',
+        selectDocumentsToCompare: 'Select documents to compare',
+        summaries: 'Summaries',
+        documentsSummarized: 'document(s) summarized',
+        generateHarmonization: 'Generate Harmonization',
+        generating: 'Generating...',
+        selectAtLeastTwo: 'Please select at least two documents',
+        enterTopicQuery: 'Enter topic query',
+        harmonizationResult: 'Harmonization Result',
+        analysisOfDocuments: 'Analysis of',
+        harmonizationCompleted: 'Harmonization completed',
+        atLeastTwoRequired: 'At least 2 documents required for harmonization',
+        confirmHarmonizeMany: 'You are about to harmonize {count} documents. This may take a long time. Continue?',
       },
     },
   },
@@ -657,6 +1061,8 @@ export const translations: Record<Language, Translations> = {
       nursingOperations: 'عمليات التمريض',
       uploadPolicy: 'رفع سياسة',
       library: 'المكتبة',
+      policyConflicts: 'التعارضات والمشاكل',
+      policyCreate: 'إنشاء',
       policyAssistant: 'مساعد السياسات',
       newPolicyCreator: 'منشئ السياسات الجديد',
       policyHarmonization: 'توحيد السياسات',
@@ -665,7 +1071,7 @@ export const translations: Record<Language, Translations> = {
       users: 'المستخدمون',
     },
     header: {
-      hospitalOS: 'نظام المستشفى',
+      hospitalOS: 'سِيرَه',
       logout: 'تسجيل الخروج',
       welcome: 'مرحباً',
     },
@@ -781,6 +1187,76 @@ export const translations: Record<Language, Translations> = {
       mortalityCount: 'عدد الوفيات',
       pharmacyConsultations: 'استشارات الصيدلية',
     },
+    px: {
+      title: 'تجربة المريض',
+      subtitle: 'تسجيل شكاوى وملاحظات المرضى',
+      setup: {
+        title: 'إعدادات تجربة المريض',
+        subtitle: 'إدارة الطوابق والأقسام والغرف والتصنيفات',
+        addData: 'إضافة بيانات',
+        chooseDataType: 'اختر نوع البيانات المراد إضافتها',
+        floor: 'طابق',
+        department: 'قسم',
+        room: 'غرفة',
+        classification: 'تصنيف',
+        nursingClassification: 'تصنيف فرعي',
+        existingFloors: 'الطوابق الموجودة',
+        existingDepartments: 'الأقسام الموجودة',
+        existingRooms: 'الغرف الموجودة',
+        existingClassifications: 'التصنيفات الموجودة',
+        noFloors: 'لا توجد طوابق',
+        noDepartments: 'لا توجد أقسام في هذا الطابق',
+        noRooms: 'لا توجد غرف',
+        noClassifications: 'لا توجد تصنيفات',
+        addNew: 'إضافة جديد',
+        editItem: 'تعديل',
+        deleteItem: 'حذف',
+        floorNumber: 'رقم الطابق',
+        floorName: 'اسم الطابق',
+        chooseFloor: 'اختر الطابق',
+        departmentName: 'اسم القسم',
+        roomNumber: 'رقم الغرفة',
+        category: 'الفئة',
+        praise: 'شكر',
+        complaint: 'شكوى',
+        classificationName: 'اسم التصنيف',
+        nursingType: 'نوع التصنيف الفرعي',
+        chooseDepartment: 'اختر القسم',
+        chooseCategory: 'اختر الفئة',
+        nursingClassificationName: 'اسم التصنيف الفرعي',
+        existingNursingClassifications: 'التصنيفات الفرعية الموجودة',
+        noNursingClassifications: 'لا توجد تصنيفات فرعية',
+      },
+      visit: {
+        title: 'زيارة تجربة المريض',
+        subtitle: 'تسجيل زيارة جديدة لتجربة المريض',
+        stepStaff: 'الموظف',
+        stepVisit: 'موقع الزيارة',
+        stepPatient: 'المريض',
+        stepClassification: 'التصنيف',
+        stepDetails: 'التفاصيل',
+        stepSummary: 'الملخص',
+        staffName: 'اسم الموظف',
+        staffId: 'رقم الموظف',
+        floor: 'الطابق',
+        department: 'القسم',
+        room: 'الغرفة',
+        patientName: 'اسم المريض',
+        patientFileNumber: 'رقم ملف المريض',
+        domain: 'المجال',
+        classification: 'التصنيف',
+        severity: 'الشدة',
+        details: 'التفاصيل',
+        complainedStaff: 'الموظف المشكو منه',
+        success: 'نجح',
+        successMessage: 'تم تسجيل الزيارة بنجاح',
+        newRecord: 'تسجيل زيارة جديدة',
+        autoFilledFromAccount: 'تم ملؤه تلقائياً من حسابك',
+        addStaffIdInUsersPage: 'يرجى إضافة رقم الموظف في صفحة المستخدمين',
+        staffNameRequired: 'اسم الموظف مطلوب',
+        staffIdRequired: 'رقم الموظف مطلوب. يرجى إضافته في صفحة المستخدمين.',
+      },
+    },
     account: {
       accountSettings: 'إعدادات الحساب',
       manageAccountPreferences: 'إدارة حسابك وتفضيلاتك',
@@ -815,35 +1291,164 @@ export const translations: Record<Language, Translations> = {
       followUpVisits: 'زيارات متابعة',
       returningPatients: 'مرضى عائدون',
     },
-    px: {
-      visit: {
-        title: 'زيارة تجربة المريض',
-        subtitle: 'تسجيل زيارة جديدة لتجربة المريض',
-        stepStaff: 'الموظف',
-        stepVisit: 'موقع الزيارة',
-        stepPatient: 'المريض',
-        stepClassification: 'التصنيف',
-        stepDetails: 'التفاصيل',
-        stepSummary: 'الملخص',
-        staffName: 'اسم الموظف',
-        staffId: 'رقم الموظف',
-        floor: 'الطابق',
-        department: 'القسم',
-        room: 'الغرفة',
-        patientName: 'اسم المريض',
-        patientFileNumber: 'رقم ملف المريض',
-        domain: 'المجال',
-        classification: 'التصنيف',
+    policies: {
+      library: {
+        title: 'مكتبة السياسات',
+        subtitle: 'رفع وإدارة ومعاينة وثائق السياسات',
+        uploadPolicies: 'رفع السياسات',
+        uploading: 'جاري الرفع...',
+        policies: 'السياسات',
+        listDescription: 'قائمة بجميع وثائق السياسات',
+        filename: 'اسم الملف',
+        policyId: 'معرف السياسة',
+        status: 'الحالة',
+        pages: 'الصفحات',
+        progress: 'التقدم',
+        indexedAt: 'تم الفهرسة في',
+        actions: 'الإجراءات',
+        loadingPolicies: 'جاري تحميل السياسات...',
+        noPoliciesFound: 'لم يتم العثور على سياسات. ارفع أول سياسة للبدء.',
+        uploadFirstPolicy: 'ارفعل أول سياسة للبدء.',
+        uploadingFiles: 'جاري رفع الملفات...',
+        processingIndexing: 'جاري المعالجة والفهرسة...',
+        policyPreview: 'معاينة السياسة',
+        previewAvailableOnly: 'المعاينة متاحة فقط عند الجاهزية',
+        policyNotReady: 'السياسة غير جاهزة',
+        stillProcessing: 'لا تزال هذه السياسة قيد المعالجة.',
+        policyNotFound: 'لم يتم العثور على السياسة',
+        mayHaveBeenDeleted: 'قد تكون هذه السياسة قد تم حذفها.',
+        reRunOcr: 'إعادة تشغيل OCR',
+        reIndexAllChunks: 'إعادة فهرسة جميع الأجزاء',
+        processing: 'جاري المعالجة...',
+        reIndex: 'إعادة الفهرسة',
+        scannedPdfNotIndexed: 'ملف PDF الممسوح ضوئياً غير مفهرس. OCR مطلوب لتفعيل البحث.',
+        ocrRequired: 'OCR مطلوب لتفعيل البحث',
+        indexed: 'مفهرس ✅',
+        notIndexed: 'غير مفهرس',
+        page: 'الصفحة:',
+        of: 'من',
+        areYouSureDelete: 'هل أنت متأكد من حذف هذه السياسة؟',
+        fileAlreadyExists: 'الملف موجود بالفعل',
+        followingFilesExist: 'الملف(ات) التالية موجودة بالفعل ولا يمكن رفعها مرة أخرى:',
+      },
+      conflicts: {
+        title: 'تعارضات ومشاكل السياسات',
+        scanPolicies: 'فحص السياسات',
+        selectPolicyA: 'اختر السياسة أ',
+        selectPolicyB: 'اختر السياسة ب',
+        selectPolicies: 'اختر السياسات',
+        comparePolicies: 'مقارنة السياسات',
+        strictness: 'الصرامة',
+        strict: 'صارم',
+        balanced: 'متوازن',
+        limitPolicies: 'تقييد السياسات',
+        scan: 'فحص',
+        scanning: 'جاري الفحص...',
+        issuesFound: 'المشاكل الموجودة',
+        issueType: 'نوع المشكلة',
         severity: 'الشدة',
-        details: 'التفاصيل',
-        complainedStaff: 'الموظف المشكو منه',
-        success: 'نجح',
-        successMessage: 'تم تسجيل الزيارة بنجاح',
-        newRecord: 'تسجيل زيارة جديدة',
-        autoFilledFromAccount: 'تم ملؤه تلقائياً من حسابك',
-        addStaffIdInUsersPage: 'يرجى إضافة رقم الموظف في صفحة المستخدمين',
-        staffNameRequired: 'اسم الموظف مطلوب',
-        staffIdRequired: 'رقم الموظف مطلوب. يرجى إضافته في صفحة المستخدمين.',
+        summary: 'الملخص',
+        recommendation: 'التوصية',
+        viewDetails: 'عرض التفاصيل',
+        noIssuesFound: 'لم يتم العثور على مشاكل',
+        selectPolicyToRewrite: 'اختر السياسة لإعادة الكتابة',
+        rewritePolicy: 'إعادة كتابة السياسة',
+        rewriteAll: 'إعادة كتابة السياسة (تطبيق جميع المشاكل)',
+        rewriteAgain: 'إعادة الكتابة مرة أخرى',
+        downloadPolicy: 'تحميل السياسة',
+        downloadAsText: 'تحميل كنص',
+        downloadAsPdf: 'تحميل كـ PDF',
+        copied: 'تم النسخ',
+        recommendationCopied: 'تم نسخ التوصية إلى الحافظة',
+        accreditation: 'الاعتماد',
+        selectAccreditations: 'اختر الاعتمادات',
+        customAccreditation: 'اعتماد مخصص',
+        enterCustomAccreditation: 'أدخل اسم الاعتماد المخصص',
+        aiReview: 'مراجعة الذكاء الاصطناعي',
+        aiIssues: 'مشاكل الذكاء الاصطناعي',
+        aiRewrite: 'إعادة كتابة الذكاء الاصطناعي',
+        findConflictsGapsRisks: 'العثور على التعارضات والفجوات والمخاطر في هذه السياسات',
+        generateAnswer: 'إنشاء إجابة',
+        generating: 'جاري الإنشاء...',
+      },
+      assistant: {
+        title: 'مساعد السياسات',
+        subtitle: 'اطرح أسئلة حول سياساتك',
+        askQuestion: 'اطرح سؤالاً',
+        searchPolicies: 'بحث السياسات',
+        selectHospital: 'اختر المستشفى',
+        selectCategory: 'اختر الفئة',
+        generateAnswer: 'إنشاء إجابة',
+        generating: 'جاري الإنشاء...',
+        questionPlaceholder: 'اطرح سؤالاً حول سياساتك...',
+      },
+      newPolicy: {
+        title: 'منشئ السياسات الجديد بالذكاء الاصطناعي',
+        subtitle: 'إنشاء سياسة جديدة من الصفر',
+        policyDetails: 'تفاصيل السياسة',
+        fillInDetails: 'املأ التفاصيل لإنشاء سياسة جديدة',
+        policyTitle: 'عنوان السياسة',
+        domain: 'المجال',
+        detailLevel: 'مستوى التفاصيل',
+        brief: 'مختصر',
+        standard: 'قياسي',
+        detailed: 'مفصل',
+        accreditationFocus: 'تركيز الاعتماد',
+        riskLevel: 'مستوى المخاطر',
+        selectRiskLevelOptional: 'اختر مستوى المخاطر (اختياري)',
+        low: 'منخفض',
+        medium: 'متوسط',
+        high: 'عالي',
+        critical: 'حرج',
+        purpose: 'الغرض',
+        scope: 'النطاق',
+        keyRules: 'القواعد الرئيسية',
+        monitoring: 'المراقبة',
+        notes: 'ملاحظات',
+        generatePolicy: 'إنشاء السياسة',
+        generating: 'جاري الإنشاء...',
+        downloadPolicy: 'تحميل السياسة',
+        downloadAsText: 'تحميل كنص',
+        downloadAsPdf: 'تحميل كـ PDF',
+        generatedPolicy: 'السياسة المنشأة',
+        aiGeneratedPolicyDocument: 'وثيقة السياسة المنشأة بالذكاء الاصطناعي',
+        generatedPolicyWillAppear: 'ستظهر السياسة المنشأة هنا',
+        fillFormAndClick: 'املأ النموذج وانقر على "إنشاء السياسة"',
+        pleaseEnterPolicyTitle: 'يرجى إدخال عنوان السياسة',
+      },
+      harmonization: {
+        title: 'توحيد السياسات',
+        subtitle: 'مقارنة وتوحيد سياسات متعددة',
+        selectDocuments: 'اختر الوثائق',
+        chooseHospitalsCategoryMethod: 'اختر المستشفيات والفئة وطريقة المقارنة',
+        hospital: 'المستشفى',
+        category: 'الفئة',
+        categoryFilter: 'فلتر الفئة',
+        compareMethod: 'طريقة المقارنة',
+        allHospitals: 'جميع المستشفيات',
+        topicQuery: 'استعلام الموضوع',
+        autoPickNPolicies: 'استعلام الموضوع (اختيار N سياسات تلقائياً)',
+        manualSelection: 'اختيار يدوي',
+        allPolicies: 'جميع السياسات',
+        allPoliciesWarning: 'جميع السياسات (تحذير: ثقيل)',
+        topicQueryPlaceholder: 'مثال: منع سقوط المريض',
+        step1Summarize: 'الخطوة 1: تلخيص',
+        step2Harmonize: 'الخطوة 2: توحيد',
+        summarizing: 'جاري التلخيص...',
+        harmonizing: 'جاري التوحيد...',
+        availableDocuments: 'الوثائق المتاحة',
+        selectDocumentsToCompare: 'اختر الوثائق للمقارنة',
+        summaries: 'الملخصات',
+        documentsSummarized: 'وثيقة(ات) تم تلخيصها',
+        generateHarmonization: 'إنشاء التوحيد',
+        generating: 'جاري الإنشاء...',
+        selectAtLeastTwo: 'يرجى اختيار وثيقتين على الأقل',
+        enterTopicQuery: 'أدخل استعلام الموضوع',
+        harmonizationResult: 'نتيجة التوحيد',
+        analysisOfDocuments: 'تحليل',
+        harmonizationCompleted: 'اكتمل التوحيد',
+        atLeastTwoRequired: 'مطلوب وثيقتان على الأقل للتوحيد',
+        confirmHarmonizeMany: 'أنت على وشك توحيد {count} وثيقة. قد يستغرق هذا وقتاً طويلاً. هل تريد المتابعة؟',
       },
     },
   },

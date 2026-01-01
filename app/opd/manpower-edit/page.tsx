@@ -570,7 +570,7 @@ export default function ManpowerEditPage() {
               </Card>
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Total Rooms</CardTitle>
+                  <CardTitle className="text-sm font-medium">Total Procedure room</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold">
