@@ -42,6 +42,24 @@ export interface PolicyDocument {
   effectiveDate?: Date;
   expiryDate?: Date;
   hospital?: string; // Inferred from fileName prefix (TAK, WHH, etc.)
+  
+  // Classification metadata
+  departmentIds?: string[]; // Multi-select departments
+  setting?: 'IPD' | 'OPD' | 'Corporate' | 'Shared' | 'Unknown';
+  policyType?: 'Clinical' | 'Admin' | 'HR' | 'Quality' | 'IC' | 'Medication' | 'Other' | 'Unknown';
+  scope?: 'HospitalWide' | 'DepartmentOnly' | 'UnitSpecific' | 'Unknown';
+  
+  // AI tagging metadata
+  aiTags?: {
+    departments?: Array<{ id: string; label: string; confidence: number }>;
+    setting?: { value: string; confidence: number };
+    type?: { value: string; confidence: number };
+    scope?: { value: string; confidence: number };
+    overallConfidence?: number;
+    model?: string;
+    createdAt?: string;
+  };
+  tagsStatus?: 'auto-approved' | 'needs-review' | 'approved';
 }
 
 export interface PolicyChunk {
