@@ -236,3 +236,137 @@ Guidelines:
             status_code=500,
             detail=f"Failed to analyze gaps: {str(e)}"
         )
+
+
+class DraftPolicyRequest(BaseModel):
+    practice: Dict[str, Any]
+    findings: Dict[str, Any]
+    department: str
+    setting: str
+    tenantId: str = "default"
+
+
+class PolicySection(BaseModel):
+    title: str
+    content: str
+
+
+class DraftPolicyResponse(BaseModel):
+    draft: Dict[str, Any]  # {sections: [PolicySection]}
+
+
+@router.post("/v1/policies/draft", response_model=DraftPolicyResponse)
+async def draft_policy(request: DraftPolicyRequest):
+    """
+    Generate a draft policy based on practice and findings.
+    
+    Creates policy sections for a practice that has no policy coverage.
+    """
+    try:
+        client = get_openai_client()
+        if not client:
+            raise HTTPException(
+                status_code=503,
+                detail="OpenAI client not available. Check OPENAI_API_KEY."
+            )
+
+        practice = request.practice
+        findings = request.findings
+
+        prompt = f"""Generate a comprehensive healthcare policy draft for the following practice.
+
+**Department**: {request.department}
+**Setting**: {request.setting}
+**Practice**:
+- Title: {practice.get('title', 'Unknown')}
+- Description: {practice.get('description', '')}
+- Frequency: {practice.get('frequency', 'Unknown')}
+
+**Findings from Gap Analysis**:
+- Status: {findings.get('status', 'NoPolicy')}
+- Recommendations: {', '.join(findings.get('recommendations', []))}
+
+Create a structured policy document with the following sections:
+1. **Purpose**: Why this policy exists
+2. **Scope**: Who and what this policy applies to
+3. **Definitions**: Key terms used in the policy
+4. **Policy Statement**: Main policy content and requirements
+5. **Procedures**: Step-by-step procedures for implementation
+6. **Responsibilities**: Who is responsible for what
+7. **Compliance and Monitoring**: How compliance is monitored
+8. **References**: Related policies or standards (if applicable)
+
+Return JSON in this format:
+{{
+  "sections": [
+    {{
+      "title": "Purpose",
+      "content": "Full text content for this section..."
+    }},
+    {{
+      "title": "Scope",
+      "content": "Full text content..."
+    }}
+  ]
+}}
+
+Make the policy comprehensive, clear, and aligned with healthcare best practices. Each section should be detailed and actionable.
+"""
+
+        model = "gpt-4o-mini"
+        response = await client.chat.completions.create(
+            model=model,
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a healthcare policy writer. Generate comprehensive, clear, and actionable policy documents."
+                },
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+            response_format={"type": "json_object"},
+        )
+
+        result_text = response.choices[0].message.content
+        if not result_text:
+            raise HTTPException(
+                status_code=500,
+                detail="Empty response from AI"
+            )
+
+        try:
+            result = json.loads(result_text)
+        except json.JSONDecodeError as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Invalid JSON response from AI: {str(e)}"
+            )
+
+        # Validate and structure sections
+        sections = result.get("sections", [])
+        if not isinstance(sections, list):
+            sections = []
+
+        # Ensure sections are properly formatted
+        formatted_sections = []
+        for section in sections:
+            if isinstance(section, dict) and "title" in section and "content" in section:
+                formatted_sections.append({
+                    "title": str(section["title"]),
+                    "content": str(section["content"]),
+                })
+
+        return {
+            "draft": {
+                "sections": formatted_sections,
+            }
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error in draft_policy: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate draft policy: {str(e)}"
+        )

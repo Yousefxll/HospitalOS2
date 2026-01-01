@@ -21,7 +21,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { PolicyQuickNav } from '@/components/policies/PolicyQuickNav';
-import { Plus, Edit2, Trash2, Play, Loader2, AlertCircle } from 'lucide-react';
+import { Plus, Edit2, Trash2, Play, Loader2, AlertCircle, FileText } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import {
   Dialog,
   DialogContent,
@@ -76,6 +77,7 @@ interface AnalysisResults {
 
 export default function RiskDetectorPage() {
   const { toast } = useToast();
+  const router = useRouter();
   const [departments, setDepartments] = useState<FloorDepartment[]>([]);
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>('');
   const [selectedSetting, setSelectedSetting] = useState<'IPD' | 'OPD' | 'Corporate' | 'Shared'>('IPD');
@@ -336,6 +338,62 @@ export default function RiskDetectorPage() {
 
   const selectedDepartment = departments.find(d => d.id === selectedDepartmentId);
 
+  async function generateDraftPolicy(practice: Practice, result: PracticeResult) {
+    try {
+      // Call draft policy endpoint
+      const response = await fetch('/api/policies/draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          practice: {
+            title: practice.title,
+            description: practice.description,
+            frequency: practice.frequency,
+          },
+          findings: {
+            status: result.status,
+            recommendations: result.recommendations,
+          },
+          department: selectedDepartment?.label_en || selectedDepartmentId,
+          setting: selectedSetting,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.serviceUnavailable) {
+          toast({
+            title: 'Service Unavailable',
+            description: 'Policy Engine is offline. Draft generation is disabled.',
+            variant: 'destructive',
+          });
+          return;
+        }
+
+        // Navigate to New Policy Creator with prefilled data
+        const draftData = encodeURIComponent(JSON.stringify({
+          title: practice.title,
+          description: practice.description,
+          sections: data.draft.sections,
+          department: selectedDepartment?.label_en || selectedDepartmentId,
+          setting: selectedSetting,
+        }));
+
+        router.push(`/ai/new-policy-from-scratch?draft=${draftData}`);
+      } else {
+        throw new Error('Failed to generate draft');
+      }
+    } catch (error) {
+      console.error('Generate draft policy error:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to generate draft policy',
+        variant: 'destructive',
+      });
+    }
+  }
+
   return (
     <div className="space-y-6">
       <PolicyQuickNav />
@@ -559,6 +617,19 @@ export default function RiskDetectorPage() {
                             <li key={idx}>{rec}</li>
                           ))}
                         </ul>
+                      </div>
+                    )}
+
+                    {result.status === 'NoPolicy' && (
+                      <div className="mt-4 pt-4 border-t">
+                        <Button
+                          variant="outline"
+                          onClick={() => generateDraftPolicy(practice!, result)}
+                          className="w-full"
+                        >
+                          <FileText className="h-4 w-4 mr-2" />
+                          Generate Draft Policy
+                        </Button>
                       </div>
                     )}
                   </Card>
