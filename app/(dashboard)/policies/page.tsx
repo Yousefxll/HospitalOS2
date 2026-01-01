@@ -15,7 +15,8 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from '@/hooks/use-translation';
-import { Upload, Eye, Trash2, Loader2, X, RefreshCw } from 'lucide-react';
+import { Upload, Eye, Trash2, Loader2, X, RefreshCw, UploadCloud } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import {
   Dialog,
   DialogContent,
@@ -44,6 +45,7 @@ interface Policy {
 
 export default function PoliciesLibraryPage() {
   const { t } = useTranslation();
+  const router = useRouter();
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
@@ -406,6 +408,65 @@ export default function PoliciesLibraryPage() {
     }
   }
 
+  async function handleBulkUpload() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf';
+    input.multiple = true;
+    input.onchange = async (e) => {
+      const files = (e.target as HTMLInputElement).files;
+      if (!files || files.length === 0) return;
+
+      setIsUploading(true);
+      setUploadProgress(10);
+
+      try {
+        const formData = new FormData();
+        for (let i = 0; i < files.length; i++) {
+          formData.append('files', files[i]);
+        }
+
+        setUploadProgress(30);
+        const response = await fetch('/api/policies/bulk-upload', {
+          method: 'POST',
+          body: formData,
+          credentials: 'include',
+        });
+
+        setUploadProgress(70);
+
+        if (response.ok) {
+          const data = await response.json();
+          setUploadProgress(100);
+          
+          toast({
+            title: 'Success',
+            description: `${data.policies?.length || files.length} file(s) uploaded. Redirecting to review queue...`,
+          });
+
+          // Redirect to review queue after a brief delay
+          setTimeout(() => {
+            router.push('/policies/tag-review-queue');
+          }, 1000);
+        } else {
+          const errorData = await response.json().catch(() => ({ error: 'Upload failed' }));
+          throw new Error(errorData.error || 'Upload failed');
+        }
+      } catch (error) {
+        console.error('Bulk upload error:', error);
+        toast({
+          title: 'Error',
+          description: error instanceof Error ? error.message : 'Failed to upload files',
+          variant: 'destructive',
+        });
+      } finally {
+        setUploadProgress(0);
+        setIsUploading(false);
+      }
+    };
+    input.click();
+  }
+
   async function handleReprocess(policyId: string, mode: 'ocr_only' | 'full' = 'ocr_only') {
     if (reprocessingPolicyId === policyId) {
       return; // Already processing
@@ -624,8 +685,7 @@ export default function PoliciesLibraryPage() {
           <input
             ref={fileInputRef}
             type="file"
-            multiple
-            accept=".pdf,image/*,.doc,.docx,.txt"
+            accept=".pdf"
             className="hidden"
             onChange={(e) => handleUpload(e.target.files)}
           />
@@ -633,6 +693,7 @@ export default function PoliciesLibraryPage() {
             <Button
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading || isLoading}
+              variant="default"
             >
               {isUploading ? (
                 <>
@@ -642,9 +703,17 @@ export default function PoliciesLibraryPage() {
               ) : (
                 <>
                   <Upload className="mr-2 h-4 w-4" />
-                  {t.policies.library.uploadPolicies}
+                  Upload Policy
                 </>
               )}
+            </Button>
+            <Button
+              onClick={handleBulkUpload}
+              disabled={isUploading || isLoading}
+              variant="outline"
+            >
+              <UploadCloud className="mr-2 h-4 w-4" />
+              Bulk Upload
             </Button>
           </div>
         </div>

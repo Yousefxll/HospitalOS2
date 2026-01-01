@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +16,7 @@ import { PolicyQuickNav } from '@/components/policies/PolicyQuickNav';
 export default function NewPolicyFromScratchPage() {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const searchParams = useSearchParams();
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedText, setGeneratedText] = useState('');
   const [formData, setFormData] = useState({
@@ -29,6 +31,36 @@ export default function NewPolicyFromScratchPage() {
     monitoring: '',
     notes: '',
   });
+
+  // Prefill form if draft data is provided (from Risk Detector)
+  useEffect(() => {
+    const draftParam = searchParams.get('draft');
+    if (draftParam) {
+      try {
+        const draftData = JSON.parse(decodeURIComponent(draftParam));
+        if (draftData.title) {
+          setFormData(prev => ({
+            ...prev,
+            title: draftData.title || prev.title,
+            purpose: draftData.description || prev.purpose,
+          }));
+          // If sections are provided, combine them into notes for display
+          if (draftData.sections && Array.isArray(draftData.sections)) {
+            const sectionsText = draftData.sections
+              .map((s: any) => `## ${s.title}\n\n${s.content}`)
+              .join('\n\n');
+            setGeneratedText(sectionsText);
+          }
+          toast({
+            title: 'Draft loaded',
+            description: 'Policy draft loaded from Risk Detector',
+          });
+        }
+      } catch (error) {
+        console.error('Failed to parse draft data:', error);
+      }
+    }
+  }, [searchParams, toast]);
 
   async function handleGenerate() {
     if (!formData.title.trim()) {
