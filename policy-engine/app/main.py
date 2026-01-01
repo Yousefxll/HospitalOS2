@@ -2,7 +2,7 @@
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api import routes_ingest, routes_status, routes_search, routes_conflicts, routes_harmonize, routes_generate, routes_policies, routes_issues, routes_tags
+from app.api import routes_ingest, routes_status, routes_search, routes_conflicts, routes_harmonize, routes_generate, routes_policies, routes_issues, routes_tags, routes_risk_detector
 from app.jobs import get_all_jobs
 from app.config import settings
 
@@ -37,6 +37,7 @@ app.include_router(routes_harmonize.router)
 app.include_router(routes_generate.router)
 app.include_router(routes_issues.router)
 app.include_router(routes_tags.router)
+app.include_router(routes_risk_detector.router)
 
 
 @app.get("/health")
