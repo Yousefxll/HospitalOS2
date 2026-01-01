@@ -19,9 +19,15 @@ export async function GET(request: NextRequest) {
 
     const policiesCollection = await getCollection('policy_documents');
 
-    // Build query
+    // Build query with tenant isolation (with backward compatibility)
     const query: any = {
-      tenantId,
+      $or: [
+        { tenantId: tenantId },
+        { tenantId: { $exists: false } }, // Backward compatibility
+        { tenantId: null },
+        { tenantId: '' },
+        ...(tenantId === 'default' ? [{ tenantId: 'default' }] : []),
+      ],
       isActive: true,
     };
 
