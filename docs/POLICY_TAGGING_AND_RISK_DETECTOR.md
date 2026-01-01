@@ -16,7 +16,7 @@ Policies can now be classified with:
 
 ### 2. AI-Powered Tagging
 
-- **Single Upload**: After upload, AI suggests tags (editable) in a modal/drawer
+- **Single Upload**: Uses existing policy-engine ingest endpoint (no changes to workflow)
 - **Bulk Upload**: Multiple PDFs uploaded, AI tagging runs in background, review queue page shows suggestions
 - **Auto-approval**: Tags with confidence ≥ 0.85 are auto-approved
 - **Review Queue**: Policies with confidence < 0.85 require manual review
@@ -170,7 +170,6 @@ Bulk upload multiple PDFs.
       "documentId": "POL-2025-XXXXXX",
       "filename": "...",
       "status": "uploaded",
-      "aiTags": {...},
       "tagsStatus": "needs-review"
     }
   ],
@@ -273,6 +272,41 @@ Run AI gap analysis.
 #### GET /api/risk-detector/runs/[id]
 Get a specific risk run.
 
+#### POST /api/policies/draft
+Generate draft policy from practice and findings.
+
+**Request Body:**
+```json
+{
+  "practice": {
+    "title": "...",
+    "description": "...",
+    "frequency": "Daily"
+  },
+  "findings": {
+    "status": "NoPolicy",
+    "recommendations": ["Create policy..."]
+  },
+  "department": "Cardiology",
+  "setting": "IPD"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "draft": {
+    "sections": [
+      {
+        "title": "Purpose",
+        "content": "..."
+      }
+    ]
+  }
+}
+```
+
 ### Policy Engine (FastAPI) Endpoints
 
 #### POST /v1/tags/suggest
@@ -295,7 +329,7 @@ Suggest tags for a policy.
   "type": {"value": "Clinical", "confidence": 0.88},
   "scope": {"value": "HospitalWide", "confidence": 0.92},
   "overallConfidence": 0.89,
-  "model": "gpt-4o"
+  "model": "gpt-4o-mini"
 }
 ```
 
@@ -317,8 +351,8 @@ Run gap analysis.
   "policies": [
     {
       "id": "...",
-      "title": "...",
-      "chunks": [...] // Or searchable references
+      "documentId": "...",
+      "title": "..."
     }
   ],
   "tenantId": "default"
@@ -332,14 +366,19 @@ Run gap analysis.
     {
       "practiceId": "...",
       "status": "NoPolicy",
-      "relatedPolicies": [...],
+      "relatedPolicies": [],
       "severity": "High",
       "likelihood": 0.8,
       "riskScore": 75,
-      "recommendations": [...]
+      "recommendations": ["Create policy for..."]
     }
   ],
-  "metadata": {...}
+  "metadata": {
+    "totalPractices": 1,
+    "policiesAnalyzed": 5,
+    "model": "gpt-4o-mini",
+    "analyzedAt": "2025-01-01T12:00:00Z"
+  }
 }
 ```
 
@@ -351,11 +390,12 @@ Generate draft policy.
 {
   "practice": {
     "title": "...",
-    "description": "..."
+    "description": "...",
+    "frequency": "Daily"
   },
   "findings": {
     "status": "NoPolicy",
-    "recommendations": [...]
+    "recommendations": ["Create policy..."]
   },
   "department": "Cardiology",
   "setting": "IPD",
@@ -371,6 +411,10 @@ Generate draft policy.
       {
         "title": "Purpose",
         "content": "..."
+      },
+      {
+        "title": "Scope",
+        "content": "..."
       }
     ]
   }
@@ -380,33 +424,32 @@ Generate draft policy.
 ## Environment Variables
 
 No new environment variables required. Uses existing:
-- `POLICY_ENGINE_URL` - Policy Engine service URL
-- `POLICY_ENGINE_TENANT_ID` - Tenant ID for policy-engine
+- `POLICY_ENGINE_URL` - Policy Engine service URL (default: http://localhost:8001)
+- `POLICY_ENGINE_TENANT_ID` - Tenant ID for policy-engine (default: default)
 - `OPENAI_API_KEY` - For AI features (used by policy-engine)
 
 ## Workflow
 
-### Single Policy Upload with Tagging
+### Single Policy Upload
 
-1. User uploads PDF via `/policies` page
-2. File is processed and stored
-3. AI tagging is triggered automatically
-4. Modal/drawer appears with suggested tags (editable)
-5. User reviews and saves metadata
-6. Policy appears in library with classification
+1. User uploads PDF via "Upload Policy" button
+2. File is processed by policy-engine `/v1/ingest` endpoint
+3. Policy appears in library (existing workflow, unchanged)
 
 ### Bulk Upload with Review Queue
 
-1. User uploads multiple PDFs via bulk upload interface
-2. Files are uploaded and processed
-3. AI tagging runs in background (server-side)
-4. User is redirected to `/policies/tag-review-queue`
-5. Queue shows policies with suggested tags + confidence
-6. User can:
+1. User clicks "Bulk Upload" button
+2. Selects multiple PDF files
+3. Files are uploaded via `/api/policies/bulk-upload`
+4. Each file is saved to MongoDB
+5. AI tagging is triggered in background for each file
+6. User is redirected to `/policies/tag-review-queue`
+7. Queue shows policies with suggested tags + confidence
+8. User can:
    - Approve tags (auto-approve if confidence ≥ 0.85)
    - Edit tags manually
    - Re-run AI tagging
-7. Approved policies appear in main library
+9. Approved policies appear in main library
 
 ### Risk Detector Workflow
 
@@ -425,7 +468,8 @@ No new environment variables required. Uses existing:
    - Risk scores and recommendations
 7. For NoPolicy practices:
    - "Generate Draft Policy" button
-   - Opens New Policy Creator prefilled with practice details
+   - Opens New Policy Creator at `/ai/new-policy-from-scratch?draft=...`
+   - Draft data is prefilled in form
 
 ## UI Components
 
@@ -436,16 +480,19 @@ No new environment variables required. Uses existing:
 
 ### Updated Pages
 
-- `/policies` - Single upload now shows tag modal after upload
-- `/policies` - Bulk upload button added
+- `/policies` - Added "Bulk Upload" button (separate from single upload)
+- `/ai/new-policy-from-scratch` - Accepts draft parameter, prefills form
 
-### Components
+### Navigation
 
-- `PolicyTagReviewModal` - Modal/drawer for reviewing AI tags
-- `TagReviewQueueTable` - Table for bulk review queue
-- `PracticeList` - List of practices with CRUD
-- `RiskAnalysisResults` - Display gap analysis results
-- `PracticeForm` - Form for creating/editing practices
+- Policy Quick Nav includes:
+  - Library (existing)
+  - Conflicts & Issues (existing)
+  - Policy Assistant (existing)
+  - New Policy Creator (existing)
+  - Policy Harmonization (existing)
+  - **Risk Detector** (new)
+  - **Tag Review Queue** (new)
 
 ## Tenant Isolation
 
@@ -461,6 +508,7 @@ When Policy Engine is unavailable:
 - UI shows neutral banner: "Policy Engine is offline. Policy AI features are disabled."
 - Manual tagging and classification still work
 - Risk Detector shows message when AI analysis unavailable
+- Bulk upload still saves files, but AI tagging will fail gracefully
 
 ## Migration Notes
 
@@ -475,3 +523,44 @@ Database indexes (recommended):
 - `policy_documents.tagsStatus` - Index
 - `practices.tenantId` + `practices.departmentId` - Compound index
 - `risk_runs.tenantId` + `risk_runs.departmentId` - Compound index
+
+## Testing
+
+### Test Tag Suggestions
+```bash
+curl -X POST http://localhost:3000/api/policies/{policy-id}/suggest-tags \
+  -H "Cookie: auth-token=..."
+```
+
+### Test Bulk Upload
+```bash
+curl -X POST http://localhost:3000/api/policies/bulk-upload \
+  -F "files[]=@policy1.pdf" \
+  -F "files[]=@policy2.pdf" \
+  -H "Cookie: auth-token=..."
+```
+
+### Test Risk Detector
+```bash
+# Create practice
+curl -X POST http://localhost:3000/api/risk-detector/practices \
+  -H "Content-Type: application/json" \
+  -H "Cookie: auth-token=..." \
+  -d '{
+    "departmentId": "...",
+    "setting": "IPD",
+    "title": "Daily rounds",
+    "description": "...",
+    "frequency": "Daily"
+  }'
+
+# Run analysis
+curl -X POST http://localhost:3000/api/risk-detector/run \
+  -H "Content-Type: application/json" \
+  -H "Cookie: auth-token=..." \
+  -d '{
+    "departmentId": "...",
+    "setting": "IPD",
+    "practiceIds": ["practice-id"]
+  }'
+```
