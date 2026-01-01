@@ -9,11 +9,15 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 import { LanguageToggle } from '@/components/LanguageToggle';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { useTranslation } from '@/hooks/use-translation';
 import { useToast } from '@/hooks/use-toast';
 import { hasRoutePermission } from '@/lib/permissions';
+import { SplashScreen } from '@/components/SplashScreen';
 
 function LoginPageContent() {
+  const [showSplash, setShowSplash] = useState(false);
+  const [splashComplete, setSplashComplete] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -22,6 +26,25 @@ function LoginPageContent() {
   const searchParams = useSearchParams();
   const { t, language } = useTranslation();
   const { toast } = useToast();
+
+  // Check if splash should be shown (once per browser session)
+  useEffect(() => {
+    const splashShown = sessionStorage.getItem('sira-splash-shown');
+    if (!splashShown) {
+      setShowSplash(true);
+      // Mark as shown in sessionStorage
+      sessionStorage.setItem('sira-splash-shown', 'true');
+    } else {
+      // Splash already shown in this session, skip it
+      setSplashComplete(true);
+    }
+  }, []);
+
+  // Handle splash completion
+  const handleSplashComplete = () => {
+    setShowSplash(false);
+    setSplashComplete(true);
+  };
 
   // Check for session expired parameter
   useEffect(() => {
@@ -90,13 +113,31 @@ function LoginPageContent() {
     }
   }
 
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-4">
+  // Show splash screen if needed
+  if (showSplash) {
+    return <SplashScreen onComplete={handleSplashComplete} />;
+  }
+
+  // Show loading state while splash is transitioning
+  if (!splashComplete) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  // Show login form after splash
+  return (
+        <div className={`min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 p-4 transition-opacity duration-500 ${splashComplete ? 'opacity-100' : 'opacity-0'}`}>
           <Card className="w-full max-w-md shadow-elevation-4">
         <CardHeader className="space-y-3">
           <div className="flex items-center justify-center gap-3">
             <CardTitle className="text-3xl font-bold text-center">{t.header.hospitalOS}</CardTitle>
-            <LanguageToggle />
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <LanguageToggle />
+            </div>
           </div>
           <CardDescription>
             {t.auth.signInToAccess}

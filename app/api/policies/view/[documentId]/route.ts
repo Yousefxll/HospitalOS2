@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
+import { requireAuth } from '@/lib/auth/requireAuth';
+import { requireQuota } from '@/lib/quota/guard';
 import fs from 'fs';
 import path from 'path';
 
@@ -8,10 +10,33 @@ export async function GET(
   { params }: { params: { documentId: string } }
 ) {
   try {
+    // Authentication and tenant isolation
+    const authResult = await requireAuth(request);
+    if (authResult instanceof NextResponse) {
+      return authResult;
+    }
+
+    // Check quota (policy.view)
+    const quotaCheck = await requireQuota(authResult, 'policy.view');
+    if (quotaCheck) {
+      return quotaCheck;
+    }
+
+    const { tenantId } = authResult;
     const { documentId } = params;
 
     const policiesCollection = await getCollection('policy_documents');
-    const document = await policiesCollection.findOne({ documentId });
+    const document = await policiesCollection.findOne({
+      documentId,
+      // Tenant isolation: only allow viewing policies in same tenant
+      $or: [
+        { tenantId: tenantId },
+        { tenantId: { $exists: false } }, // Backward compatibility
+        { tenantId: null },
+        { tenantId: '' },
+        ...(tenantId === 'default' ? [{ tenantId: 'default' }] : []),
+      ],
+    });
 
     if (!document) {
       return NextResponse.json(

@@ -24,15 +24,21 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    // Apply theme immediately on mount (before hydration)
+    const root = document.documentElement;
+    
     // Load saved theme preference from localStorage
     const saved = localStorage.getItem('sira-theme') as Theme | null;
-    if (saved === 'light' || saved === 'dark') {
-      setThemeState(saved);
-      applyTheme(saved);
+    const initialTheme = (saved === 'light' || saved === 'dark') ? saved : 'light';
+    
+    // Apply theme immediately
+    if (initialTheme === 'dark') {
+      root.classList.add('dark');
     } else {
-      // Default to light theme
-      applyTheme('light');
+      root.classList.remove('dark');
     }
+    
+    setThemeState(initialTheme);
     setMounted(true);
   }, []);
 
@@ -47,7 +53,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
-    localStorage.setItem('sira-theme', newTheme);
+    if (mounted) {
+      localStorage.setItem('sira-theme', newTheme);
+    }
     applyTheme(newTheme);
   };
 
@@ -57,7 +65,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Always provide context to prevent useTheme errors
-  // But only apply theme styles after mount to prevent hydration mismatch
   return (
     <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>
       {children}

@@ -13,9 +13,41 @@ The Security Hardening Pack provides enterprise-grade security controls includin
 - Audit logging infrastructure
 - Configurable security settings
 
+## Deployment on Render
+
+### Setting Environment Variables
+
+On Render, environment variables should be set in the service settings:
+1. Go to your Render service dashboard
+2. Navigate to "Environment" tab
+3. Add each required environment variable
+4. Save and redeploy
+
+**⚠️ NEVER commit secrets to Git:**
+- Never commit `.env` files
+- Never commit files containing passwords, API keys, or JWT secrets
+- Use `.env.example` as a template (without actual secrets)
+- Set secrets only in Render's environment variable settings
+
+### Required Environment Variables for Render
+
+```bash
+# Required
+MONGO_URL=mongodb+srv://...  # MongoDB Atlas connection string
+JWT_SECRET=<generate-with-openssl-rand-base64-32>
+DB_NAME=hospital_ops
+
+# Optional (for AI features)
+OPENAI_API_KEY=sk-...
+POLICY_ENGINE_URL=http://localhost:8001
+POLICY_ENGINE_TENANT_ID=default
+```
+
+See `.env.example` for all available options.
+
 ## Configuration
 
-### Environment Variables
+### Environment Variables (Local Development)
 
 Add the following environment variables to your `.env.local` file:
 

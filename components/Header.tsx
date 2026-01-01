@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { LogOut, User, Menu } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { LanguageToggle } from '@/components/LanguageToggle';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { useTranslation } from '@/hooks/use-translation';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -86,6 +87,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
 
       {/* Right Side - Actions */}
       <div className="flex items-center justify-end gap-2 md:gap-3 flex-shrink-0 ml-4 md:ml-6">
+        <ThemeToggle />
         <LanguageToggle />
         {user && !isMobile && (
           <div className="hidden md:flex items-center gap-2 text-sm px-3 py-1.5 rounded-md hover:bg-accent/50 transition-colors">

@@ -8,6 +8,7 @@ import { createAuditLog } from '@/lib/utils/audit';
 const updateHospitalSchema = z.object({
   name: z.string().min(1).optional(),
   code: z.string().min(1).optional(),
+  groupId: z.string().min(1).optional(),
   isActive: z.boolean().optional(),
 });
 
@@ -113,11 +114,28 @@ export async function PATCH(
       );
     }
 
-    // If code is being updated, check for duplicates within the same group
+    // If groupId is being updated, verify it exists and belongs to tenant
+    const targetGroupId = data.groupId !== undefined ? data.groupId : existingHospital.groupId;
+    if (data.groupId !== undefined && data.groupId !== existingHospital.groupId) {
+      const groupsCollection = await getCollection('groups');
+      const group = await groupsCollection.findOne({
+        id: data.groupId,
+        tenantId,
+      });
+
+      if (!group) {
+        return NextResponse.json(
+          { error: 'Group not found or access denied' },
+          { status: 404 }
+        );
+      }
+    }
+
+    // If code is being updated, check for duplicates within the target group
     if (data.code && data.code !== existingHospital.code) {
       const duplicateHospital = await hospitalsCollection.findOne({
         code: data.code,
-        groupId: existingHospital.groupId,
+        groupId: targetGroupId,
         id: { $ne: id },
       });
 
@@ -140,6 +158,9 @@ export async function PATCH(
     }
     if (data.code !== undefined) {
       updateData.code = data.code;
+    }
+    if (data.groupId !== undefined) {
+      updateData.groupId = data.groupId;
     }
     if (data.isActive !== undefined) {
       updateData.isActive = data.isActive;

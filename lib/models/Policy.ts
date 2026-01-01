@@ -31,6 +31,8 @@ export interface PolicyDocument {
 
   isActive: boolean;
   deletedAt?: Date | null;
+  
+  tenantId?: string; // Tenant isolation - from session
 
   tags?: string[];
   category?: string;

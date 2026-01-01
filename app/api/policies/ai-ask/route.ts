@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/requireAuth';
+import { requireQuota } from '@/lib/quota/guard';
 import { env } from '@/lib/env';
 import { z } from 'zod';
 import OpenAI from 'openai';
@@ -29,6 +30,12 @@ export async function POST(request: NextRequest) {
     const authResult = await requireAuth(request);
     if (authResult instanceof NextResponse) {
       return authResult;
+    }
+
+    // Check quota (policy.search - AI ask uses search functionality)
+    const quotaCheck = await requireQuota(authResult, 'policy.search');
+    if (quotaCheck) {
+      return quotaCheck;
     }
 
     const body = await request.json();

@@ -201,10 +201,25 @@ export const PERMISSIONS: Permission[] = [
   { key: 'admin.data-admin.edit', label: 'Edit Data Admin', category: 'Admin' },
   { key: 'admin.data-admin.delete', label: 'Delete Data Admin', category: 'Admin' },
   
+  { key: 'admin.groups-hospitals.view', label: 'View Groups & Hospitals', category: 'Admin' },
+  { key: 'admin.groups-hospitals.create', label: 'Create Groups & Hospitals', category: 'Admin' },
+  { key: 'admin.groups-hospitals.edit', label: 'Edit Groups & Hospitals', category: 'Admin' },
+  { key: 'admin.groups-hospitals.delete', label: 'Delete Groups & Hospitals', category: 'Admin' },
+  
   { key: 'admin.users.view', label: 'View User Management', category: 'Admin' },
   { key: 'admin.users.create', label: 'Create Users', category: 'Admin' },
   { key: 'admin.users.edit', label: 'Edit Users', category: 'Admin' },
   { key: 'admin.users.delete', label: 'Delete Users', category: 'Admin' },
+  
+  { key: 'admin.admin.view', label: 'View Admin Users (Orphaned)', category: 'Admin' },
+  { key: 'admin.admin.create', label: 'Create Admin Users', category: 'Admin' },
+  { key: 'admin.admin.edit', label: 'Edit Admin Users', category: 'Admin' },
+  { key: 'admin.admin.delete', label: 'Delete Admin Users', category: 'Admin' },
+  
+  { key: 'admin.quotas.view', label: 'View Demo Quotas', category: 'Admin' },
+  { key: 'admin.quotas.create', label: 'Create Quotas', category: 'Admin' },
+  { key: 'admin.quotas.edit', label: 'Edit Quotas', category: 'Admin' },
+  { key: 'admin.quotas.delete', label: 'Delete Quotas', category: 'Admin' },
   
   { key: 'admin.structure-management.view', label: 'View Structure Management', category: 'Admin' },
   { key: 'admin.structure-management.create', label: 'Create Structure Management', category: 'Admin' },
@@ -269,7 +284,10 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   '/ai/new-policy-from-scratch': 'policies.new-creator.view',
   '/ai/policy-harmonization': 'policies.harmonization.view',
   '/admin/data-admin': 'admin.data-admin.view',
+  '/admin/groups-hospitals': 'admin.groups-hospitals.view',
   '/admin/users': 'admin.users.view',
+  '/admin/admin': 'admin.admin.view',
+  '/admin/quotas': 'admin.quotas.view',
   '/admin/structure-management': 'admin.structure-management.view',
   '/admin/delete-sample-data': 'admin.delete-sample-data.view',
   '/account': 'account.view',

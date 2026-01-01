@@ -36,6 +36,12 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from '@/components/ui/tabs';
 import { Plus, Edit, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { PERMISSIONS, getPermissionsByCategory, getDefaultPermissionsForRole } from '@/lib/permissions';
@@ -51,16 +57,37 @@ interface User {
   staffId?: string;
   permissions?: string[];
   isActive: boolean;
+  groupId?: string;
+  hospitalId?: string;
+}
+
+interface Group {
+  id: string;
+  name: string;
+  code: string;
+}
+
+interface Hospital {
+  id: string;
+  name: string;
+  code: string;
+  groupId: string;
 }
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>([]); // All users for filtering
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [hospitals, setHospitals] = useState<Hospital[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<string>('');
+  const [selectedHospitalId, setSelectedHospitalId] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<'groups' | 'hospitals'>('groups');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
 
   const [formData, setFormData] = useState({
     email: '',
@@ -113,18 +140,58 @@ export default function UsersPage() {
 
   useEffect(() => {
     fetchUsers();
-    // No longer need to fetch groups/hospitals since they're free text fields
+    fetchGroups();
+    fetchHospitals();
   }, []);
+
+  useEffect(() => {
+    // Filter users based on selected group/hospital
+    if (activeTab === 'groups' && selectedGroupId) {
+      const filtered = allUsers.filter(u => u.groupId === selectedGroupId);
+      setUsers(filtered);
+    } else if (activeTab === 'hospitals' && selectedHospitalId) {
+      const filtered = allUsers.filter(u => u.hospitalId === selectedHospitalId);
+      setUsers(filtered);
+    } else {
+      setUsers([]);
+    }
+  }, [selectedGroupId, selectedHospitalId, activeTab, allUsers]);
 
   async function fetchUsers() {
     try {
       const response = await fetch('/api/admin/users');
       if (response.ok) {
         const data = await response.json();
-        setUsers(data.users);
+        setAllUsers(data.users);
+        // Initially show empty (user must select group/hospital)
+        setUsers([]);
       }
     } catch (error) {
       console.error('Failed to fetch users:', error);
+    }
+  }
+
+  async function fetchGroups() {
+    try {
+      const response = await fetch('/api/admin/groups');
+      if (response.ok) {
+        const data = await response.json();
+        setGroups(data.groups || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch groups:', error);
+    }
+  }
+
+  async function fetchHospitals() {
+    try {
+      const response = await fetch('/api/admin/hospitals');
+      if (response.ok) {
+        const data = await response.json();
+        setHospitals(data.hospitals || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch hospitals:', error);
     }
   }
 
@@ -146,19 +213,37 @@ export default function UsersPage() {
           description: t.users.userCreatedSuccess,
         });
         setIsDialogOpen(false);
-        fetchUsers();
-        setFormData({
+        await fetchUsers();
+        fetchGroups();
+        fetchHospitals();
+        // Reset form but preserve selected group/hospital if creating from tab
+        const resetFormData: any = {
           email: '',
           password: '',
           firstName: '',
           lastName: '',
           role: 'staff',
-          groupId: '',
-          hospitalId: '',
           department: '',
           staffId: '',
           permissions: getDefaultPermissionsForRole('staff'),
-        });
+        };
+        if (activeTab === 'groups' && selectedGroupId) {
+          resetFormData.groupId = selectedGroupId;
+          resetFormData.hospitalId = '';
+        } else if (activeTab === 'hospitals' && selectedHospitalId) {
+          const hospital = hospitals.find(h => h.id === selectedHospitalId);
+          if (hospital) {
+            resetFormData.groupId = hospital.groupId;
+            resetFormData.hospitalId = selectedHospitalId;
+          } else {
+            resetFormData.groupId = '';
+            resetFormData.hospitalId = '';
+          }
+        } else {
+          resetFormData.groupId = '';
+          resetFormData.hospitalId = '';
+        }
+        setFormData(resetFormData);
       } else {
         const data = await response.json();
         throw new Error(data.error || 'Failed to create user');
@@ -187,7 +272,9 @@ export default function UsersPage() {
           title: t.common.success,
           description: t.users.userDeletedSuccess,
         });
-        fetchUsers();
+        await fetchUsers();
+        fetchGroups();
+        fetchHospitals();
       } else {
         const data = await response.json();
         throw new Error(data.error || 'Failed to delete user');
@@ -248,7 +335,9 @@ export default function UsersPage() {
         });
         setIsEditDialogOpen(false);
         setEditingUser(null);
-        fetchUsers();
+        await fetchUsers();
+        fetchGroups();
+        fetchHospitals();
         setFormData({
           email: '',
           password: '',
@@ -276,6 +365,19 @@ export default function UsersPage() {
     }
   }
 
+  // When creating user from groups/hospitals tab, pre-fill groupId/hospitalId
+  function handleCreateUser() {
+    if (activeTab === 'groups' && selectedGroupId) {
+      setFormData(prev => ({ ...prev, groupId: selectedGroupId, hospitalId: '' }));
+    } else if (activeTab === 'hospitals' && selectedHospitalId) {
+      const hospital = hospitals.find(h => h.id === selectedHospitalId);
+      if (hospital) {
+        setFormData(prev => ({ ...prev, groupId: hospital.groupId, hospitalId: selectedHospitalId }));
+      }
+    }
+    setIsDialogOpen(true);
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -285,7 +387,7 @@ export default function UsersPage() {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button onClick={handleCreateUser}>
               <Plus className="mr-2 h-4 w-4" />
               {t.users.addUser}
             </Button>
@@ -369,33 +471,55 @@ export default function UsersPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="groupId">Group (Optional)</Label>
-                <Input
-                  id="groupId"
+                <Label htmlFor="groupId">{language === 'ar' ? 'المجموعة' : 'Group'}</Label>
+                <Select
                   value={formData.groupId}
-                  onChange={(e) => {
-                    setFormData({ ...formData, groupId: e.target.value, hospitalId: '' });
+                  onValueChange={(value) => {
+                    setFormData({ ...formData, groupId: value, hospitalId: '' });
                   }}
-                  placeholder="Enter group name or leave empty"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Enter a custom group name, or manage groups from Admin → Groups & Hospitals
-                </p>
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={language === 'ar' ? 'اختر مجموعة' : 'Select group'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {groups.map((group) => (
+                      <SelectItem key={group.id} value={group.id}>
+                        {group.name} ({group.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               {(formData.role === 'staff' || formData.role === 'hospital-admin') && (
                 <div className="space-y-2">
-                  <Label htmlFor="hospitalId">Hospital (Optional)</Label>
-                  <Input
-                    id="hospitalId"
-                    value={formData.hospitalId}
-                    onChange={(e) =>
-                      setFormData({ ...formData, hospitalId: e.target.value })
+                  <Label htmlFor="hospitalId">{language === 'ar' ? 'المستشفى' : 'Hospital'}</Label>
+                  <Select
+                    value={formData.hospitalId || ''}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, hospitalId: value })
                     }
-                    placeholder="Enter hospital name or leave empty"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Enter a custom hospital name, or manage hospitals from Admin → Groups & Hospitals
-                  </p>
+                    disabled={!formData.groupId}
+                    required
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={language === 'ar' ? 'اختر مستشفى' : 'Select hospital'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {hospitals
+                        .filter(h => !formData.groupId || h.groupId === formData.groupId)
+                        .map((hospital) => (
+                          <SelectItem key={hospital.id} value={hospital.id}>
+                            {hospital.name} ({hospital.code})
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  {!formData.groupId && (
+                    <p className="text-xs text-muted-foreground">
+                      {language === 'ar' ? 'يجب اختيار مجموعة أولاً' : 'Please select a group first'}
+                    </p>
+                  )}
                 </div>
               )}
               <div className="space-y-2">
@@ -642,75 +766,265 @@ export default function UsersPage() {
         </Dialog>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t.users.allUsers}</CardTitle>
-          <CardDescription>{t.users.viewManageUsers}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t.users.name}</TableHead>
-                <TableHead>{t.auth.email}</TableHead>
-                <TableHead>{t.users.role}</TableHead>
-                <TableHead>{t.users.department}</TableHead>
-                <TableHead>{t.users.permissions}</TableHead>
-                <TableHead>{t.users.status}</TableHead>
-                <TableHead className="text-right">{t.users.actions}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {users.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell className="font-medium">
-                    {user.firstName} {user.lastName}
-                  </TableCell>
-                  <TableCell>{user.email}</TableCell>
-                  <TableCell>
-                    <span className="capitalize">{t.roles[user.role as keyof typeof t.roles] || user.role}</span>
-                  </TableCell>
-                  <TableCell>{user.department || '-'}</TableCell>
-                  <TableCell>
-                    <span className="text-xs text-muted-foreground">
-                      {user.permissions?.length || 0} permissions
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <span
-                      className={`px-2 py-1 rounded text-xs ${
-                        user.isActive
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}
-                    >
-                      {user.isActive ? 'Active' : 'Inactive'}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEdit(user)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(user.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      <Tabs value={activeTab} onValueChange={(v) => {
+        setActiveTab(v as 'groups' | 'hospitals');
+        setSelectedGroupId('');
+        setSelectedHospitalId('');
+        setUsers([]);
+      }} className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="groups">
+            {language === 'ar' ? 'المجموعات' : 'Groups'}
+          </TabsTrigger>
+          <TabsTrigger value="hospitals">
+            {language === 'ar' ? 'المستشفيات' : 'Hospitals'}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="groups" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle>{language === 'ar' ? 'اختر مجموعة' : 'Select Group'}</CardTitle>
+                  <CardDescription>
+                    {language === 'ar' ? 'اختر مجموعة لعرض وإدارة المستخدمين' : 'Select a group to view and manage users'}
+                  </CardDescription>
+                </div>
+                {selectedGroupId && (
+                  <Button onClick={handleCreateUser}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    {language === 'ar' ? 'إضافة مستخدم' : 'Add User'}
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <Label>{language === 'ar' ? 'المجموعة' : 'Group'}</Label>
+                <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={language === 'ar' ? 'اختر مجموعة...' : 'Select a group...'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {groups.map((group) => (
+                      <SelectItem key={group.id} value={group.id}>
+                        {group.name} ({group.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+
+          {selectedGroupId && (
+            <Card>
+              <CardHeader>
+                <CardTitle>
+                  {language === 'ar' ? 'مستخدمي المجموعة' : 'Group Users'} - {groups.find(g => g.id === selectedGroupId)?.name}
+                </CardTitle>
+                <CardDescription>
+                  {language === 'ar' ? 'عرض وإدارة المستخدمين في هذه المجموعة' : 'View and manage users in this group'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t.users.name}</TableHead>
+                      <TableHead>{t.auth.email}</TableHead>
+                      <TableHead>{t.users.role}</TableHead>
+                      <TableHead>{t.users.department}</TableHead>
+                      <TableHead>{t.users.permissions}</TableHead>
+                      <TableHead>{t.users.status}</TableHead>
+                      <TableHead className="text-right">{t.users.actions}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {users.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center text-muted-foreground">
+                          {language === 'ar' ? 'لا يوجد مستخدمين في هذه المجموعة' : 'No users in this group'}
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      users.map((user) => (
+                        <TableRow key={user.id}>
+                          <TableCell className="font-medium">
+                            {user.firstName} {user.lastName}
+                          </TableCell>
+                          <TableCell>{user.email}</TableCell>
+                          <TableCell>
+                            <span className="capitalize">{t.roles[user.role as keyof typeof t.roles] || user.role}</span>
+                          </TableCell>
+                          <TableCell>{user.department || '-'}</TableCell>
+                          <TableCell>
+                            <span className="text-xs text-muted-foreground">
+                              {user.permissions?.length || 0} permissions
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <span
+                              className={`px-2 py-1 rounded text-xs ${
+                                user.isActive
+                                  ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-500'
+                                  : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-500'
+                              }`}
+                            >
+                              {user.isActive ? 'Active' : 'Inactive'}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEdit(user)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDelete(user.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="hospitals" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle>{language === 'ar' ? 'اختر مستشفى' : 'Select Hospital'}</CardTitle>
+                  <CardDescription>
+                    {language === 'ar' ? 'اختر مستشفى لعرض وإدارة المستخدمين' : 'Select a hospital to view and manage users'}
+                  </CardDescription>
+                </div>
+                {selectedHospitalId && (
+                  <Button onClick={handleCreateUser}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    {language === 'ar' ? 'إضافة مستخدم' : 'Add User'}
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <Label>{language === 'ar' ? 'المستشفى' : 'Hospital'}</Label>
+                <Select value={selectedHospitalId} onValueChange={setSelectedHospitalId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={language === 'ar' ? 'اختر مستشفى...' : 'Select a hospital...'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {hospitals.map((hospital) => (
+                      <SelectItem key={hospital.id} value={hospital.id}>
+                        {hospital.name} ({hospital.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+
+          {selectedHospitalId && (
+            <Card>
+              <CardHeader>
+                <CardTitle>
+                  {language === 'ar' ? 'مستخدمي المستشفى' : 'Hospital Users'} - {hospitals.find(h => h.id === selectedHospitalId)?.name}
+                </CardTitle>
+                <CardDescription>
+                  {language === 'ar' ? 'عرض وإدارة المستخدمين في هذا المستشفى' : 'View and manage users in this hospital'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t.users.name}</TableHead>
+                      <TableHead>{t.auth.email}</TableHead>
+                      <TableHead>{t.users.role}</TableHead>
+                      <TableHead>{t.users.department}</TableHead>
+                      <TableHead>{t.users.permissions}</TableHead>
+                      <TableHead>{t.users.status}</TableHead>
+                      <TableHead className="text-right">{t.users.actions}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {users.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center text-muted-foreground">
+                          {language === 'ar' ? 'لا يوجد مستخدمين في هذا المستشفى' : 'No users in this hospital'}
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      users.map((user) => (
+                        <TableRow key={user.id}>
+                          <TableCell className="font-medium">
+                            {user.firstName} {user.lastName}
+                          </TableCell>
+                          <TableCell>{user.email}</TableCell>
+                          <TableCell>
+                            <span className="capitalize">{t.roles[user.role as keyof typeof t.roles] || user.role}</span>
+                          </TableCell>
+                          <TableCell>{user.department || '-'}</TableCell>
+                          <TableCell>
+                            <span className="text-xs text-muted-foreground">
+                              {user.permissions?.length || 0} permissions
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <span
+                              className={`px-2 py-1 rounded text-xs ${
+                                user.isActive
+                                  ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-500'
+                                  : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-500'
+                              }`}
+                            >
+                              {user.isActive ? 'Active' : 'Inactive'}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEdit(user)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDelete(user.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
+import { requireAuth } from '@/lib/auth/requireAuth';
 import fs from 'fs';
 import path from 'path';
 import { env } from '@/lib/env';
@@ -12,10 +13,15 @@ export async function DELETE(
   { params }: { params: { documentId: string } }
 ) {
   try {
-    const userRole = request.headers.get('x-user-role') as any;
-    const userId = request.headers.get('x-user-id');
+    // Authentication and tenant isolation
+    const authResult = await requireAuth(request);
+    if (authResult instanceof NextResponse) {
+      return authResult;
+    }
+    const { userId, userRole, tenantId } = authResult;
 
-    if (!userRole || !requireRole(userRole, ['admin', 'supervisor'])) {
+    // Authorization check
+    if (!requireRole(userRole, ['admin', 'supervisor'])) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -26,8 +32,18 @@ export async function DELETE(
     const policiesCollection = await getCollection('policy_documents');
     const chunksCollection = await getCollection('policy_chunks');
 
-    // Find document
-    const document = await policiesCollection.findOne({ documentId });
+    // Find document with tenant isolation
+    const document = await policiesCollection.findOne({
+      documentId,
+      // Tenant isolation: only allow deletion of policies in same tenant
+      $or: [
+        { tenantId: tenantId },
+        { tenantId: { $exists: false } }, // Backward compatibility
+        { tenantId: null },
+        { tenantId: '' },
+        ...(tenantId === 'default' ? [{ tenantId: 'default' }] : []),
+      ],
+    });
 
     if (!document) {
       return NextResponse.json(

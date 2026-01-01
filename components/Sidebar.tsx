@@ -168,7 +168,10 @@ const getNavItems = (t: any): NavItem[] => {
         { title: nav.dataAdmin || 'Data Admin', href: '/admin/data-admin', icon: Database },
         { title: nav.structureManagement || 'Structure Management', href: '/admin/structure-management', icon: Building2 },
         { title: nav.deleteSampleData || 'Delete Sample Data', href: '/admin/delete-sample-data', icon: Trash2 },
+        { title: nav.groupsHospitals || 'Groups & Hospitals', href: '/admin/groups-hospitals', icon: Building2 },
         { title: nav.users || 'Users', href: '/admin/users', icon: Users },
+        { title: nav.admin || 'Admin', href: '/admin/admin', icon: Users },
+        { title: nav.quotas || 'Demo Quotas', href: '/admin/quotas', icon: Settings },
       ],
     },
     {

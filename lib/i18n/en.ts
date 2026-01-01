@@ -79,7 +79,9 @@ export const en = {
     dataAdmin: 'Data Admin',
     structureManagement: 'Structure Management',
     deleteSampleData: 'Delete Sample Data',
+    groupsHospitals: 'Groups & Hospitals',
     users: 'Users',
+    quotas: 'Demo Quotas',
     account: 'Account',
   },
   px: {

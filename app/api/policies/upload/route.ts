@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
+import { requireAuth } from '@/lib/auth/requireAuth';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 import fs from 'fs';
@@ -154,12 +155,18 @@ const uploadSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     console.log('Policy upload request received');
-    const userRole = request.headers.get('x-user-role') as any;
-    const userId = request.headers.get('x-user-id');
+    
+    // Authentication and tenant isolation
+    const authResult = await requireAuth(request);
+    if (authResult instanceof NextResponse) {
+      return authResult;
+    }
+    const { userId, userRole, tenantId } = authResult;
 
-    console.log('User role:', userRole, 'User ID:', userId);
+    console.log('User role:', userRole, 'User ID:', userId, 'Tenant ID:', tenantId);
 
-    if (!userRole || !requireRole(userRole, ['admin', 'supervisor'])) {
+    // Authorization check
+    if (!requireRole(userRole, ['admin', 'supervisor'])) {
       console.log('Access denied - insufficient permissions');
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
@@ -372,6 +379,7 @@ export async function POST(request: NextRequest) {
       createdAt: new Date(),
       updatedAt: new Date(),
       uploadedBy: userId || 'system',
+      tenantId: tenantId, // Tenant isolation
       isActive: true,
       tags: tagsArray.length > 0 ? tagsArray : undefined,
       category: category || undefined,

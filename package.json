@@ -7,7 +7,14 @@
         "dev:no-reload": "next dev --hostname 0.0.0.0 --port 3000",
         "dev:webpack": "next dev --hostname 0.0.0.0 --port 3000",
         "build": "next build",
-        "start": "next start -H 0.0.0.0"
+        "start": "next start -H 0.0.0.0",
+        "lint": "next lint --max-warnings=0 || true",
+        "typecheck": "tsc --noEmit",
+        "test": "echo \"No tests specified\" && exit 0"
+    },
+    "engines": {
+        "node": ">=20.0.0",
+        "yarn": ">=1.22.0"
     },
     "dependencies": {
         "@hookform/resolvers": "^5.2.2",

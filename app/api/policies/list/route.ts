@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
 import { PolicyDocument } from '@/lib/models/Policy';
+import { requireAuth } from '@/lib/auth/requireAuth';
 
 export async function GET(request: NextRequest) {
   try {
+    // Authentication and tenant isolation
+    const authResult = await requireAuth(request);
+    if (authResult instanceof NextResponse) {
+      return authResult;
+    }
+    const { tenantId } = authResult;
+
     const { searchParams } = new URL(request.url);
     const active = searchParams.get('active') !== '0'; // Default true
     const query = searchParams.get('query') || '';
@@ -14,8 +22,17 @@ export async function GET(request: NextRequest) {
 
     const policiesCollection = await getCollection('policy_documents');
 
-    // Build query
-    const mongoQuery: any = {};
+    // Build query with tenant isolation
+    const mongoQuery: any = {
+      // Tenant isolation: filter by tenantId, with backward compatibility
+      $or: [
+        { tenantId: tenantId },
+        { tenantId: { $exists: false } }, // Backward compatibility for existing policies
+        { tenantId: null },
+        { tenantId: '' },
+        ...(tenantId === 'default' ? [{ tenantId: 'default' }] : []),
+      ],
+    };
     
     if (active) {
       mongoQuery.isActive = true;

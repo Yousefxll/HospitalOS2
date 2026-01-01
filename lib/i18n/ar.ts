@@ -79,7 +79,9 @@ export const ar = {
     dataAdmin: 'إدارة البيانات',
     structureManagement: 'إدارة البنية التحتية',
     deleteSampleData: 'حذف البيانات التجريبية',
+    groupsHospitals: 'المجموعات والمستشفيات',
     users: 'المستخدمون',
+    quotas: 'الحصص',
     account: 'الحساب',
   },
   px: {
