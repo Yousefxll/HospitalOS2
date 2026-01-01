@@ -215,11 +215,12 @@ Guidelines:
                 "recommendations": recommendations,
             })
 
+        from datetime import datetime
         metadata = {
             "totalPractices": len(request.practices),
             "policiesAnalyzed": len(request.policies),
             "model": model,
-            "analyzedAt": json.dumps({"$date": {"$numberLong": str(int(__import__("time").time() * 1000))}}),
+            "analyzedAt": datetime.utcnow().isoformat() + "Z",
         }
 
         return {
