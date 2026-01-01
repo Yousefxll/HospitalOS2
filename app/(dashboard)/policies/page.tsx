@@ -47,6 +47,7 @@ export default function PoliciesLibraryPage() {
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
+  const [serviceUnavailable, setServiceUnavailable] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   // activeJobs: map of jobId -> {policyId, status, progress}
   const [activeJobs, setActiveJobs] = useState<Record<string, { policyId?: string; status: string; progress?: any }>>({});
@@ -78,6 +79,9 @@ export default function PoliciesLibraryPage() {
         
         const fetchedPolicies = Array.isArray(data.policies) ? data.policies : [];
         console.log(`✅ Loaded ${fetchedPolicies.length} policies from API`);
+        
+        // Check if service is unavailable
+        setServiceUnavailable(data.serviceUnavailable === true);
         
         // Replace policies state entirely - this is the ONLY source of truth
         // Backend /v1/policies is authoritative
@@ -762,8 +766,15 @@ export default function PoliciesLibraryPage() {
               {t.policies.library.loadingPolicies}
             </div>
           ) : policies.length === 0 && !isUploading ? (
-            <div className="text-center py-8 text-muted-foreground">
-              {t.policies.library.noPoliciesFound}
+            <div className="text-center py-8">
+              {serviceUnavailable ? (
+                <div className="space-y-2">
+                  <p className="text-muted-foreground font-medium">Policy Engine service is not available</p>
+                  <p className="text-sm text-muted-foreground">Policy features are currently disabled. Please contact your administrator.</p>
+                </div>
+              ) : (
+                <p className="text-muted-foreground">{t.policies.library.noPoliciesFound}</p>
+              )}
             </div>
           ) : (
             <Table>

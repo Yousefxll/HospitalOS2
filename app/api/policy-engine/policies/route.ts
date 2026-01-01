@@ -30,9 +30,15 @@ export async function GET(request: NextRequest) {
       });
     } catch (fetchError) {
       console.error('Failed to connect to policy-engine:', fetchError);
+      // Return empty policies list with serviceUnavailable flag
+      // This allows the UI to show a message instead of error toast
       return NextResponse.json(
-        { error: 'SIRA service is not available. Please ensure the service is running on port 8001.', details: fetchError instanceof Error ? fetchError.message : String(fetchError) },
-        { status: 503 }
+        { 
+          policies: [],
+          serviceUnavailable: true,
+          message: 'Policy Engine service is not available. Policy features are currently disabled.',
+        },
+        { status: 200 }
       );
     }
 
