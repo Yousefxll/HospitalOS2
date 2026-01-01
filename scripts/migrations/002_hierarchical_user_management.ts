@@ -6,8 +6,8 @@
  */
 
 import { MongoClient } from 'mongodb';
-import * as dotenv from 'dotenv';
-import { resolve } from 'path';
+// Note: This script should be run with ts-node or compiled separately
+// dotenv is not needed as environment variables are loaded by the runtime
 
 // Load environment variables
 dotenv.config({ path: resolve(process.cwd(), '.env.local') });
