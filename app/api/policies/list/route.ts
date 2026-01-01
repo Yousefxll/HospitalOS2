@@ -3,6 +3,9 @@ import { getCollection } from '@/lib/db';
 import { PolicyDocument } from '@/lib/models/Policy';
 import { requireAuth } from '@/lib/auth/requireAuth';
 
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 export async function GET(request: NextRequest) {
   try {
     // Authentication and tenant isolation

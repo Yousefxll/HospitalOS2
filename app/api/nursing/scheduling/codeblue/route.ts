@@ -3,6 +3,9 @@ import { z } from 'zod';
 import { getCollection } from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
 
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 const addCodeBlueSchema = z.object({
   nurseId: z.string(),
   day: z.string(),

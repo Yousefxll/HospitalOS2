@@ -4,6 +4,9 @@ import { verifyTokenEdge } from '@/lib/auth/edge';
 import { deleteSession } from '@/lib/auth/sessions';
 import { env } from '@/lib/env';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function POST(request: NextRequest) {
   try {
     // Get token from cookie to extract sessionId

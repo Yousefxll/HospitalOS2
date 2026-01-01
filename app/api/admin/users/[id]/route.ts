@@ -6,6 +6,9 @@ import { getDefaultPermissionsForRole } from '@/lib/permissions';
 import { hashPassword } from '@/lib/auth';
 import { createAuditLog } from '@/lib/utils/audit';
 
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 const updateUserSchema = z.object({
   permissions: z.array(z.string()).optional(),
   password: z.string().min(6).optional(),

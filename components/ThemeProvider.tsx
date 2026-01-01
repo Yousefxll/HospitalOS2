@@ -24,8 +24,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    // Load saved theme preference from localStorage
-    const saved = localStorage.getItem('sira-theme') as Theme | null;
+    // Load saved theme preference from localStorage (key: "theme")
+    const saved = localStorage.getItem('theme') as Theme | null;
     const initialTheme = (saved === 'light' || saved === 'dark') ? saved : 'light';
     
     // Apply theme immediately
@@ -52,7 +52,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
     if (mounted) {
-      localStorage.setItem('sira-theme', newTheme);
+      localStorage.setItem('theme', newTheme);
     }
     applyTheme(newTheme);
   };

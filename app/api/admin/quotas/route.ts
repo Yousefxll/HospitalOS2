@@ -6,6 +6,9 @@ import { requireRole } from '@/lib/rbac';
 import { v4 as uuidv4 } from 'uuid';
 import { UsageQuota } from '@/lib/models/UsageQuota';
 
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 const createQuotaSchema = z.object({
   scopeType: z.enum(['group', 'user']),
   scopeId: z.string().min(1),

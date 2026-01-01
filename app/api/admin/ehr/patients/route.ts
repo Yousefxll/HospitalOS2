@@ -11,6 +11,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { getISOTimestamp, createAuditLog } from '@/lib/ehr/utils/audit';
 import { validateRequired, validateEmail, validateISODate, formatValidationErrors } from '@/lib/ehr/utils/validation';
 
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 export async function POST(request: NextRequest) {
   try {
     const authResult = await requireAuth(request);

@@ -4,6 +4,9 @@ import { requireRole } from '@/lib/rbac';
 import { v4 as uuidv4 } from 'uuid';
 
 // Force Node.js runtime (not Edge) for pdf-parse compatibility
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 export const runtime = 'nodejs';
 
 // Dynamic import for pdf-parse (may not work in Edge runtime)

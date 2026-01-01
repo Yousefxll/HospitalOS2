@@ -5,6 +5,9 @@ import { requireAuth } from '@/lib/auth/requireAuth';
 import { Hospital } from '@/lib/models/Hospital';
 import { createAuditLog } from '@/lib/utils/audit';
 
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 const updateHospitalSchema = z.object({
   name: z.string().min(1).optional(),
   code: z.string().min(1).optional(),

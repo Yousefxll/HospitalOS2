@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
 
 /**
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
  * PATCH /api/notifications/:id
  * Mark notification as read
  */

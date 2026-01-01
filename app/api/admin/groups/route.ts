@@ -6,6 +6,9 @@ import { Group } from '@/lib/models/Group';
 import { v4 as uuidv4 } from 'uuid';
 import { createAuditLog } from '@/lib/utils/audit';
 
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 const createGroupSchema = z.object({
   name: z.string().min(1),
   code: z.string().min(1),

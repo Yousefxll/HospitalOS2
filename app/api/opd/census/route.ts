@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
 
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 interface FilterParams {
   granularity: string;
   date?: string;

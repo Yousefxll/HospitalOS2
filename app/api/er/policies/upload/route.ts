@@ -12,6 +12,9 @@ export const runtime = 'nodejs';
 import { env } from '@/lib/env';
 
 // Dynamic import for pdf-parse
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 let pdfParseFn: any;
 async function getPdfParse() {
   if (!pdfParseFn) {

@@ -4,6 +4,9 @@ import { getCollection } from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
 import { v4 as uuidv4 } from 'uuid';
 
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 const addTaskSchema = z.object({
   nurseId: z.string(),
   day: z.string(),

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
 import { requireRoleAsync } from '@/lib/auth/requireRole';
 
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 interface DeleteParams {
   dataType: 'opd_census' | 'opd_daily_data' | 'both';
   fromDate?: string;

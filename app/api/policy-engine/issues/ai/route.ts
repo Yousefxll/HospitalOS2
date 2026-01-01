@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/requireAuth';
 
 // Get POLICY_ENGINE_URL from env with default http://127.0.0.1:8001
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 const POLICY_ENGINE_URL = process.env.POLICY_ENGINE_URL || 'http://127.0.0.1:8001';
 const POLICY_ENGINE_TENANT_ID = process.env.POLICY_ENGINE_TENANT_ID || 'default';
 

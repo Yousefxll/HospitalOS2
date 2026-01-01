@@ -4,6 +4,9 @@ import { getCollection } from '@/lib/db';
 import { requireRole, Role } from '@/lib/rbac';
 import { v4 as uuidv4 } from 'uuid';
 
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 const createEquipmentSchema = z.object({
   name: z.string().min(1),
   code: z.string().min(1),

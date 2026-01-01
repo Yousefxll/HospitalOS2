@@ -8,6 +8,9 @@ import { requireAuth } from '@/lib/auth/requireAuth';
 import { getCollection } from '@/lib/db';
 import { Patient } from '@/lib/ehr/models';
 
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }

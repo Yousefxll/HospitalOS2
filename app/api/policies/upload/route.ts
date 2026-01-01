@@ -23,6 +23,9 @@ async function getPdfJs() {
 export const runtime = 'nodejs';
 
 import { env } from '@/lib/env';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 const POLICIES_DIR = env.POLICIES_DIR;
 
 // Ensure directory exists

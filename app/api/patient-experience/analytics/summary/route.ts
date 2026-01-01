@@ -3,6 +3,9 @@ import { getCollection } from '@/lib/db';
 import { requireRoleAsync, buildScopeFilter } from '@/lib/auth/requireRole';
 
 /**
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
  * GET /api/patient-experience/analytics/summary
  * Get comprehensive analytics summary for patient experience
  * 

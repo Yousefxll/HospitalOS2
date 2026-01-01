@@ -4,6 +4,9 @@ import { requireQuota } from '@/lib/quota/guard';
 import { env } from '@/lib/env';
 
 /**
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
  * POST /api/policies/search
  * 
  * Search policies using the policy-engine backend.

@@ -4,6 +4,9 @@ import { translateToEnglish } from '@/lib/translate/translateToEnglish';
 import { detectLang } from '@/lib/translate/detectLang';
 
 /**
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
  * Backfill endpoint to fill missing translation fields for existing records
  * POST /api/patient-experience/backfill-translation
  * 

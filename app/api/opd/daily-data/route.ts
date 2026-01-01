@@ -5,6 +5,9 @@ import { requireRole } from '@/lib/rbac';
 import { v4 as uuidv4 } from 'uuid';
 import { OPDDailyData } from '@/lib/models/OPDDailyData';
 
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 const createDailyDataSchema = z.object({
   date: z.string(), // ISO date string
   departmentId: z.string().min(1),

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
 
 /**
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
  * GET /api/patient-experience/summary
  * Get KPI aggregates for patient experience
  * 

@@ -4,6 +4,9 @@ import { getCollection } from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
 import { v4 as uuidv4 } from 'uuid';
 
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 const createClinicSchema = z.object({
   clinicId: z.string().min(1),
   departmentId: z.string().min(1),

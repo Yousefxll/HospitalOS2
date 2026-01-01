@@ -7,6 +7,9 @@ import { PXCase } from '@/lib/models/PXCase';
 import { Notification } from '@/lib/models/Notification';
 import { requireRoleAsync, buildScopeFilter, buildStaffFilter } from '@/lib/auth/requireRole';
 
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 export async function POST(request: NextRequest) {
   try {
     // RBAC: staff, supervisor, admin can create visits

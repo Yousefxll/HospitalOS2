@@ -6,6 +6,9 @@ import fs from 'fs';
 import path from 'path';
 import { env } from '@/lib/env';
 
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 const POLICIES_DIR = env.POLICIES_DIR;
 
 export async function DELETE(

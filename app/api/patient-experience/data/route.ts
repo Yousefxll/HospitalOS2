@@ -4,6 +4,9 @@ import { getCollection } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 
 // Helper function to generate English keys
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 function generateKey(prefix: string, value: string): string {
   const cleanValue = value.toUpperCase().replace(/[^A-Z0-9]/g, '_').replace(/_+/g, '_');
   return `${prefix}_${cleanValue}`;

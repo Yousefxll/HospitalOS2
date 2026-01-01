@@ -3,6 +3,9 @@ import { requireRole, Role } from '@/lib/rbac';
 import { runPxSla } from '@/lib/patient-experience/runSla';
 
 /**
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
  * POST /api/patient-experience/cases/run-sla
  * Run SLA check and escalate overdue cases
  * 

@@ -3,6 +3,9 @@ import { getCollection } from '@/lib/db';
 import { detectLang } from '@/lib/translate/detectLang';
 
 /**
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
  * Helper to resolve keys to English labels
  */
 async function resolveLabels(records: any[]): Promise<any[]> {

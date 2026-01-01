@@ -5,6 +5,9 @@ import { requireRoleAsync } from '@/lib/auth/requireRole';
 import { v4 as uuidv4 } from 'uuid';
 
 // Schemas
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 const createFloorSchema = z.object({
   number: z.string().min(1),
   name: z.string().optional(),

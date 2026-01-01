@@ -9,6 +9,9 @@ import { getCollection } from '@/lib/db';
 import { AuditLog } from '@/lib/ehr/models';
 import { validateISOTimestamp, formatValidationErrors } from '@/lib/ehr/utils/validation';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(request: NextRequest) {
   try {
     const authResult = await requireAuth(request);

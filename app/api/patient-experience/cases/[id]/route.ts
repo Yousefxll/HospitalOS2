@@ -8,6 +8,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { requireRoleAsync, requireScope } from '@/lib/auth/requireRole';
 
 /**
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
  * PATCH /api/patient-experience/cases/:id
  * Update a case
  * 

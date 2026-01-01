@@ -4,6 +4,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { env } from '@/lib/env';
 
 /**
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
  * POST /api/patient-experience/seed-data
  * Delete all Patient Experience data and seed with dummy data (Dec 6-12, 2025)
  * 

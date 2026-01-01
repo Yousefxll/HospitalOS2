@@ -4,6 +4,9 @@ import { PXCase } from '@/lib/models/PXCase';
 import { requireRoleAsync, buildScopeFilter } from '@/lib/auth/requireRole';
 
 /**
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
  * Helper to resolve keys to English labels for cases
  */
 async function resolveCaseLabels(cases: any[]): Promise<any[]> {

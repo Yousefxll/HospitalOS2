@@ -6,6 +6,9 @@ import ExcelJS from 'exceljs';
 import { z } from 'zod';
 
 // Schema matching the daily data entry form - with more lenient validation
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 const dailyDataRowSchema = z.object({
   date: z.string().min(1, 'Date is required'), // Date in YYYY-MM-DD format
   departmentId: z.string().min(1, 'Department ID is required'),

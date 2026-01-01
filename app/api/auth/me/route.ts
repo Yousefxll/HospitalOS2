@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDefaultPermissionsForRole } from '@/lib/permissions';
 import { requireAuth } from '@/lib/auth/requireAuth';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(request: NextRequest) {
   try {
     // Use centralized auth helper - reads ONLY from cookies

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
 import { getAggregatedOPDData, calculateStatsFromRecords } from '@/lib/opd/data-aggregator';
 
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 interface FilterParams {
   granularity: string;
   date?: string;

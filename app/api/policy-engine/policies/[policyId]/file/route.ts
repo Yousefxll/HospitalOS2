@@ -3,6 +3,9 @@ import { requireAuth } from '@/lib/auth/requireAuth';
 import { env } from '@/lib/env';
 
 
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ policyId: string }> | { policyId: string } }

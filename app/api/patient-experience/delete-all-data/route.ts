@@ -3,6 +3,9 @@ import { getCollection } from '@/lib/db';
 import { env } from '@/lib/env';
 
 /**
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
  * DELETE /api/patient-experience/delete-all-data
  * Delete selected Patient Experience data types
  * 

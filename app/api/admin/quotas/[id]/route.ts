@@ -5,6 +5,9 @@ import { requireAuth } from '@/lib/auth/requireAuth';
 import { requireRole } from '@/lib/rbac';
 import { UsageQuota } from '@/lib/models/UsageQuota';
 
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 const updateQuotaSchema = z.object({
   limit: z.number().int().positive().optional(),
   status: z.enum(['active', 'locked']).optional(),

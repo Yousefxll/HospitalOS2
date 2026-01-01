@@ -11,6 +11,9 @@ import { addSecurityHeaders, handleCORSPreflight } from '@/lib/security/headers'
 import { validateRequestBody, handleError } from '@/lib/security/validation';
 import { logAuditEvent, createAuditContext } from '@/lib/security/audit';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 const createUserSchema = z.object({
   email: z.string().email().toLowerCase().trim(),
   password: z.string().min(6).max(100),
