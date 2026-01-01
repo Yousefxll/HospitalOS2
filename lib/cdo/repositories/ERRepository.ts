@@ -87,7 +87,7 @@ export class ERRepository {
   static async getRegistrationByVisitId(erVisitId: string): Promise<ERRegistration | null> {
     const collection = await getCollection('er_registrations');
     const registration = await collection.findOne({ erVisitId });
-    return registration as ERRegistration | null;
+    return registration as unknown as ERRegistration | null;
   }
 
   /**
@@ -96,7 +96,7 @@ export class ERRepository {
   static async getRegistrationById(registrationId: string): Promise<ERRegistration | null> {
     const collection = await getCollection('er_registrations');
     const registration = await collection.findOne({ id: registrationId });
-    return registration as ERRegistration | null;
+    return registration as unknown as ERRegistration | null;
   }
 
   /**
@@ -122,7 +122,7 @@ export class ERRepository {
     }
     
     const registrations = await cursor.toArray();
-    return registrations as ERRegistration[];
+    return registrations as unknown as ERRegistration[];
   }
 
   /**
@@ -131,7 +131,7 @@ export class ERRepository {
   static async getTriageByVisitId(erVisitId: string): Promise<ERTriage | null> {
     const collection = await getCollection('er_triage');
     const triage = await collection.findOne({ erVisitId });
-    return triage as ERTriage | null;
+    return triage as unknown as ERTriage | null;
   }
 
   /**
@@ -144,7 +144,7 @@ export class ERRepository {
     const triages = await collection
       .find({ registrationId: { $in: registrationIds } })
       .toArray();
-    return triages as ERTriage[];
+    return triages as unknown as ERTriage[];
   }
 
   /**
@@ -156,7 +156,7 @@ export class ERRepository {
       .find({ erVisitId })
       .sort({ noteDate: -1 })
       .toArray();
-    return notes as ERProgressNote[];
+    return notes as unknown as ERProgressNote[];
   }
 
   /**
@@ -165,7 +165,7 @@ export class ERRepository {
   static async getDispositionByVisitId(erVisitId: string): Promise<ERDisposition | null> {
     const collection = await getCollection('er_dispositions');
     const disposition = await collection.findOne({ erVisitId });
-    return disposition as ERDisposition | null;
+    return disposition as unknown as ERDisposition | null;
   }
 
   /**
@@ -208,7 +208,7 @@ export class ERRepository {
     }
     
     const visits = await cursor.toArray();
-    return visits as ERRegistration[];
+    return visits as unknown as ERRegistration[];
   }
 }
 
