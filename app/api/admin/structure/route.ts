@@ -39,14 +39,19 @@ export async function GET(request: NextRequest) {
       return authResult;
     }
 
-    // Check permission: admin.structure-management.view
-    const usersCollection = await getCollection('users');
-    const user = await usersCollection.findOne({ id: authResult.userId });
-    const userPermissions = user?.permissions || [];
-    
-    // Allow if user has admin.structure-management.view or admin.users (admin access)
-    if (!userPermissions.includes('admin.structure-management.view') && !userPermissions.includes('admin.users.view') && !userPermissions.includes('admin.users')) {
-      return NextResponse.json({ error: 'Forbidden: Insufficient permissions' }, { status: 403 });
+    // Admin users with role='admin' have full access, bypass permission checks
+    if (authResult.userRole === 'admin') {
+      // Admin users have full access, skip permission check
+    } else {
+      // Check permission: admin.structure-management.view for non-admin users
+      const usersCollection = await getCollection('users');
+      const user = await usersCollection.findOne({ id: authResult.userId });
+      const userPermissions = user?.permissions || [];
+      
+      // Allow if user has admin.structure-management.view or admin.users (admin access)
+      if (!userPermissions.includes('admin.structure-management.view') && !userPermissions.includes('admin.users.view') && !userPermissions.includes('admin.users')) {
+        return NextResponse.json({ error: 'Forbidden: Insufficient permissions' }, { status: 403 });
+      }
     }
 
     const floorsCollection = await getCollection('floors');
@@ -75,14 +80,19 @@ export async function POST(request: NextRequest) {
       return authResult;
     }
 
-    // Check permission: admin.structure-management.create
-    const usersCollection = await getCollection('users');
-    const user = await usersCollection.findOne({ id: authResult.userId });
-    const userPermissions = user?.permissions || [];
-    
-    // Allow if user has admin.structure-management.create or admin.users (admin access)
-    if (!userPermissions.includes('admin.structure-management.create') && !userPermissions.includes('admin.users.view') && !userPermissions.includes('admin.users')) {
-      return NextResponse.json({ error: 'Forbidden: Insufficient permissions to create' }, { status: 403 });
+    // Admin users with role='admin' have full access, bypass permission checks
+    if (authResult.userRole === 'admin') {
+      // Admin users have full access, skip permission check
+    } else {
+      // Check permission: admin.structure-management.create for non-admin users
+      const usersCollection = await getCollection('users');
+      const user = await usersCollection.findOne({ id: authResult.userId });
+      const userPermissions = user?.permissions || [];
+      
+      // Allow if user has admin.structure-management.create or admin.users (admin access)
+      if (!userPermissions.includes('admin.structure-management.create') && !userPermissions.includes('admin.users.view') && !userPermissions.includes('admin.users')) {
+        return NextResponse.json({ error: 'Forbidden: Insufficient permissions to create' }, { status: 403 });
+      }
     }
 
     const body = await request.json();
@@ -326,14 +336,19 @@ export async function DELETE(request: NextRequest) {
       return authResult;
     }
 
-    // Check permission: admin.structure-management.delete
-    const usersCollection = await getCollection('users');
-    const user = await usersCollection.findOne({ id: authResult.userId });
-    const userPermissions = user?.permissions || [];
-    
-    // Allow if user has admin.structure-management.delete or admin.users (admin access)
-    if (!userPermissions.includes('admin.structure-management.delete') && !userPermissions.includes('admin.users.view') && !userPermissions.includes('admin.users')) {
-      return NextResponse.json({ error: 'Forbidden: Insufficient permissions to delete' }, { status: 403 });
+    // Admin users with role='admin' have full access, bypass permission checks
+    if (authResult.userRole === 'admin') {
+      // Admin users have full access, skip permission check
+    } else {
+      // Check permission: admin.structure-management.delete for non-admin users
+      const usersCollection = await getCollection('users');
+      const user = await usersCollection.findOne({ id: authResult.userId });
+      const userPermissions = user?.permissions || [];
+      
+      // Allow if user has admin.structure-management.delete or admin.users (admin access)
+      if (!userPermissions.includes('admin.structure-management.delete') && !userPermissions.includes('admin.users.view') && !userPermissions.includes('admin.users')) {
+        return NextResponse.json({ error: 'Forbidden: Insufficient permissions to delete' }, { status: 403 });
+      }
     }
 
     const { searchParams } = new URL(request.url);
