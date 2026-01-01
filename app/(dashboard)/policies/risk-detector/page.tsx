@@ -372,7 +372,7 @@ export default function RiskDetectorPage() {
                 <SelectContent>
                   {departments.map((dept) => (
                     <SelectItem key={dept.id} value={dept.id}>
-                      {dept.label_en || dept.labelEn || dept.departmentName || dept.id}
+                      {dept.label_en || dept.departmentName || dept.id}
                     </SelectItem>
                   ))}
                 </SelectContent>
