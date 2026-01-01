@@ -24,14 +24,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    // Apply theme immediately on mount (before hydration)
-    const root = document.documentElement;
-    
     // Load saved theme preference from localStorage
     const saved = localStorage.getItem('sira-theme') as Theme | null;
     const initialTheme = (saved === 'light' || saved === 'dark') ? saved : 'light';
     
     // Apply theme immediately
+    const root = document.documentElement;
     if (initialTheme === 'dark') {
       root.classList.add('dark');
     } else {
