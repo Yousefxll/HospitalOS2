@@ -29,19 +29,24 @@ export async function GET(
     const idParam = params.id; // Accept id param (can be documentId or policy id)
 
     const policiesCollection = await getCollection('policy_documents');
-    // Try to find by documentId first, then by id
+    // Try to find by documentId first, then by id, with tenant isolation
     const document = await policiesCollection.findOne({
-      $or: [
-        { documentId: idParam },
-        { id: idParam },
-      ],
-      // Tenant isolation: only allow viewing policies in same tenant
-      $or: [
-        { tenantId: tenantId },
-        { tenantId: { $exists: false } }, // Backward compatibility
-        { tenantId: null },
-        { tenantId: '' },
-        ...(tenantId === 'default' ? [{ tenantId: 'default' }] : []),
+      $and: [
+        {
+          $or: [
+            { documentId: idParam },
+            { id: idParam },
+          ],
+        },
+        {
+          $or: [
+            { tenantId: tenantId },
+            { tenantId: { $exists: false } }, // Backward compatibility
+            { tenantId: null },
+            { tenantId: '' },
+            ...(tenantId === 'default' ? [{ tenantId: 'default' }] : []),
+          ],
+        },
       ],
     });
 
