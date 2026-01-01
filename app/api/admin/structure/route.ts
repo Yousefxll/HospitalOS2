@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCollection } from '@/lib/db';
-import { requireRoleAsync } from '@/lib/auth/requireRole';
+import { requireAuth } from '@/lib/auth/requireAuth';
 import { v4 as uuidv4 } from 'uuid';
 
 // Schemas
@@ -34,9 +34,14 @@ const createRoomSchema = z.object({
 // GET - Fetch all floors, departments, and rooms
 export async function GET(request: NextRequest) {
   try {
-    const authResult = await requireRoleAsync(request, ['admin', 'supervisor', 'staff', 'viewer']);
+    const authResult = await requireAuth(request);
     if (authResult instanceof NextResponse) {
       return authResult;
+    }
+
+    // Check role - only admin, supervisor, staff, viewer can view
+    if (!['admin', 'supervisor', 'staff', 'viewer'].includes(authResult.userRole)) {
+      return NextResponse.json({ error: 'Forbidden: Insufficient permissions' }, { status: 403 });
     }
 
     // Admin users with role='admin' have full access, bypass permission checks
@@ -75,9 +80,14 @@ export async function GET(request: NextRequest) {
 // POST - Create floor, department, or room
 export async function POST(request: NextRequest) {
   try {
-    const authResult = await requireRoleAsync(request, ['admin', 'supervisor', 'staff']);
+    const authResult = await requireAuth(request);
     if (authResult instanceof NextResponse) {
       return authResult;
+    }
+
+    // Check role - only admin, supervisor, staff can create
+    if (!['admin', 'supervisor', 'staff'].includes(authResult.userRole)) {
+      return NextResponse.json({ error: 'Forbidden: Insufficient permissions' }, { status: 403 });
     }
 
     // Admin users with role='admin' have full access, bypass permission checks
@@ -331,9 +341,14 @@ async function checkRoomDependencies(roomId: string, roomKey: string): Promise<{
 // DELETE - Delete floor, department, or room
 export async function DELETE(request: NextRequest) {
   try {
-    const authResult = await requireRoleAsync(request, ['admin', 'supervisor', 'staff']);
+    const authResult = await requireAuth(request);
     if (authResult instanceof NextResponse) {
       return authResult;
+    }
+
+    // Check role - only admin, supervisor, staff can delete
+    if (!['admin', 'supervisor', 'staff'].includes(authResult.userRole)) {
+      return NextResponse.json({ error: 'Forbidden: Insufficient permissions' }, { status: 403 });
     }
 
     // Admin users with role='admin' have full access, bypass permission checks
