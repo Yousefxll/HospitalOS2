@@ -27,6 +27,9 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Users, Stethoscope, Activity, Loader2 } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useTranslation } from '@/hooks/use-translation';
+import { MobileCardList } from '@/components/mobile/MobileCardList';
 
 interface Department {
   id: string;
@@ -66,6 +69,8 @@ interface Equipment {
 }
 
 export default function OPDManpowerPage() {
+  const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const [selectedDepartment, setSelectedDepartment] = useState<string>('');
   const [departments, setDepartments] = useState<Department[]>([]);
   const [nurses, setNurses] = useState<Nurse[]>([]);
@@ -203,13 +208,39 @@ export default function OPDManpowerPage() {
 
   const selectedDeptName = departments.find((d) => d.id === selectedDepartment)?.name || '';
 
+  // Convert doctors to card format for mobile
+  const doctorCardItems = doctors.map(doctor => ({
+    id: doctor.id,
+    title: doctor.name,
+    subtitle: doctor.employeeId,
+    description: doctor.employmentType,
+    badges: [
+      { label: doctor.employmentType, variant: (doctor.employmentType === 'Full-Time' ? 'default' : 'secondary') as 'default' | 'secondary' },
+      ...(doctor.isActive === false ? [{ label: 'Inactive', variant: 'destructive' as const }] : []),
+    ],
+    metadata: [
+      { label: 'Assigned Nurses', value: doctor.assignedNurses?.length?.toString() || '0' },
+    ],
+  }));
+
+  // Convert equipment to card format for mobile
+  const equipmentCardItems = equipment.map(eq => ({
+    id: eq.id,
+    title: eq.name,
+    subtitle: eq.code,
+    description: eq.type || eq.department || '',
+    badges: [
+      { label: eq.status || 'Unknown', variant: 'secondary' as const },
+      ...(eq.utilizationPercentage !== undefined ? [{ label: `${eq.utilizationPercentage}%`, variant: 'outline' as const }] : []),
+    ],
+  }));
+
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">OPD Manpower</h1>
-          <p className="text-muted-foreground">View staffing, doctors, and equipment information</p>
-        </div>
+    <div className="space-y-4 md:space-y-6">
+      {/* Header - Hidden on mobile (MobileTopBar shows it) */}
+      <div className="hidden md:block">
+        <h1 className="text-3xl font-bold">OPD Manpower</h1>
+        <p className="text-muted-foreground">View staffing, doctors, and equipment information</p>
       </div>
 
       {/* Department Selector */}
@@ -219,7 +250,7 @@ export default function OPDManpowerPage() {
         </CardHeader>
         <CardContent>
           <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
-            <SelectTrigger className="w-[300px]">
+            <SelectTrigger className="w-full md:w-[300px] h-11">
               <SelectValue placeholder="Select a department" />
             </SelectTrigger>
             <SelectContent>
@@ -299,13 +330,13 @@ export default function OPDManpowerPage() {
                         {Object.entries(nursesByPosition).map(([position, positionNurses]) => (
                           <div key={position} className="space-y-2">
                             <div className="font-medium">{position}</div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                               {positionNurses.map((nurse) => (
                                 <div
                                   key={nurse.id}
-                                  className="flex items-center justify-between p-2 bg-muted rounded border"
+                                  className="flex items-center justify-between p-3 bg-muted rounded border min-h-[44px]"
                                 >
-                                  <span className="text-sm">{nurse.name}</span>
+                                  <span className="text-sm font-medium">{nurse.name}</span>
                                   <Badge variant="outline" className="ml-2">
                                     {nurse.employeeId}
                                   </Badge>
@@ -337,50 +368,62 @@ export default function OPDManpowerPage() {
               </CardHeader>
               <CardContent>
                 {doctors.length > 0 ? (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Employee ID</TableHead>
-                        <TableHead>Employment Type</TableHead>
-                        <TableHead>Assigned Nurse</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {doctors
-                        .filter((d) => d.isActive !== false)
-                        .map((doctor) => (
-                          <TableRow key={doctor.id}>
-                            <TableCell className="font-medium">{doctor.name}</TableCell>
-                            <TableCell>
-                              <Badge variant="secondary">{doctor.employeeId}</Badge>
-                            </TableCell>
-                            <TableCell>
-                              <Badge
-                                variant={
-                                  doctor.employmentType === 'Full-Time' ? 'default' : 'outline'
-                                }
-                              >
-                                {doctor.employmentType}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              {doctor.assignedNurses && doctor.assignedNurses.length > 0 ? (
-                                <div className="space-y-1">
-                                  {doctor.assignedNurses.map((nurse, idx) => (
-                                    <div key={idx} className="text-sm">
-                                      {nurse.nurseName}
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <span className="text-muted-foreground text-sm">No assigned nurse</span>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                    </TableBody>
-                  </Table>
+                  <>
+                    {isMobile ? (
+                      <MobileCardList
+                        items={doctorCardItems}
+                        isLoading={false}
+                        emptyMessage="No doctors available for this department"
+                      />
+                    ) : (
+                      <div className="hidden md:block overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Name</TableHead>
+                              <TableHead>Employee ID</TableHead>
+                              <TableHead>Employment Type</TableHead>
+                              <TableHead>Assigned Nurse</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {doctors
+                              .filter((d) => d.isActive !== false)
+                              .map((doctor) => (
+                                <TableRow key={doctor.id}>
+                                  <TableCell className="font-medium">{doctor.name}</TableCell>
+                                  <TableCell>
+                                    <Badge variant="secondary">{doctor.employeeId}</Badge>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge
+                                      variant={
+                                        doctor.employmentType === 'Full-Time' ? 'default' : 'outline'
+                                      }
+                                    >
+                                      {doctor.employmentType}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell>
+                                    {doctor.assignedNurses && doctor.assignedNurses.length > 0 ? (
+                                      <div className="space-y-1">
+                                        {doctor.assignedNurses.map((nurse, idx) => (
+                                          <div key={idx} className="text-sm">
+                                            {nurse.nurseName}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <span className="text-muted-foreground text-sm">No assigned nurse</span>
+                                    )}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
                     No doctors available for this department
@@ -399,62 +442,74 @@ export default function OPDManpowerPage() {
               </CardHeader>
               <CardContent>
                 {equipment.length > 0 ? (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Equipment Name</TableHead>
-                        <TableHead>Code</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Utilization</TableHead>
-                        <TableHead>Status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {equipment.map((eq) => (
-                        <TableRow key={eq.id}>
-                          <TableCell className="font-medium">{eq.name}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{eq.code}</Badge>
-                          </TableCell>
-                          <TableCell>{eq.type || 'N/A'}</TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <div className="w-24 bg-muted rounded-full h-2">
-                                <div
-                                  className={`h-2 rounded-full ${
-                                    (eq.utilizationPercentage || 0) >= 80
-                                      ? 'bg-green-500'
-                                      : (eq.utilizationPercentage || 0) >= 50
-                                      ? 'bg-yellow-500'
-                                      : 'bg-red-500'
-                                  }`}
-                                  style={{
-                                    width: `${eq.utilizationPercentage || 0}%`,
-                                  }}
-                                />
-                              </div>
-                              <span className="text-sm font-medium">
-                                {eq.utilizationPercentage || 0}%
-                              </span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={
-                                eq.status === 'active'
-                                  ? 'default'
-                                  : eq.status === 'maintenance'
-                                  ? 'destructive'
-                                  : 'secondary'
-                              }
-                            >
-                              {eq.status || 'active'}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                  <>
+                    {isMobile ? (
+                      <MobileCardList
+                        items={equipmentCardItems}
+                        isLoading={false}
+                        emptyMessage="No equipment available for this department"
+                      />
+                    ) : (
+                      <div className="hidden md:block overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Equipment Name</TableHead>
+                              <TableHead>Code</TableHead>
+                              <TableHead>Type</TableHead>
+                              <TableHead>Utilization</TableHead>
+                              <TableHead>Status</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {equipment.map((eq) => (
+                              <TableRow key={eq.id}>
+                                <TableCell className="font-medium">{eq.name}</TableCell>
+                                <TableCell>
+                                  <Badge variant="outline">{eq.code}</Badge>
+                                </TableCell>
+                                <TableCell>{eq.type || 'N/A'}</TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-24 bg-muted rounded-full h-2">
+                                      <div
+                                        className={`h-2 rounded-full ${
+                                          (eq.utilizationPercentage || 0) >= 80
+                                            ? 'bg-green-500'
+                                            : (eq.utilizationPercentage || 0) >= 50
+                                            ? 'bg-yellow-500'
+                                            : 'bg-red-500'
+                                        }`}
+                                        style={{
+                                          width: `${eq.utilizationPercentage || 0}%`,
+                                        }}
+                                      />
+                                    </div>
+                                    <span className="text-sm font-medium">
+                                      {eq.utilizationPercentage || 0}%
+                                    </span>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge
+                                    variant={
+                                      eq.status === 'active'
+                                        ? 'default'
+                                        : eq.status === 'maintenance'
+                                        ? 'destructive'
+                                        : 'secondary'
+                                    }
+                                  >
+                                    {eq.status || 'active'}
+                                  </Badge>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
                     No equipment available for this department

@@ -165,7 +165,7 @@ export default function PatientExperiencePage() {
 
   async function loadFloors() {
     try {
-      const response = await fetch('/api/patient-experience/data?type=floors');
+      const response = await fetch('/api/patient-experience/data?type=floors', { cache: 'no-store' });
       const data = await response.json();
       if (data.success) {
         setFloors(data.data);
@@ -177,7 +177,7 @@ export default function PatientExperiencePage() {
 
   async function loadAllDepartments() {
     try {
-      const response = await fetch('/api/patient-experience/data?type=all-departments');
+      const response = await fetch('/api/patient-experience/data?type=all-departments', { cache: 'no-store' });
       const data = await response.json();
       if (data.success) {
         setAllDepartments(data.data);
@@ -189,7 +189,7 @@ export default function PatientExperiencePage() {
 
   async function loadDepartments(floorId: string) {
     try {
-      const response = await fetch(`/api/patient-experience/data?type=departments&floorId=${floorId}`);
+      const response = await fetch(`/api/patient-experience/data?type=departments&floorId=${floorId}`, { cache: 'no-store' });
       const data = await response.json();
       if (data.success) {
         setDepartments(data.data);
@@ -201,7 +201,7 @@ export default function PatientExperiencePage() {
 
   async function loadRooms(floorId: string, departmentId: string) {
     try {
-      const response = await fetch(`/api/patient-experience/data?type=rooms&floorId=${floorId}&departmentId=${departmentId}`);
+      const response = await fetch(`/api/patient-experience/data?type=rooms&floorId=${floorId}&departmentId=${departmentId}`, { cache: 'no-store' });
       const data = await response.json();
       if (data.success) {
         setRooms(data.data);
@@ -213,7 +213,7 @@ export default function PatientExperiencePage() {
 
   async function loadComplaintTypes() {
     try {
-      const response = await fetch('/api/patient-experience/data?type=complaint-types');
+      const response = await fetch('/api/patient-experience/data?type=complaint-types', { cache: 'no-store' });
       const data = await response.json();
       if (data.success) {
         setComplaintTypes(data.data);
@@ -260,7 +260,7 @@ export default function PatientExperiencePage() {
 
   async function loadAvailableComplaintTypes(category: string) {
     try {
-      const response = await fetch(`/api/patient-experience/data?type=complaint-types&category=${category}`);
+      const response = await fetch(`/api/patient-experience/data?type=complaint-types&category=${category}`, { cache: 'no-store' });
       const data = await response.json();
       if (data.success) {
         setAvailableComplaintTypes(data.data);
@@ -389,6 +389,7 @@ export default function PatientExperiencePage() {
     setIsLoading(true);
     try {
       const response = await fetch(`/api/patient-experience/data?dataType=${dataType}&id=${id}`, {
+        cache: 'no-store',
         method: 'DELETE',
       });
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireRoleAsync, getAuthContext } from '@/lib/auth/requireRole';
 import * as structureService from '@/lib/services/structureService';
+import type { User } from '@/lib/models/User';
 
 export const dynamic = 'force-dynamic';
 
@@ -57,7 +58,7 @@ export async function PUT(
     // Check permission: admin.structure-management.edit
     const { getCollection } = await import('@/lib/db');
     const usersCollection = await getCollection('users');
-    const user = await usersCollection.findOne({ id: authResult.userId });
+    const user = await usersCollection.findOne<User>({ id: authResult.userId });
     const userPermissions = user?.permissions || [];
 
     if (
@@ -112,7 +113,7 @@ export async function DELETE(
     // Check permission: admin.structure-management.delete
     const { getCollection } = await import('@/lib/db');
     const usersCollection = await getCollection('users');
-    const user = await usersCollection.findOne({ id: authResult.userId });
+    const user = await usersCollection.findOne<User>({ id: authResult.userId });
     const userPermissions = user?.permissions || [];
 
     if (

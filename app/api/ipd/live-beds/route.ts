@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
+import type { Department } from '@/lib/models/Department';
 
 
 export const dynamic = 'force-dynamic';
@@ -11,7 +12,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch departments
     const departmentsCollection = await getCollection('departments');
-    const departments = await departmentsCollection.find({ isActive: true }).toArray();
+    const departments = await departmentsCollection.find<Department>({ isActive: true }).toArray();
 
     // Fetch beds for all departments or specific department
     const bedsCollection = await getCollection('ipd_beds');

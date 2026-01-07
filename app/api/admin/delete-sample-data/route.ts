@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCollection } from '@/lib/db';
+import { requireAuthContext } from '@/lib/auth/requireAuthContext';
+import { getTenantCollection } from '@/lib/db-tenant';
 import { requireRoleAsync } from '@/lib/auth/requireRole';
 
 
@@ -21,6 +22,13 @@ export async function POST(request: NextRequest) {
       return authResult;
     }
 
+    // Get tenant context
+    const authContext = await requireAuthContext(request);
+    if (authContext instanceof NextResponse) {
+      return authContext;
+    }
+
+    const { tenantId } = authContext;
     const body: DeleteParams = await request.json();
     const { dataType, fromDate, toDate, departmentId, doctorId, deleteAllSample } = body;
 
@@ -77,20 +85,20 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Delete from opd_census
+    // Delete from opd_census (tenant-scoped)
     if (dataType === 'opd_census' || dataType === 'both') {
-      const censusCollection = await getCollection('opd_census');
+      const censusCollection = await getTenantCollection('opd_census', tenantId, 'admin/delete-sample-data');
       
-      // First, check how many records match the query
+      // First, check how many records match the query (tenant-scoped)
       const countBefore = await censusCollection.countDocuments(query);
       console.log('[Delete Sample Data] Found', countBefore, 'records matching query in opd_census');
       console.log('[Delete Sample Data] Query:', JSON.stringify(query, null, 2));
       
-      // Also check total count
+      // Also check total count (tenant-scoped)
       const totalCount = await censusCollection.countDocuments({});
       console.log('[Delete Sample Data] Total records in opd_census:', totalCount);
       
-      // Check a sample record to see its structure
+      // Check a sample record to see its structure (tenant-scoped)
       const sampleRecord = await censusCollection.findOne({});
       if (sampleRecord) {
         console.log('[Delete Sample Data] Sample record structure:', JSON.stringify({
@@ -106,11 +114,11 @@ export async function POST(request: NextRequest) {
       console.log('[Delete Sample Data] Deleted', deletedCounts.opd_census, 'records from opd_census');
     }
 
-    // Delete from opd_daily_data
+    // Delete from opd_daily_data (tenant-scoped)
     if (dataType === 'opd_daily_data' || dataType === 'both') {
-      const dailyDataCollection = await getCollection('opd_daily_data');
+      const dailyDataCollection = await getTenantCollection('opd_daily_data', tenantId, 'admin/delete-sample-data');
       
-      // First, check how many records match the query
+      // First, check how many records match the query (tenant-scoped)
       const countBefore = await dailyDataCollection.countDocuments(query);
       console.log('[Delete Sample Data] Found', countBefore, 'records matching query in opd_daily_data');
       console.log('[Delete Sample Data] Query:', JSON.stringify(query, null, 2));
@@ -144,6 +152,13 @@ export async function GET(request: NextRequest) {
       return authResult;
     }
 
+    // Get tenant context
+    const authContext = await requireAuthContext(request);
+    if (authContext instanceof NextResponse) {
+      return authContext;
+    }
+
+    const { tenantId } = authContext;
     const { searchParams } = new URL(request.url);
     const dataType = searchParams.get('dataType') as 'opd_census' | 'opd_daily_data' | 'both' || 'both';
     const fromDate = searchParams.get('fromDate') || undefined;
@@ -201,12 +216,12 @@ export async function GET(request: NextRequest) {
     };
 
     if (dataType === 'opd_census' || dataType === 'both') {
-      const censusCollection = await getCollection('opd_census');
+      const censusCollection = await getTenantCollection('opd_census', tenantId, 'admin/delete-sample-data');
       counts.opd_census = await censusCollection.countDocuments(query);
     }
 
     if (dataType === 'opd_daily_data' || dataType === 'both') {
-      const dailyDataCollection = await getCollection('opd_daily_data');
+      const dailyDataCollection = await getTenantCollection('opd_daily_data', tenantId, 'admin/delete-sample-data');
       counts.opd_daily_data = await dailyDataCollection.countDocuments(query);
     }
 

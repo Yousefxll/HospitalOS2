@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db';
+import { appConfig } from '@/lib/config';
 
 /**
  * Health Check Endpoint
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       status: 'healthy',
       timestamp: new Date().toISOString(),
-      service: 'SIRA',
+      service: appConfig.name,
       version: '0.1.0',
     }, { status: 200 });
   } catch (error: any) {
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       status: 'unhealthy',
       timestamp: new Date().toISOString(),
-      service: 'SIRA',
+      service: appConfig.name,
       error: error.message || 'Database connection failed',
     }, { status: 503 });
   }

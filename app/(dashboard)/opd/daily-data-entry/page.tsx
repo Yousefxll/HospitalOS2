@@ -16,7 +16,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from '@/hooks/use-translation';
 import { useLang } from '@/hooks/use-lang';
-import { LanguageToggle } from '@/components/LanguageToggle';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Calendar, Clock, Users, Building2, User, Plus, X, Save } from 'lucide-react';
 
 interface Department {
@@ -47,6 +47,7 @@ export default function OPDDailyDataEntryPage() {
   const { toast } = useToast();
   const { t } = useTranslation();
   const { isRTL, language } = useLang();
+  const isMobile = useIsMobile();
   
   // Ensure t.common exists with fallback to prevent errors
   const safeT = t && t.common ? t : { 
@@ -232,13 +233,11 @@ export default function OPDDailyDataEntryPage() {
   }
 
   return (
-    <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
-      <div className="flex justify-between items-start">
-        <div>
-          <h1 className="text-3xl font-bold">Daily Data Entry</h1>
-          <p className="text-muted-foreground">Enter daily OPD data for doctors</p>
-        </div>
-        <LanguageToggle />
+    <div className="space-y-4 md:space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
+      {/* Header - Hidden on mobile (MobileTopBar shows it) */}
+      <div className="hidden md:block">
+        <h1 className="text-3xl font-bold">Daily Data Entry</h1>
+        <p className="text-muted-foreground">Enter daily OPD data for doctors</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -257,6 +256,7 @@ export default function OPDDailyDataEntryPage() {
                   value={formData.date}
                   onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                   required
+                  className="h-11"
                 />
               </div>
 
@@ -274,7 +274,7 @@ export default function OPDDailyDataEntryPage() {
                   }}
                   required
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-11">
                     <SelectValue placeholder="Select department" />
                   </SelectTrigger>
                   <SelectContent>
@@ -302,7 +302,7 @@ export default function OPDDailyDataEntryPage() {
                       }}
                       required
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="h-11">
                         <SelectValue placeholder="Select doctor" />
                       </SelectTrigger>
                       <SelectContent>
@@ -326,7 +326,7 @@ export default function OPDDailyDataEntryPage() {
                           }}
                           required
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className="h-11">
                             <SelectValue placeholder="Select type" />
                           </SelectTrigger>
                           <SelectContent>
@@ -344,6 +344,7 @@ export default function OPDDailyDataEntryPage() {
                           onChange={(e) => setFormData({ ...formData, subspecialty: e.target.value })}
                           placeholder="Enter subspecialty"
                           required
+                          className="h-11"
                         />
                       </div>
 
@@ -397,7 +398,7 @@ export default function OPDDailyDataEntryPage() {
                       }
                     }}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="h-11">
                       <SelectValue placeholder="Select room" />
                     </SelectTrigger>
                     <SelectContent>
@@ -453,7 +454,7 @@ export default function OPDDailyDataEntryPage() {
                     }}
                     required
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="h-11">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -474,6 +475,7 @@ export default function OPDDailyDataEntryPage() {
                     value={formData.clinicStartTime}
                     onChange={(e) => setFormData({ ...formData, clinicStartTime: e.target.value })}
                     required
+                    className="h-11"
                   />
                 </div>
 
@@ -485,6 +487,7 @@ export default function OPDDailyDataEntryPage() {
                     value={formData.clinicEndTime}
                     onChange={(e) => setFormData({ ...formData, clinicEndTime: e.target.value })}
                     required
+                    className="h-11"
                   />
                 </div>
               </div>
@@ -500,7 +503,7 @@ export default function OPDDailyDataEntryPage() {
               <CardDescription>Total patients and booking types</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="totalPatients">Total Patients *</Label>
                   <Input
@@ -510,6 +513,7 @@ export default function OPDDailyDataEntryPage() {
                     value={formData.totalPatients}
                     onChange={(e) => setFormData({ ...formData, totalPatients: parseInt(e.target.value) || 0 })}
                     required
+                    className="h-11"
                   />
                 </div>
 
@@ -522,6 +526,7 @@ export default function OPDDailyDataEntryPage() {
                     value={formData.booked}
                     onChange={(e) => setFormData({ ...formData, booked: parseInt(e.target.value) || 0 })}
                     required
+                    className="h-11"
                   />
                 </div>
 
@@ -534,6 +539,7 @@ export default function OPDDailyDataEntryPage() {
                     value={formData.walkIn}
                     onChange={(e) => setFormData({ ...formData, walkIn: parseInt(e.target.value) || 0 })}
                     required
+                    className="h-11"
                   />
                 </div>
 
@@ -546,6 +552,7 @@ export default function OPDDailyDataEntryPage() {
                     value={formData.noShow}
                     onChange={(e) => setFormData({ ...formData, noShow: parseInt(e.target.value) || 0 })}
                     required
+                    className="h-11"
                   />
                 </div>
               </div>
@@ -576,6 +583,7 @@ export default function OPDDailyDataEntryPage() {
                         '0-6': parseInt(e.target.value) || 0,
                       },
                     })}
+                    className="h-11"
                   />
                 </div>
 
@@ -593,6 +601,7 @@ export default function OPDDailyDataEntryPage() {
                         '6-7': parseInt(e.target.value) || 0,
                       },
                     })}
+                    className="h-11"
                   />
                 </div>
 
@@ -610,6 +619,7 @@ export default function OPDDailyDataEntryPage() {
                         '7-8': parseInt(e.target.value) || 0,
                       },
                     })}
+                    className="h-11"
                   />
                 </div>
 
@@ -627,6 +637,7 @@ export default function OPDDailyDataEntryPage() {
                         '8-12': parseInt(e.target.value) || 0,
                       },
                     })}
+                    className="h-11"
                   />
                 </div>
 
@@ -644,6 +655,7 @@ export default function OPDDailyDataEntryPage() {
                         '12-16': parseInt(e.target.value) || 0,
                       },
                     })}
+                    className="h-11"
                   />
                 </div>
 
@@ -661,6 +673,7 @@ export default function OPDDailyDataEntryPage() {
                         '16-20': parseInt(e.target.value) || 0,
                       },
                     })}
+                    className="h-11"
                   />
                 </div>
 
@@ -678,6 +691,7 @@ export default function OPDDailyDataEntryPage() {
                         '20-24': parseInt(e.target.value) || 0,
                       },
                     })}
+                    className="h-11"
                   />
                 </div>
               </div>
@@ -693,7 +707,7 @@ export default function OPDDailyDataEntryPage() {
               <CardDescription>Patient visit classifications</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="fv">FV (First Visit) *</Label>
                   <Input
@@ -703,6 +717,7 @@ export default function OPDDailyDataEntryPage() {
                     value={formData.fv}
                     onChange={(e) => setFormData({ ...formData, fv: parseInt(e.target.value) || 0 })}
                     required
+                    className="h-11"
                   />
                 </div>
 
@@ -715,6 +730,7 @@ export default function OPDDailyDataEntryPage() {
                     value={formData.fcv}
                     onChange={(e) => setFormData({ ...formData, fcv: parseInt(e.target.value) || 0 })}
                     required
+                    className="h-11"
                   />
                 </div>
 
@@ -727,6 +743,7 @@ export default function OPDDailyDataEntryPage() {
                     value={formData.fuv}
                     onChange={(e) => setFormData({ ...formData, fuv: parseInt(e.target.value) || 0 })}
                     required
+                    className="h-11"
                   />
                 </div>
 
@@ -739,6 +756,7 @@ export default function OPDDailyDataEntryPage() {
                     value={formData.rv}
                     onChange={(e) => setFormData({ ...formData, rv: parseInt(e.target.value) || 0 })}
                     required
+                    className="h-11"
                   />
                 </div>
               </div>
@@ -754,7 +772,7 @@ export default function OPDDailyDataEntryPage() {
               <CardDescription>Procedures, surgeries, and admissions</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="procedures">Procedures *</Label>
                   <Input
@@ -764,6 +782,7 @@ export default function OPDDailyDataEntryPage() {
                     value={formData.procedures}
                     onChange={(e) => setFormData({ ...formData, procedures: parseInt(e.target.value) || 0 })}
                     required
+                    className="h-11"
                   />
                 </div>
 
@@ -776,6 +795,7 @@ export default function OPDDailyDataEntryPage() {
                     value={formData.orSurgeries}
                     onChange={(e) => setFormData({ ...formData, orSurgeries: parseInt(e.target.value) || 0 })}
                     required
+                    className="h-11"
                   />
                 </div>
 
@@ -788,6 +808,7 @@ export default function OPDDailyDataEntryPage() {
                     value={formData.admissions}
                     onChange={(e) => setFormData({ ...formData, admissions: parseInt(e.target.value) || 0 })}
                     required
+                    className="h-11"
                   />
                 </div>
               </div>
@@ -812,6 +833,7 @@ export default function OPDDailyDataEntryPage() {
                   value={formData.cath}
                   onChange={(e) => setFormData({ ...formData, cath: parseInt(e.target.value) || 0 })}
                   required
+                  className="h-11"
                 />
               </div>
             </CardContent>
@@ -825,7 +847,7 @@ export default function OPDDailyDataEntryPage() {
               <CardDescription>Deliveries and IVF</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="deliveriesNormal">Deliveries — Normal *</Label>
                   <Input
@@ -835,6 +857,7 @@ export default function OPDDailyDataEntryPage() {
                     value={formData.deliveriesNormal}
                     onChange={(e) => setFormData({ ...formData, deliveriesNormal: parseInt(e.target.value) || 0 })}
                     required
+                    className="h-11"
                   />
                 </div>
 
@@ -847,6 +870,7 @@ export default function OPDDailyDataEntryPage() {
                     value={formData.deliveriesSC}
                     onChange={(e) => setFormData({ ...formData, deliveriesSC: parseInt(e.target.value) || 0 })}
                     required
+                    className="h-11"
                   />
                 </div>
 
@@ -859,6 +883,7 @@ export default function OPDDailyDataEntryPage() {
                     value={formData.ivf}
                     onChange={(e) => setFormData({ ...formData, ivf: parseInt(e.target.value) || 0 })}
                     required
+                    className="h-11"
                   />
                 </div>
               </div>
@@ -867,7 +892,7 @@ export default function OPDDailyDataEntryPage() {
         )}
 
         <div className="flex justify-end gap-4">
-          <Button type="submit" disabled={isSaving}>
+          <Button type="submit" disabled={isSaving} className="h-11 min-w-[120px]">
             {isSaving ? (
               <>
                 <Clock className="mr-2 h-4 w-4 animate-spin" />

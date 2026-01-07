@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -36,16 +36,15 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from '@/components/ui/tabs';
 import { Plus, Edit, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { PERMISSIONS, getPermissionsByCategory, getDefaultPermissionsForRole } from '@/lib/permissions';
+import { PERMISSIONS, getPermissionsByCategory, getDefaultPermissionsForRole, Permission } from '@/lib/permissions';
 import { useTranslation } from '@/hooks/use-translation';
+import { usePlatform } from '@/lib/hooks/usePlatform';
+import { MobileSearchBar } from '@/components/mobile/MobileSearchBar';
+import { MobileCardList } from '@/components/mobile/MobileCardList';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useRouter } from 'next/navigation';
 
 interface User {
   id: string;
@@ -61,33 +60,18 @@ interface User {
   hospitalId?: string;
 }
 
-interface Group {
-  id: string;
-  name: string;
-  code: string;
-}
-
-interface Hospital {
-  id: string;
-  name: string;
-  code: string;
-  groupId: string;
-}
 
 export default function UsersPage() {
+  const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
-  const [allUsers, setAllUsers] = useState<User[]>([]); // All users for filtering
-  const [groups, setGroups] = useState<Group[]>([]);
-  const [hospitals, setHospitals] = useState<Hospital[]>([]);
-  const [selectedGroupId, setSelectedGroupId] = useState<string>('');
-  const [selectedHospitalId, setSelectedHospitalId] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'groups' | 'hospitals'>('groups');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const { toast } = useToast();
   const { t, language } = useTranslation();
+  const isMobile = useIsMobile();
 
   const [formData, setFormData] = useState({
     email: '',
@@ -95,22 +79,67 @@ export default function UsersPage() {
     firstName: '',
     lastName: '',
     role: 'staff',
-    groupId: '',
-    hospitalId: '',
     department: '',
     staffId: '',
     permissions: [] as string[],
   });
 
-  const permissionsByCategory = getPermissionsByCategory();
+  const { platform: platformData } = usePlatform();
+  const platform = platformData?.platform === 'sam' || platformData?.platform === 'health' 
+    ? platformData.platform 
+    : null;
 
-  // Update permissions when role changes
+  // Filter permissions by platform
+  const getFilteredPermissionsByCategory = () => {
+    const allPermissionsByCategory = getPermissionsByCategory();
+    
+    if (!platform) {
+      // If no platform selected, show all permissions
+      return allPermissionsByCategory;
+    }
+
+    // Define platform-specific permission categories
+    const SAM_CATEGORIES = ['Policy System', 'Account', 'Admin'];
+    const HEALTH_CATEGORIES = ['Dashboard', 'Notifications', 'OPD', 'Scheduling', 'ER', 'Patient Experience', 'IPD', 'Equipment (OPD)', 'Equipment (IPD)', 'Manpower & Nursing', 'Account', 'Admin'];
+
+    const targetCategories = platform === 'sam' ? SAM_CATEGORIES : HEALTH_CATEGORIES;
+    
+    const filtered: Record<string, Permission[]> = {};
+    Object.entries(allPermissionsByCategory).forEach(([category, permissions]) => {
+      if (targetCategories.includes(category)) {
+        filtered[category] = permissions;
+      }
+    });
+    
+    return filtered;
+  };
+
+  // Filter permissions by platform (recalculate when platform changes)
+  const permissionsByCategory = useMemo(() => getFilteredPermissionsByCategory(), [platform]);
+
+  // Filter users by search query
+  const filteredUsers = useMemo(() => {
+    if (!searchQuery.trim()) return users;
+    const query = searchQuery.toLowerCase();
+    return users.filter(user => 
+      user.email.toLowerCase().includes(query) ||
+      user.firstName.toLowerCase().includes(query) ||
+      user.lastName.toLowerCase().includes(query) ||
+      (user.department && user.department.toLowerCase().includes(query)) ||
+      (user.staffId && user.staffId.toLowerCase().includes(query))
+    );
+  }, [users, searchQuery]);
+
+  // Update permissions when role changes (filter by platform)
   useEffect(() => {
     if (formData.role) {
       const defaultPerms = getDefaultPermissionsForRole(formData.role);
-      setFormData(prev => ({ ...prev, permissions: defaultPerms }));
+      // Filter default permissions to only include those available in current platform
+      const platformPermKeys = Object.values(permissionsByCategory).flat().map(p => p.key);
+      const filteredPerms = defaultPerms.filter(p => platformPermKeys.includes(p));
+      setFormData(prev => ({ ...prev, permissions: filteredPerms }));
     }
-  }, [formData.role]);
+  }, [formData.role, platform]);
 
   function handlePermissionToggle(permissionKey: string, checked: boolean) {
     setFormData(prev => {
@@ -140,58 +169,17 @@ export default function UsersPage() {
 
   useEffect(() => {
     fetchUsers();
-    fetchGroups();
-    fetchHospitals();
   }, []);
-
-  useEffect(() => {
-    // Filter users based on selected group/hospital
-    if (activeTab === 'groups' && selectedGroupId) {
-      const filtered = allUsers.filter(u => u.groupId === selectedGroupId);
-      setUsers(filtered);
-    } else if (activeTab === 'hospitals' && selectedHospitalId) {
-      const filtered = allUsers.filter(u => u.hospitalId === selectedHospitalId);
-      setUsers(filtered);
-    } else {
-      setUsers([]);
-    }
-  }, [selectedGroupId, selectedHospitalId, activeTab, allUsers]);
 
   async function fetchUsers() {
     try {
       const response = await fetch('/api/admin/users');
       if (response.ok) {
         const data = await response.json();
-        setAllUsers(data.users);
-        // Initially show empty (user must select group/hospital)
-        setUsers([]);
+        setUsers(data.users || []);
       }
     } catch (error) {
       console.error('Failed to fetch users:', error);
-    }
-  }
-
-  async function fetchGroups() {
-    try {
-      const response = await fetch('/api/admin/groups');
-      if (response.ok) {
-        const data = await response.json();
-        setGroups(data.groups || []);
-      }
-    } catch (error) {
-      console.error('Failed to fetch groups:', error);
-    }
-  }
-
-  async function fetchHospitals() {
-    try {
-      const response = await fetch('/api/admin/hospitals');
-      if (response.ok) {
-        const data = await response.json();
-        setHospitals(data.hospitals || []);
-      }
-    } catch (error) {
-      console.error('Failed to fetch hospitals:', error);
     }
   }
 
@@ -214,10 +202,8 @@ export default function UsersPage() {
         });
         setIsDialogOpen(false);
         await fetchUsers();
-        fetchGroups();
-        fetchHospitals();
-        // Reset form but preserve selected group/hospital if creating from tab
-        const resetFormData: any = {
+        // Reset form
+        setFormData({
           email: '',
           password: '',
           firstName: '',
@@ -226,24 +212,7 @@ export default function UsersPage() {
           department: '',
           staffId: '',
           permissions: getDefaultPermissionsForRole('staff'),
-        };
-        if (activeTab === 'groups' && selectedGroupId) {
-          resetFormData.groupId = selectedGroupId;
-          resetFormData.hospitalId = '';
-        } else if (activeTab === 'hospitals' && selectedHospitalId) {
-          const hospital = hospitals.find(h => h.id === selectedHospitalId);
-          if (hospital) {
-            resetFormData.groupId = hospital.groupId;
-            resetFormData.hospitalId = selectedHospitalId;
-          } else {
-            resetFormData.groupId = '';
-            resetFormData.hospitalId = '';
-          }
-        } else {
-          resetFormData.groupId = '';
-          resetFormData.hospitalId = '';
-        }
-        setFormData(resetFormData);
+        });
       } else {
         const data = await response.json();
         throw new Error(data.error || 'Failed to create user');
@@ -273,8 +242,6 @@ export default function UsersPage() {
           description: t.users.userDeletedSuccess,
         });
         await fetchUsers();
-        fetchGroups();
-        fetchHospitals();
       } else {
         const data = await response.json();
         throw new Error(data.error || 'Failed to delete user');
@@ -296,8 +263,6 @@ export default function UsersPage() {
       firstName: user.firstName,
       lastName: user.lastName,
       role: user.role,
-      groupId: (user as any).groupId || '',
-      hospitalId: (user as any).hospitalId || '',
       department: user.department || '',
       staffId: user.staffId || '',
       permissions: user.permissions || getDefaultPermissionsForRole(user.role),
@@ -336,16 +301,12 @@ export default function UsersPage() {
         setIsEditDialogOpen(false);
         setEditingUser(null);
         await fetchUsers();
-        fetchGroups();
-        fetchHospitals();
         setFormData({
           email: '',
           password: '',
           firstName: '',
           lastName: '',
           role: 'staff',
-          groupId: '',
-          hospitalId: '',
           department: '',
           staffId: '',
           permissions: getDefaultPermissionsForRole('staff'),
@@ -365,22 +326,50 @@ export default function UsersPage() {
     }
   }
 
-  // When creating user from groups/hospitals tab, pre-fill groupId/hospitalId
   function handleCreateUser() {
-    if (activeTab === 'groups' && selectedGroupId) {
-      setFormData(prev => ({ ...prev, groupId: selectedGroupId, hospitalId: '' }));
-    } else if (activeTab === 'hospitals' && selectedHospitalId) {
-      const hospital = hospitals.find(h => h.id === selectedHospitalId);
-      if (hospital) {
-        setFormData(prev => ({ ...prev, groupId: hospital.groupId, hospitalId: selectedHospitalId }));
-      }
-    }
     setIsDialogOpen(true);
   }
 
+  // Convert users to card format for mobile
+  const cardItems = filteredUsers.map((user) => ({
+    id: user.id,
+    title: `${user.firstName} ${user.lastName}`,
+    subtitle: user.email,
+    description: user.department || '-',
+    badges: [
+      {
+        label: t.roles[user.role as keyof typeof t.roles] || user.role,
+        variant: (user.role === 'admin' ? 'default' : 'secondary') as 'default' | 'secondary',
+      },
+      {
+        label: user.isActive ? (language === 'ar' ? 'نشط' : 'Active') : (language === 'ar' ? 'غير نشط' : 'Inactive'),
+        variant: (user.isActive ? 'default' : 'outline') as 'default' | 'outline',
+      },
+    ],
+    metadata: [
+      { label: t.users.department, value: user.department || '-' },
+      { label: t.users.permissions, value: `${user.permissions?.length || 0} ${language === 'ar' ? 'صلاحية' : 'permissions'}` },
+    ],
+    actions: [
+      {
+        label: t.common.edit,
+        onClick: () => handleEdit(user),
+        icon: <Edit className="h-4 w-4" />,
+        variant: 'outline' as const,
+      },
+      {
+        label: t.common.delete,
+        onClick: () => handleDelete(user.id),
+        icon: <Trash2 className="h-4 w-4" />,
+        variant: 'destructive' as const,
+      },
+    ],
+  }));
+
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-4 md:space-y-6">
+      {/* Header - Hidden on mobile (MobileTopBar shows it) */}
+      <div className="hidden md:flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">{t.users.userManagement}</h1>
           <p className="text-muted-foreground">{t.users.manageUsersRoles}</p>
@@ -401,7 +390,7 @@ export default function UsersPage() {
             </DialogHeader>
             <div className="overflow-y-auto overflow-x-hidden px-6" style={{ maxHeight: 'calc(90vh - 180px)' }}>
             <form id="create-user-form" onSubmit={handleSubmit} className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="firstName">{t.users.firstName}</Label>
                   <Input
@@ -411,6 +400,7 @@ export default function UsersPage() {
                       setFormData({ ...formData, firstName: e.target.value })
                     }
                     required
+                    className="h-11"
                   />
                 </div>
                 <div className="space-y-2">
@@ -422,6 +412,7 @@ export default function UsersPage() {
                       setFormData({ ...formData, lastName: e.target.value })
                     }
                     required
+                    className="h-11"
                   />
                 </div>
               </div>
@@ -435,6 +426,7 @@ export default function UsersPage() {
                     setFormData({ ...formData, email: e.target.value })
                   }
                   required
+                  className="h-11"
                 />
               </div>
               <div className="space-y-2">
@@ -447,6 +439,7 @@ export default function UsersPage() {
                     setFormData({ ...formData, password: e.target.value })
                   }
                   required
+                  className="h-11"
                 />
               </div>
               <div className="space-y-2">
@@ -454,7 +447,7 @@ export default function UsersPage() {
                 <Select
                   value={formData.role}
                   onValueChange={(value) => {
-                    setFormData({ ...formData, role: value, hospitalId: '' });
+                    setFormData({ ...formData, role: value });
                   }}
                 >
                   <SelectTrigger>
@@ -465,63 +458,10 @@ export default function UsersPage() {
                     <SelectItem value="supervisor">{t.roles.supervisor}</SelectItem>
                     <SelectItem value="staff">{t.roles.staff}</SelectItem>
                     <SelectItem value="viewer">{t.roles.viewer}</SelectItem>
-                    <SelectItem value="group-admin">Group Admin</SelectItem>
-                    <SelectItem value="hospital-admin">Hospital Admin</SelectItem>
+                    {/* syra-owner role is NOT exposed in admin UI */}
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="groupId">{language === 'ar' ? 'المجموعة' : 'Group'}</Label>
-                <Select
-                  value={formData.groupId}
-                  onValueChange={(value) => {
-                    setFormData({ ...formData, groupId: value, hospitalId: '' });
-                  }}
-                  required
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={language === 'ar' ? 'اختر مجموعة' : 'Select group'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {groups.map((group) => (
-                      <SelectItem key={group.id} value={group.id}>
-                        {group.name} ({group.code})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {(formData.role === 'staff' || formData.role === 'hospital-admin') && (
-                <div className="space-y-2">
-                  <Label htmlFor="hospitalId">{language === 'ar' ? 'المستشفى' : 'Hospital'}</Label>
-                  <Select
-                    value={formData.hospitalId || ''}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, hospitalId: value })
-                    }
-                    disabled={!formData.groupId}
-                    required
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={language === 'ar' ? 'اختر مستشفى' : 'Select hospital'} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {hospitals
-                        .filter(h => !formData.groupId || h.groupId === formData.groupId)
-                        .map((hospital) => (
-                          <SelectItem key={hospital.id} value={hospital.id}>
-                            {hospital.name} ({hospital.code})
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                  {!formData.groupId && (
-                    <p className="text-xs text-muted-foreground">
-                      {language === 'ar' ? 'يجب اختيار مجموعة أولاً' : 'Please select a group first'}
-                    </p>
-                  )}
-                </div>
-              )}
               <div className="space-y-2">
                 <Label htmlFor="department">{t.users.department}</Label>
                 <Input
@@ -541,9 +481,13 @@ export default function UsersPage() {
                     variant="outline"
                     size="sm"
                     onClick={() => {
+                      // Select all permissions for current platform only
+                      const allPlatformPermissions = Object.values(permissionsByCategory)
+                        .flat()
+                        .map(p => p.key);
                       setFormData(prev => ({
                         ...prev,
-                        permissions: PERMISSIONS.map(p => p.key),
+                        permissions: allPlatformPermissions,
                       }));
                     }}
                   >
@@ -581,7 +525,7 @@ export default function UsersPage() {
                           </AccordionTrigger>
                         </div>
                         <AccordionContent>
-                          <div className="grid grid-cols-2 gap-3 pl-6">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-6">
                             {permissions.map((permission) => (
                               <div key={permission.key} className="flex items-center space-x-2">
                                 <Checkbox
@@ -593,7 +537,7 @@ export default function UsersPage() {
                                 />
                                 <Label
                                   htmlFor={`perm-${permission.key}`}
-                                  className="text-sm font-normal cursor-pointer"
+                                  className="text-sm font-normal cursor-pointer flex-1"
                                 >
                                   {permission.label}
                                 </Label>
@@ -615,9 +559,219 @@ export default function UsersPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-        
-        {/* Edit User Dialog */}
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+      </div>
+
+      {/* Mobile Quick Summary */}
+      <div className="md:hidden">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">{t.users.userManagement}</CardTitle>
+            <CardDescription>
+              {language === 'ar' 
+                ? `إجمالي ${users.length} مستخدم` 
+                : `Total ${users.length} users`}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button onClick={handleCreateUser} className="w-full min-h-[44px]">
+                  <Plus className="mr-2 h-4 w-4" />
+                  {t.users.addUser}
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-[95vw] max-h-[90vh] !grid !grid-rows-[auto_1fr_auto] !p-0 !gap-0 overflow-hidden">
+                <DialogHeader className="flex-shrink-0 px-4 pt-4 pb-3 border-b relative z-10 bg-background">
+                  <DialogTitle className="text-lg">{t.users.createUser}</DialogTitle>
+                  <DialogDescription className="text-sm">
+                    {t.users.addNewUserToSystem}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="overflow-y-auto overflow-x-hidden px-4" style={{ maxHeight: 'calc(90vh - 180px)' }}>
+                <form id="create-user-form" onSubmit={handleSubmit} className="space-y-4 py-4">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="mobile-firstName">{t.users.firstName}</Label>
+                      <Input
+                        id="mobile-firstName"
+                        value={formData.firstName}
+                        onChange={(e) =>
+                          setFormData({ ...formData, firstName: e.target.value })
+                        }
+                        required
+                        className="h-11 w-full"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="mobile-lastName">{t.users.lastName}</Label>
+                      <Input
+                        id="mobile-lastName"
+                        value={formData.lastName}
+                        onChange={(e) =>
+                          setFormData({ ...formData, lastName: e.target.value })
+                        }
+                        required
+                        className="h-11 w-full"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="mobile-email">{t.auth.email}</Label>
+                    <Input
+                      id="mobile-email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) =>
+                        setFormData({ ...formData, email: e.target.value })
+                      }
+                      required
+                      className="h-11 w-full"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="mobile-password">{t.auth.password}</Label>
+                    <Input
+                      id="mobile-password"
+                      type="password"
+                      value={formData.password}
+                      onChange={(e) =>
+                        setFormData({ ...formData, password: e.target.value })
+                      }
+                      required
+                      className="h-11 w-full"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="mobile-role">{t.users.role}</Label>
+                    <Select
+                      value={formData.role}
+                      onValueChange={(value) => {
+                        setFormData({ ...formData, role: value });
+                      }}
+                    >
+                      <SelectTrigger className="h-11 w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="admin">{t.roles.admin}</SelectItem>
+                        <SelectItem value="supervisor">{t.roles.supervisor}</SelectItem>
+                        <SelectItem value="staff">{t.roles.staff}</SelectItem>
+                        <SelectItem value="viewer">{t.roles.viewer}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="mobile-department">{t.users.department}</Label>
+                    <Input
+                      id="mobile-department"
+                      value={formData.department}
+                      onChange={(e) =>
+                        setFormData({ ...formData, department: e.target.value })
+                      }
+                      className="h-11 w-full"
+                    />
+                  </div>
+                  {/* Permissions section - simplified for mobile */}
+                  <div className="space-y-4 border-t pt-4">
+                    <div className="flex items-center justify-between">
+                      <Label>{t.users.permissions}</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const allPlatformPermissions = Object.values(permissionsByCategory)
+                            .flat()
+                            .map(p => p.key);
+                          setFormData(prev => ({
+                            ...prev,
+                            permissions: allPlatformPermissions,
+                          }));
+                        }}
+                        className="min-h-[44px]"
+                      >
+                        {t.users.selectAll}
+                      </Button>
+                    </div>
+                    <Accordion type="multiple" className="w-full">
+                      {Object.entries(permissionsByCategory).map(([category, permissions]) => {
+                        const categoryPerms = permissions.map(p => p.key);
+                        const allSelected = categoryPerms.every(key => formData.permissions.includes(key));
+                        const someSelected = categoryPerms.some(key => formData.permissions.includes(key));
+                        
+                        return (
+                          <AccordionItem key={category} value={category}>
+                            <div className="flex items-center gap-2">
+                              <Checkbox
+                                checked={allSelected}
+                                ref={(el) => {
+                                  if (el && 'indeterminate' in el) {
+                                    (el as any).indeterminate = someSelected && !allSelected;
+                                  }
+                                }}
+                                onCheckedChange={(checked) =>
+                                  handleSelectAllCategory(category, checked === true)
+                                }
+                              />
+                              <AccordionTrigger className="text-sm flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">{category}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    ({categoryPerms.filter(k => formData.permissions.includes(k)).length}/{categoryPerms.length})
+                                  </span>
+                                </div>
+                              </AccordionTrigger>
+                            </div>
+                            <AccordionContent>
+                              <div className="space-y-3 pl-6">
+                                {permissions.map((permission) => (
+                                  <div key={permission.key} className="flex items-center space-x-2">
+                                    <Checkbox
+                                      id={`mobile-perm-${permission.key}`}
+                                      checked={formData.permissions.includes(permission.key)}
+                                      onCheckedChange={(checked) =>
+                                        handlePermissionToggle(permission.key, checked === true)
+                                      }
+                                    />
+                                    <Label
+                                      htmlFor={`mobile-perm-${permission.key}`}
+                                      className="text-sm font-normal cursor-pointer flex-1"
+                                    >
+                                      {permission.label}
+                                    </Label>
+                                  </div>
+                                ))}
+                              </div>
+                            </AccordionContent>
+                          </AccordionItem>
+                        );
+                      })}
+                    </Accordion>
+                  </div>
+                </form>
+                </div>
+                <DialogFooter className="flex-shrink-0 border-t px-4 py-3 relative z-10 bg-background">
+                  <Button type="submit" form="create-user-form" disabled={isLoading} className="w-full min-h-[44px]">
+                    {isLoading ? t.users.creating : t.users.createUser}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Mobile Search */}
+      <div className="md:hidden">
+        <MobileSearchBar
+          placeholderKey="common.search"
+          queryParam="q"
+          onSearch={setSearchQuery}
+        />
+      </div>
+
+      {/* Edit User Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent className="max-w-4xl max-h-[90vh] !grid !grid-rows-[auto_1fr_auto] !p-0 !gap-0 overflow-hidden">
             <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b relative z-10 bg-background">
               <DialogTitle>{t.users.editUserPermissions}</DialogTitle>
@@ -626,7 +780,7 @@ export default function UsersPage() {
               </DialogDescription>
             </DialogHeader>
             <div className="overflow-y-auto overflow-x-hidden px-6" style={{ maxHeight: 'calc(90vh - 180px)' }}>
-            <form id="edit-user-form" onSubmit={handleUpdate} className="space-y-4 py-4">
+              <form id="edit-user-form" onSubmit={handleUpdate} className="space-y-4 py-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>{t.users.name}</Label>
@@ -676,9 +830,13 @@ export default function UsersPage() {
                     variant="outline"
                     size="sm"
                     onClick={() => {
+                      // Select all permissions for current platform only
+                      const allPlatformPermissions = Object.values(permissionsByCategory)
+                        .flat()
+                        .map(p => p.key);
                       setFormData(prev => ({
                         ...prev,
-                        permissions: PERMISSIONS.map(p => p.key),
+                        permissions: allPlatformPermissions,
                       }));
                     }}
                   >
@@ -741,7 +899,7 @@ export default function UsersPage() {
                   })}
                 </Accordion>
               </div>
-            </form>
+              </form>
             </div>
             <DialogFooter className="flex-shrink-0 border-t px-6 py-4 relative z-10 bg-background">
               <Button
@@ -764,267 +922,104 @@ export default function UsersPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+      {/* Mobile: Card List */}
+      <div className="md:hidden">
+        <MobileCardList
+          items={cardItems}
+          isLoading={isLoading}
+          emptyMessage={language === 'ar' ? 'لا يوجد مستخدمين' : 'No users found'}
+        />
       </div>
 
-      <Tabs value={activeTab} onValueChange={(v) => {
-        setActiveTab(v as 'groups' | 'hospitals');
-        setSelectedGroupId('');
-        setSelectedHospitalId('');
-        setUsers([]);
-      }} className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="groups">
-            {language === 'ar' ? 'المجموعات' : 'Groups'}
-          </TabsTrigger>
-          <TabsTrigger value="hospitals">
-            {language === 'ar' ? 'المستشفيات' : 'Hospitals'}
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="groups" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <div>
-                  <CardTitle>{language === 'ar' ? 'اختر مجموعة' : 'Select Group'}</CardTitle>
-                  <CardDescription>
-                    {language === 'ar' ? 'اختر مجموعة لعرض وإدارة المستخدمين' : 'Select a group to view and manage users'}
-                  </CardDescription>
-                </div>
-                {selectedGroupId && (
-                  <Button onClick={handleCreateUser}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    {language === 'ar' ? 'إضافة مستخدم' : 'Add User'}
-                  </Button>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <Label>{language === 'ar' ? 'المجموعة' : 'Group'}</Label>
-                <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={language === 'ar' ? 'اختر مجموعة...' : 'Select a group...'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {groups.map((group) => (
-                      <SelectItem key={group.id} value={group.id}>
-                        {group.name} ({group.code})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
-
-          {selectedGroupId && (
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  {language === 'ar' ? 'مستخدمي المجموعة' : 'Group Users'} - {groups.find(g => g.id === selectedGroupId)?.name}
-                </CardTitle>
-                <CardDescription>
-                  {language === 'ar' ? 'عرض وإدارة المستخدمين في هذه المجموعة' : 'View and manage users in this group'}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t.users.name}</TableHead>
-                      <TableHead>{t.auth.email}</TableHead>
-                      <TableHead>{t.users.role}</TableHead>
-                      <TableHead>{t.users.department}</TableHead>
-                      <TableHead>{t.users.permissions}</TableHead>
-                      <TableHead>{t.users.status}</TableHead>
-                      <TableHead className="text-right">{t.users.actions}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {users.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={7} className="text-center text-muted-foreground">
-                          {language === 'ar' ? 'لا يوجد مستخدمين في هذه المجموعة' : 'No users in this group'}
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      users.map((user) => (
-                        <TableRow key={user.id}>
-                          <TableCell className="font-medium">
-                            {user.firstName} {user.lastName}
-                          </TableCell>
-                          <TableCell>{user.email}</TableCell>
-                          <TableCell>
-                            <span className="capitalize">{t.roles[user.role as keyof typeof t.roles] || user.role}</span>
-                          </TableCell>
-                          <TableCell>{user.department || '-'}</TableCell>
-                          <TableCell>
-                            <span className="text-xs text-muted-foreground">
-                              {user.permissions?.length || 0} permissions
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <span
-                              className={`px-2 py-1 rounded text-xs ${
-                                user.isActive
-                                  ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-500'
-                                  : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-500'
-                              }`}
-                            >
-                              {user.isActive ? 'Active' : 'Inactive'}
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleEdit(user)}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDelete(user.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-
-        <TabsContent value="hospitals" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <div>
-                  <CardTitle>{language === 'ar' ? 'اختر مستشفى' : 'Select Hospital'}</CardTitle>
-                  <CardDescription>
-                    {language === 'ar' ? 'اختر مستشفى لعرض وإدارة المستخدمين' : 'Select a hospital to view and manage users'}
-                  </CardDescription>
-                </div>
-                {selectedHospitalId && (
-                  <Button onClick={handleCreateUser}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    {language === 'ar' ? 'إضافة مستخدم' : 'Add User'}
-                  </Button>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <Label>{language === 'ar' ? 'المستشفى' : 'Hospital'}</Label>
-                <Select value={selectedHospitalId} onValueChange={setSelectedHospitalId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={language === 'ar' ? 'اختر مستشفى...' : 'Select a hospital...'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {hospitals.map((hospital) => (
-                      <SelectItem key={hospital.id} value={hospital.id}>
-                        {hospital.name} ({hospital.code})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
-
-          {selectedHospitalId && (
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  {language === 'ar' ? 'مستخدمي المستشفى' : 'Hospital Users'} - {hospitals.find(h => h.id === selectedHospitalId)?.name}
-                </CardTitle>
-                <CardDescription>
-                  {language === 'ar' ? 'عرض وإدارة المستخدمين في هذا المستشفى' : 'View and manage users in this hospital'}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t.users.name}</TableHead>
-                      <TableHead>{t.auth.email}</TableHead>
-                      <TableHead>{t.users.role}</TableHead>
-                      <TableHead>{t.users.department}</TableHead>
-                      <TableHead>{t.users.permissions}</TableHead>
-                      <TableHead>{t.users.status}</TableHead>
-                      <TableHead className="text-right">{t.users.actions}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {users.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={7} className="text-center text-muted-foreground">
-                          {language === 'ar' ? 'لا يوجد مستخدمين في هذا المستشفى' : 'No users in this hospital'}
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      users.map((user) => (
-                        <TableRow key={user.id}>
-                          <TableCell className="font-medium">
-                            {user.firstName} {user.lastName}
-                          </TableCell>
-                          <TableCell>{user.email}</TableCell>
-                          <TableCell>
-                            <span className="capitalize">{t.roles[user.role as keyof typeof t.roles] || user.role}</span>
-                          </TableCell>
-                          <TableCell>{user.department || '-'}</TableCell>
-                          <TableCell>
-                            <span className="text-xs text-muted-foreground">
-                              {user.permissions?.length || 0} permissions
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <span
-                              className={`px-2 py-1 rounded text-xs ${
-                                user.isActive
-                                  ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-500'
-                                  : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-500'
-                              }`}
-                            >
-                              {user.isActive ? 'Active' : 'Inactive'}
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleEdit(user)}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDelete(user.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-      </Tabs>
+      {/* Desktop: Users Table */}
+      <Card className="hidden md:block">
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle>{language === 'ar' ? 'جميع المستخدمين' : 'All Users'}</CardTitle>
+              <CardDescription>
+                {language === 'ar' ? 'عرض وإدارة جميع المستخدمين في النظام' : 'View and manage all users in the system'}
+              </CardDescription>
+            </div>
+            <Button onClick={handleCreateUser}>
+              <Plus className="mr-2 h-4 w-4" />
+              {language === 'ar' ? 'إضافة مستخدم' : 'Add User'}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t.users.name}</TableHead>
+                <TableHead>{t.auth.email}</TableHead>
+                <TableHead>{t.users.role}</TableHead>
+                <TableHead>{t.users.department}</TableHead>
+                <TableHead>{t.users.permissions}</TableHead>
+                <TableHead>{t.users.status}</TableHead>
+                <TableHead className="text-right">{t.users.actions}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredUsers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center text-muted-foreground">
+                    {language === 'ar' ? 'لا يوجد مستخدمين' : 'No users found'}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredUsers.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell className="font-medium">
+                      {user.firstName} {user.lastName}
+                    </TableCell>
+                    <TableCell>{user.email}</TableCell>
+                    <TableCell>
+                      <span className="capitalize">{t.roles[user.role as keyof typeof t.roles] || user.role}</span>
+                    </TableCell>
+                    <TableCell>{user.department || '-'}</TableCell>
+                    <TableCell>
+                      <span className="text-xs text-muted-foreground">
+                        {user.permissions?.length || 0} permissions
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <span
+                        className={`px-2 py-1 rounded text-xs ${
+                          user.isActive
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-500'
+                            : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-500'
+                        }`}
+                      >
+                        {user.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(user)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(user.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   );
 }

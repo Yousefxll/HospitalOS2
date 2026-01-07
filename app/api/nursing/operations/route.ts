@@ -1,136 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCollection } from '@/lib/db';
-
+import { requireTenantId } from '@/lib/tenant';
+import { getTenantCollection } from '@/lib/db-tenant';
+import { requireAuthContext } from '@/lib/auth/requireAuthContext';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export async function GET(request: NextRequest) {
   try {
+    // Get tenantId from session (SINGLE SOURCE OF TRUTH)
+    const tenantIdResult = await requireTenantId(request);
+    if (tenantIdResult instanceof NextResponse) {
+      return tenantIdResult;
+    }
+    const tenantId = tenantIdResult;
+
+    // Get auth context
+    const authContext = await requireAuthContext(request);
+    if (authContext instanceof NextResponse) {
+      return authContext;
+    }
+
     const { searchParams } = new URL(request.url);
     const shift = searchParams.get('shift') || 'ALL';
     const department = searchParams.get('department') || 'all';
     const date = searchParams.get('date') || new Date().toISOString().split('T')[0];
 
-    // Mock data for now - replace with actual database queries
-    const mockAssignments = [
-      {
-        id: '1',
-        nurseName: 'Sarah Johnson',
-        nurseId: 'NUR-001',
-        position: 'SN',
-        shift: 'AM',
-        startTime: '08:00',
-        endTime: '16:00',
-        area: 'Ward A',
-        patientLoad: 6,
-        tasks: [
-          {
-            id: 't1',
-            description: 'Medication round',
-            priority: 'high',
-            status: 'completed',
-            dueTime: '09:00',
-          },
-          {
-            id: 't2',
-            description: 'Patient assessment',
-            priority: 'medium',
-            status: 'in-progress',
-            dueTime: '10:30',
-          },
-          {
-            id: 't3',
-            description: 'Vital signs monitoring',
-            priority: 'high',
-            status: 'pending',
-            dueTime: '12:00',
-          },
-        ],
-        status: 'active',
-      },
-      {
-        id: '2',
-        nurseName: 'Ahmed Hassan',
-        nurseId: 'NUR-002',
-        position: 'AN',
-        shift: 'AM',
-        startTime: '08:00',
-        endTime: '16:00',
-        area: 'Ward B',
-        patientLoad: 5,
-        tasks: [
-          {
-            id: 't4',
-            description: 'Wound dressing change',
-            priority: 'high',
-            status: 'completed',
-            dueTime: '08:30',
-          },
-          {
-            id: 't5',
-            description: 'IV line check',
-            priority: 'medium',
-            status: 'completed',
-            dueTime: '10:00',
-          },
-        ],
-        status: 'active',
-      },
-      {
-        id: '3',
-        nurseName: 'Fatima Ali',
-        nurseId: 'NUR-003',
-        position: 'SN',
-        shift: 'PM',
-        startTime: '16:00',
-        endTime: '00:00',
-        area: 'ICU',
-        patientLoad: 3,
-        tasks: [
-          {
-            id: 't6',
-            description: 'Critical patient monitoring',
-            priority: 'high',
-            status: 'pending',
-            dueTime: '16:30',
-          },
-          {
-            id: 't7',
-            description: 'Family consultation',
-            priority: 'low',
-            status: 'pending',
-            dueTime: '18:00',
-          },
-        ],
-        status: 'scheduled',
-      },
-    ];
-
-    // Filter by shift
-    let filteredAssignments = mockAssignments;
-    if (shift !== 'ALL') {
-      filteredAssignments = mockAssignments.filter(a => a.shift === shift);
-    }
-
-    // Calculate metrics
-    const totalNursesOnDuty = filteredAssignments.filter(a => a.status === 'active').length;
-    const totalPatients = filteredAssignments.reduce((sum, a) => sum + (a.patientLoad || 0), 0);
-    const patientNurseRatio = totalNursesOnDuty > 0 
-      ? `1:${Math.round(totalPatients / totalNursesOnDuty)}`
-      : '0:0';
+    // TODO: Replace with actual database queries using tenant-scoped collections
+    // For now, return empty data to prevent showing shared mock data across tenants
+    // This ensures tenant isolation - each tenant sees only their own data
+    // When implementing real data, use getTenantCollection('nursing_assignments', tenantId, 'nursing/operations')
     
-    const allTasks = filteredAssignments.flatMap(a => a.tasks);
-    const completedTasks = allTasks.filter(t => t.status === 'completed').length;
-    const pendingTasks = allTasks.filter(t => t.status === 'pending').length;
-    const criticalAlerts = allTasks.filter(t => t.priority === 'high' && t.status === 'pending').length;
-
+    const filteredAssignments: any[] = [];
+    
+    // Calculate metrics from empty data (tenant-specific data will be fetched from DB)
     const metrics = {
-      totalNursesOnDuty,
-      patientNurseRatio,
-      completedTasks,
-      pendingTasks,
-      criticalAlerts,
-      avgResponseTime: '8 min',
+      totalNursesOnDuty: 0,
+      patientNurseRatio: '0:0',
+      completedTasks: 0,
+      pendingTasks: 0,
+      criticalAlerts: 0,
+      avgResponseTime: '0 min',
     };
 
     return NextResponse.json({

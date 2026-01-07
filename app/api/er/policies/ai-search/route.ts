@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic';
 import { getCollection } from '@/lib/db';
 import OpenAI from 'openai';
 import { env } from '@/lib/env';
+import type { PolicyDocument, PolicyChunk } from '@/lib/models/Policy';
 
 function getOpenAIClient() {
   if (!env.OPENAI_API_KEY) {
@@ -36,14 +37,14 @@ export async function POST(request: NextRequest) {
 
     // Find matching chunks
     const matchingChunks = await chunksCollection
-      .find(chunksQuery)
+      .find<PolicyChunk>(chunksQuery)
       .limit(50) // Get top 50 relevant chunks
       .toArray();
 
     if (matchingChunks.length === 0) {
       // Fallback: search in document titles
       const titleMatches = await policiesCollection
-        .find({
+        .find<PolicyDocument>({
           isActive: true,
           processingStatus: 'completed',
           title: { $regex: question, $options: 'i' },
@@ -90,7 +91,7 @@ export async function POST(request: NextRequest) {
     // Step 3: Get document metadata
     const documentIds = Array.from(chunksByDocument.keys());
     const documents = await policiesCollection
-      .find({
+      .find<PolicyDocument>({
         isActive: true,
         processingStatus: 'completed',
         documentId: { $in: documentIds },

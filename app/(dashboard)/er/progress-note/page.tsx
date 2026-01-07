@@ -10,6 +10,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, FileText, Loader2, Save, Lock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useTranslation } from '@/hooks/use-translation';
 
 interface PatientAlert {
   id: string;
@@ -24,6 +26,8 @@ function ERProgressNotePageContent() {
   const searchParams = useSearchParams();
   const erVisitId = searchParams.get('erVisitId');
   const { toast } = useToast();
+  const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const [isLoading, setIsLoading] = useState(false);
   const [patientInfo, setPatientInfo] = useState<any>(null);
   const [patientAlerts, setPatientAlerts] = useState<PatientAlert[]>([]);
@@ -140,8 +144,9 @@ function ERProgressNotePageContent() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
+    <div className="space-y-4 md:space-y-6">
+      {/* Header - Hidden on mobile (MobileTopBar shows it) */}
+      <div className="hidden md:block">
         <h1 className="text-3xl font-bold">Physician Progress Note</h1>
         <p className="text-muted-foreground">
           Document assessment and management for the patient
@@ -154,7 +159,7 @@ function ERProgressNotePageContent() {
             <CardTitle>Patient Information</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <Label>Name</Label>
                 <div className="font-semibold">{patientInfo.fullName}</div>
@@ -226,6 +231,7 @@ function ERProgressNotePageContent() {
                 onChange={(e) => setFormData({ ...formData, physicianName: e.target.value })}
                 required
                 placeholder="Enter your name"
+                className="h-11"
               />
             </div>
 
@@ -238,6 +244,7 @@ function ERProgressNotePageContent() {
                 required
                 placeholder="Enter your clinical assessment"
                 rows={6}
+                className="min-h-[120px]"
               />
             </div>
 
@@ -248,6 +255,7 @@ function ERProgressNotePageContent() {
                 value={formData.diagnosis}
                 onChange={(e) => setFormData({ ...formData, diagnosis: e.target.value })}
                 placeholder="Enter diagnosis"
+                className="h-11"
               />
             </div>
 
@@ -259,6 +267,7 @@ function ERProgressNotePageContent() {
                 onChange={(e) => setFormData({ ...formData, managementPlan: e.target.value })}
                 placeholder="Enter management plan"
                 rows={4}
+                className="min-h-[100px]"
               />
             </div>
 
@@ -267,7 +276,7 @@ function ERProgressNotePageContent() {
               <span>Note will be locked after saving (audit trail)</span>
             </div>
 
-            <Button type="submit" disabled={isLoading} className="w-full">
+            <Button type="submit" disabled={isLoading} className="w-full h-11">
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

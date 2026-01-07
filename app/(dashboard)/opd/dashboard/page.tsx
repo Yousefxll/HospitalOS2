@@ -7,6 +7,10 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import TimeFilter, { TimeFilterValue, getAPIParams } from '@/components/TimeFilter';
 import { useTranslation } from '@/hooks/use-translation';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { MobileCardList } from '@/components/mobile/MobileCardList';
+import { KPISkeleton, CardListSkeleton, StatsSkeleton } from '@/components/mobile/SkeletonLoaders';
+import { useRouter } from 'next/navigation';
 import {
   Table,
   TableBody,
@@ -44,7 +48,9 @@ interface DepartmentStats {
 }
 
 export default function OPDDashboardPage() {
-  const { t } = useTranslation();
+  const router = useRouter();
+  const { t, language } = useTranslation();
+  const isMobile = useIsMobile();
   const [filter, setFilter] = useState<TimeFilterValue>({
     granularity: 'day',
     date: new Date().toISOString().split('T')[0],
@@ -121,9 +127,49 @@ export default function OPDDashboardPage() {
     }
   }
 
+  // Convert departments to card format for mobile
+  const departmentCardItems = (() => {
+    const sortedDepartments = [...departments].sort((a, b) => {
+      switch (sortBy) {
+        case 'totalPatients':
+          return b.totalPatients - a.totalPatients;
+        case 'booked':
+          return b.booked - a.booked;
+        case 'waiting':
+          return b.waiting - a.waiting;
+        case 'procedures':
+          return b.procedures - a.procedures;
+        case 'utilization':
+          return (b.utilization || 0) - (a.utilization || 0);
+        case 'name':
+          return (a.departmentName || '').localeCompare(b.departmentName || '');
+        default:
+          return 0;
+      }
+    });
+
+    return sortedDepartments.map((dept) => ({
+      id: dept.departmentId,
+      title: dept.departmentName,
+      subtitle: `${(t.opd as any).utilization || 'Utilization'}: ${dept.utilization || 0}%`,
+      badges: [
+        {
+          label: `${dept.totalPatients} ${(t.opd as any).totalPatients || 'Total'}`,
+          variant: 'default' as const,
+        },
+      ],
+      metadata: [
+        { label: (t.opd as any).booked || 'Booked', value: dept.booked.toString() },
+        { label: (t.opd as any).waiting || 'Waiting', value: dept.waiting.toString() },
+        { label: (t.opd as any).procedures || 'Procedures', value: dept.procedures.toString() },
+      ],
+    }));
+  })();
+
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-4 md:space-y-6">
+      {/* Header - Hidden on mobile (MobileTopBar shows it) */}
+      <div className="hidden md:flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">{(t.opd as any).opdDashboard}</h1>
           <p className="text-muted-foreground">{(t.opd as any).outpatientDepartmentOverview}</p>
@@ -143,18 +189,45 @@ export default function OPDDashboardPage() {
         </Button>
       </div>
 
+      {/* Mobile Filter Toggle */}
+      <div className="md:hidden">
+        <Button
+          variant="outline"
+          onClick={() => setShowFilter(!showFilter)}
+          className="w-full min-h-[44px] flex items-center justify-center gap-2"
+        >
+          <Filter className="h-4 w-4" />
+          {showFilter ? (t.opd as any).hideFilter : (t.opd as any).showFilter}
+          {showFilter ? (
+            <ChevronUp className="h-4 w-4" />
+          ) : (
+            <ChevronDown className="h-4 w-4" />
+          )}
+        </Button>
+      </div>
+
       {/* Time Filter - Collapsible */}
       {showFilter && (
         <TimeFilter value={filter} onChange={setFilter} onApply={fetchOPDStats} />
       )}
 
-      {/* Loading Indicator */}
-      {(isLoading || isLoadingDepartments) && (
-        <div className="text-center text-muted-foreground">{t.dashboard.loadingData || 'Loading data...'}</div>
-      )}
-
-      {/* Error Message */}
-      {error && (
+      {/* Loading State */}
+      {(isLoading || isLoadingDepartments) ? (
+        <>
+          {/* Mobile Skeleton */}
+          <div className="md:hidden">
+            <StatsSkeleton count={4} />
+          </div>
+          {/* Desktop Skeleton */}
+          <div className="hidden md:block">
+            <KPISkeleton count={4} />
+            <CardListSkeleton count={5} />
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Error Message */}
+          {error && (
         <Card className="border-destructive">
           <CardContent className="pt-6">
             <div className="text-center text-destructive">
@@ -175,8 +248,59 @@ export default function OPDDashboardPage() {
         </Card>
       )}
 
-      {/* KPI Cards */}
-      <div className="flex flex-row gap-4 w-full">
+      {/* Mobile KPI Cards - 2 columns */}
+      <div className="md:hidden grid grid-cols-2 gap-3">
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center gap-2">
+              <Activity className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-xs font-medium">{(t.opd as any).totalVisits}</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="text-xl font-bold">{stats.totalVisits}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-xs font-medium">{(t.opd as any).newPatients}</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="text-xl font-bold">{stats.newPatients}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-xs font-medium">{(t.opd as any).followUpVisits}</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="text-xl font-bold">{stats.followUpPatients}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-xs font-medium">{(t.opd as any).avgUtilization}</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="text-xl font-bold">{stats.avgUtilization}%</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Desktop KPI Cards - 4 columns */}
+      <div className="hidden md:flex flex-row gap-4 w-full">
         <Card className="flex-1 min-w-0">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-center gap-2 mb-2">
@@ -230,9 +354,42 @@ export default function OPDDashboardPage() {
         </Card>
       </div>
 
-      {/* Departments Table */}
+      {/* Mobile: Departments Card List */}
       {departments.length > 0 && (
-        <Card>
+        <div className="md:hidden">
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">{(t.opd as any).departments || 'Departments'}</CardTitle>
+                <Select value={sortBy} onValueChange={setSortBy}>
+                  <SelectTrigger className="w-[140px] h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="totalPatients">{(t.opd as any).totalPatients || 'Total'}</SelectItem>
+                    <SelectItem value="booked">{(t.opd as any).booked || 'Booked'}</SelectItem>
+                    <SelectItem value="waiting">{(t.opd as any).waiting || 'Waiting'}</SelectItem>
+                    <SelectItem value="procedures">{(t.opd as any).procedures || 'Procedures'}</SelectItem>
+                    <SelectItem value="utilization">{(t.opd as any).utilization || 'Utilization'}</SelectItem>
+                    <SelectItem value="name">{(t.opd as any).name || 'Name'}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <MobileCardList
+                items={departmentCardItems}
+                isLoading={isLoadingDepartments}
+                emptyMessage={(t.opd as any).noDepartments || 'No departments found'}
+              />
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Desktop: Departments Table */}
+      {departments.length > 0 && (
+        <Card className="hidden md:block">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
@@ -345,6 +502,8 @@ export default function OPDDashboardPage() {
           </Card>
         </Link>
       </div>
+        </>
+      )}
     </div>
   );
 }

@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCollection } from '@/lib/db';
-import { requireRole } from '@/lib/rbac';
+import { requireAuth } from '@/lib/security/auth';
+import { requireRole } from '@/lib/security/auth';
 import { v4 as uuidv4 } from 'uuid';
 import { OPDDailyData } from '@/lib/models/OPDDailyData';
+import type { OPDDailyData as OPDDailyDataType } from '@/lib/models/OPDDailyData';
 
 
 export const dynamic = 'force-dynamic';
@@ -52,11 +54,16 @@ const createDailyDataSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    const userRole = request.headers.get('x-user-role') as any;
-    const userId = request.headers.get('x-user-id');
+    // Authenticate
+    const auth = await requireAuth(request);
+    if (auth instanceof NextResponse) {
+      return auth;
+    }
 
-    if (!requireRole(userRole, ['admin', 'supervisor', 'staff'])) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // Check role: admin, supervisor, or staff
+    const roleCheck = await requireRole(request, ['admin', 'supervisor', 'staff'], auth);
+    if (roleCheck instanceof NextResponse) {
+      return roleCheck;
     }
 
     const body = await request.json();
@@ -65,7 +72,7 @@ export async function POST(request: NextRequest) {
     const dailyDataCollection = await getCollection('opd_daily_data');
 
     // Check if data already exists for this doctor on this date
-    const existing = await dailyDataCollection.findOne({
+    const existing = await dailyDataCollection.findOne<OPDDailyDataType>({
       doctorId: data.doctorId,
       date: new Date(data.date),
     });
@@ -100,8 +107,8 @@ export async function POST(request: NextRequest) {
       ivf: data.ivf,
       createdAt: existing?.createdAt || new Date(),
       updatedAt: new Date(),
-      createdBy: existing?.createdBy || userId || 'system',
-      updatedBy: userId || 'system',
+      createdBy: existing?.createdBy || auth.userId || 'system',
+      updatedBy: auth.userId || 'system',
     };
 
     if (existing) {
@@ -159,7 +166,7 @@ export async function GET(request: NextRequest) {
       query.doctorId = doctorId;
     }
 
-    const data = await dailyDataCollection.find(query).sort({ date: -1 }).toArray();
+    const data = await dailyDataCollection.find<OPDDailyDataType>(query).sort({ date: -1 }).toArray();
 
     return NextResponse.json({ success: true, data });
   } catch (error) {

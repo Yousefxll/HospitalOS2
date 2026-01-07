@@ -1,12 +1,104 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCollection } from '@/lib/db';
+import { requireTenantId } from '@/lib/tenant';
+import { getTenantDbFromRequest } from '@/lib/db/tenantDb';
+import { requireAuthContext } from '@/lib/auth/requireAuthContext';
 import { v4 as uuidv4 } from 'uuid';
 import { env } from '@/lib/env';
+
+// WHH Tenant ID - dummy data must belong ONLY to this tenant
+const WHH_TENANT_ID = '6957fb92784a84e764b3a750';
 
 /**
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+
+/**
+ * GET /api/patient-experience/seed-data/status
+ * Get current data counts for the active tenant (tenant isolation enforced)
+ * 
+ * Returns counts for: floors, departments, rooms, visits, cases, etc.
+ * Does NOT return 403 - always returns counts (zeros if no data)
+ */
+export async function GET(request: NextRequest) {
+  try {
+    // Get tenant DB from request (session-based, SINGLE SOURCE OF TRUTH)
+    const ctx = await getTenantDbFromRequest(request);
+    if (ctx instanceof NextResponse) {
+      return ctx;
+    }
+    const { db, tenantKey } = ctx;
+
+    // Get collections from tenant DB (no tenantId filtering needed - DB is already isolated)
+    const floorsCollection = db.collection('floors');
+    const departmentsCollection = db.collection('floor_departments');
+    const roomsCollection = db.collection('floor_rooms');
+    const domainsCollection = db.collection('complaint_domains');
+    const typesCollection = db.collection('complaint_types');
+    const praiseCollection = db.collection('praise_categories');
+    const slaCollection = db.collection('sla_rules');
+    const visitsCollection = db.collection('patient_experience');
+    const casesCollection = db.collection('px_cases');
+    const auditsCollection = db.collection('px_case_audits');
+    const notificationsCollection = db.collection('notifications');
+
+    // Get counts (tenant-scoped collections automatically filter by tenantId)
+    const [
+      floorsCount,
+      departmentsCount,
+      roomsCount,
+      domainsCount,
+      typesCount,
+      praiseCount,
+      slaCount,
+      visitsCount,
+      casesCount,
+      auditsCount,
+      notificationsCount,
+    ] = await Promise.all([
+      floorsCollection.countDocuments({}),
+      departmentsCollection.countDocuments({}),
+      roomsCollection.countDocuments({}),
+      domainsCollection.countDocuments({}),
+      typesCollection.countDocuments({}),
+      praiseCollection.countDocuments({}),
+      slaCollection.countDocuments({}),
+      visitsCollection.countDocuments({}),
+      casesCollection.countDocuments({}),
+      auditsCollection.countDocuments({}),
+      notificationsCollection.countDocuments({}),
+    ]);
+
+    return NextResponse.json({
+      success: true,
+      counts: {
+        floors: floorsCount,
+        departments: departmentsCount,
+        rooms: roomsCount,
+        complaintDomains: domainsCount,
+        complaintTypes: typesCount,
+        praiseCategories: praiseCount,
+        slaRules: slaCount,
+        visits: visitsCount,
+        cases: casesCount,
+        caseAudits: auditsCount,
+        notifications: notificationsCount,
+      },
+      tenantId: tenantKey, // Include tenantKey for client-side verification
+    });
+  } catch (error: any) {
+    console.error('Seed data status error:', error);
+    return NextResponse.json(
+      { 
+        error: 'Failed to get seed data status', 
+        details: error.message,
+      },
+      { status: 500 }
+    );
+  }
+}
+
+/**
  * POST /api/patient-experience/seed-data
  * Delete all Patient Experience data and seed with dummy data (Dec 6-12, 2025)
  * 
@@ -15,11 +107,24 @@ export const revalidate = 0;
  */
 export async function POST(request: NextRequest) {
   try {
-    const userId = request.headers.get('x-user-id');
-    const userRole = request.headers.get('x-user-role');
-    
+    // Get tenant DB from request (session-based, SINGLE SOURCE OF TRUTH)
+    const ctx = await getTenantDbFromRequest(request);
+    if (ctx instanceof NextResponse) {
+      return ctx;
+    }
+    const { db, tenantKey, userRole } = ctx;
+
+    // SECURITY: Only allow seeding for WHH tenant
+    // Check BEFORE any DB operations
+    if (tenantKey !== WHH_TENANT_ID) {
+      return NextResponse.json(
+        { error: 'Seed allowed only for hmg-whh' },
+        { status: 403 }
+      );
+    }
+
     // Only allow admin/supervisor
-    if (!userId || (userRole !== 'admin' && userRole !== 'supervisor')) {
+    if (!userRole || !['admin', 'supervisor'].includes(userRole)) {
       return NextResponse.json(
         { error: 'Unauthorized - Admin or Supervisor role required' },
         { status: 403 }
@@ -154,19 +259,20 @@ export async function POST(request: NextRequest) {
       return Math.floor(Math.random() * (max - min + 1)) + min;
     };
 
-    // Step 1: Delete all existing data
-    const floorsCollection = await getCollection('floors');
-    const departmentsCollection = await getCollection('floor_departments');
-    const roomsCollection = await getCollection('floor_rooms');
-    const domainsCollection = await getCollection('complaint_domains');
-    const typesCollection = await getCollection('complaint_types');
-    const praiseCollection = await getCollection('praise_categories');
-    const slaCollection = await getCollection('sla_rules');
-    const visitsCollection = await getCollection('patient_experience');
-    const casesCollection = await getCollection('px_cases');
-    const auditsCollection = await getCollection('px_case_audits');
-    const notificationsCollection = await getCollection('notifications');
+    // Step 1: Delete all existing data from tenant DB (DB isolation - no tenantId filter needed)
+    const floorsCollection = db.collection('floors');
+    const departmentsCollection = db.collection('floor_departments');
+    const roomsCollection = db.collection('floor_rooms');
+    const domainsCollection = db.collection('complaint_domains');
+    const typesCollection = db.collection('complaint_types');
+    const praiseCollection = db.collection('praise_categories');
+    const slaCollection = db.collection('sla_rules');
+    const visitsCollection = db.collection('patient_experience');
+    const casesCollection = db.collection('px_cases');
+    const auditsCollection = db.collection('px_case_audits');
+    const notificationsCollection = db.collection('notifications');
 
+    // DeleteMany - DB isolation ensures only this tenant's data is deleted
     await floorsCollection.deleteMany({});
     await departmentsCollection.deleteMany({});
     await roomsCollection.deleteMany({});
@@ -179,9 +285,10 @@ export async function POST(request: NextRequest) {
     await auditsCollection.deleteMany({});
     await notificationsCollection.deleteMany({});
 
-    // Step 2: Insert setup data
+    // Step 2: Insert setup data (tenantId kept for debugging/traceability, but not required for isolation)
     const floorsData = FLOORS.map(floor => ({
       id: uuidv4(),
+      tenantId: tenantKey, // For debugging/traceability (DB isolation is primary)
       key: floor.key,
       label_en: floor.label_en,
       label_ar: floor.label_ar,
@@ -194,6 +301,7 @@ export async function POST(request: NextRequest) {
 
     const departmentsData = DEPARTMENTS.map(dept => ({
       id: uuidv4(),
+      tenantId: tenantKey, // For debugging/traceability (DB isolation is primary)
       key: dept.key,
       floorKey: dept.floorKey,
       label_en: dept.label_en,
@@ -206,6 +314,7 @@ export async function POST(request: NextRequest) {
 
     const roomsData = ROOMS.map(room => ({
       id: uuidv4(),
+      tenantId: tenantKey, // For debugging/traceability (DB isolation is primary)
       key: room.key,
       departmentKey: room.departmentKey,
       label_en: room.label_en,
@@ -219,6 +328,7 @@ export async function POST(request: NextRequest) {
 
     const domainsData = COMPLAINT_DOMAINS.map(domain => ({
       id: uuidv4(),
+      tenantId: tenantKey, // For debugging/traceability (DB isolation is primary)
       key: domain.key,
       label_en: domain.label_en,
       label_ar: domain.label_ar,
@@ -230,6 +340,7 @@ export async function POST(request: NextRequest) {
 
     const typesData = COMPLAINT_TYPES.map(type => ({
       id: uuidv4(),
+      tenantId: tenantKey, // For debugging/traceability (DB isolation is primary)
       key: type.key,
       domainKey: type.domainKey,
       label_en: type.label_en,
@@ -243,6 +354,7 @@ export async function POST(request: NextRequest) {
 
     const praiseData = PRAISE_CATEGORIES.map(praise => ({
       id: uuidv4(),
+      tenantId: tenantKey, // For debugging/traceability (DB isolation is primary)
       key: praise.key,
       label_en: praise.label_en,
       label_ar: praise.label_ar,
@@ -254,6 +366,7 @@ export async function POST(request: NextRequest) {
 
     const slaData = SLA_RULES.map(rule => ({
       id: uuidv4(),
+      tenantId: tenantKey, // For debugging/traceability (DB isolation is primary)
       severity: rule.severity,
       minutes: rule.minutes,
       active: true,
@@ -314,6 +427,7 @@ export async function POST(request: NextRequest) {
       const visitId = uuidv4();
       const visit = {
         id: visitId,
+        tenantId: tenantKey, // For debugging/traceability (DB isolation is primary)
         staffName: staff.name,
         staffId: staff.id,
         patientName: patient.name,
@@ -344,6 +458,7 @@ export async function POST(request: NextRequest) {
         const caseId = uuidv4();
         const pxCase = {
           id: caseId,
+          tenantId: tenantKey, // For debugging/traceability (DB isolation is primary)
           visitId,
           status: status === 'PENDING' ? 'OPEN' : 'IN_PROGRESS',
           severity,
@@ -384,25 +499,26 @@ export async function POST(request: NextRequest) {
       const resolvedAt = randomDate(visit.visitDate, END_DATE);
       
       const caseId = uuidv4();
-      const pxCase = {
-        id: caseId,
-        visitId: visit.id,
-        status: 'RESOLVED',
-        severity: visit.severity,
-        assignedDeptKey: visit.departmentKey,
-        assignedRole: 'MANAGER',
-        slaMinutes,
-        dueAt,
-        firstResponseAt: new Date(visit.visitDate.getTime() + 30 * 60 * 1000),
-        resolvedAt,
-        resolutionNotesOriginal: 'تم حل المشكلة',
-        resolutionNotesLang: 'ar',
-        resolutionNotesEn: 'Issue resolved',
-        escalationLevel: 0,
-        createdAt: visit.visitDate,
-        updatedAt: resolvedAt,
-        createdBy: visit.createdBy,
-      };
+        const pxCase = {
+          id: caseId,
+          tenantId: tenantKey, // For debugging/traceability (DB isolation is primary)
+          visitId: visit.id,
+          status: 'RESOLVED',
+          severity: visit.severity,
+          assignedDeptKey: visit.departmentKey,
+          assignedRole: 'MANAGER',
+          slaMinutes,
+          dueAt,
+          firstResponseAt: new Date(visit.visitDate.getTime() + 30 * 60 * 1000),
+          resolvedAt,
+          resolutionNotesOriginal: 'تم حل المشكلة',
+          resolutionNotesLang: 'ar',
+          resolutionNotesEn: 'Issue resolved',
+          escalationLevel: 0,
+          createdAt: visit.visitDate,
+          updatedAt: resolvedAt,
+          createdBy: visit.createdBy,
+        };
 
       resolvedCases.push(pxCase);
     }

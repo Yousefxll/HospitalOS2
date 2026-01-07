@@ -117,6 +117,7 @@ export default function DeleteAllDataPage() {
 
     try {
       const response = await fetch('/api/patient-experience/delete-all-data', {
+        cache: 'no-store',
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -7,7 +7,7 @@ from app.jobs import get_all_jobs
 from app.config import settings
 
 
-app = FastAPI(title="SIRA API", version="1.0.0")
+app = FastAPI(title="SYRA API", version="1.0.0")
 
 # CORS configuration
 # Parse ALLOWED_ORIGINS from environment variable (comma-separated)

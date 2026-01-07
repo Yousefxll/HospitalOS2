@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireRoleAsync, getAuthContext } from '@/lib/auth/requireRole';
 import * as structureService from '@/lib/services/structureService';
+import type { User } from '@/lib/models/User';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,14 +23,23 @@ export async function GET(request: NextRequest) {
       return authResult;
     }
 
+    // GOLDEN RULE: tenantId must ALWAYS come from session
+    const { requireTenantId } = await import('@/lib/tenant');
+    const tenantIdResult = await requireTenantId(request);
+    if (tenantIdResult instanceof NextResponse) {
+      return tenantIdResult;
+    }
+    const tenantId = tenantIdResult;
+
     const { searchParams } = new URL(request.url);
     const floorKey = searchParams.get('floorKey');
 
+    // Service layer now accepts tenantId parameter
     let departments;
     if (floorKey) {
-      departments = await structureService.getDepartmentsByFloor(floorKey);
+      departments = await structureService.getDepartmentsByFloor(floorKey, tenantId);
     } else {
-      departments = await structureService.getAllDepartments();
+      departments = await structureService.getAllDepartments(tenantId);
     }
 
     return NextResponse.json({ success: true, data: departments });
@@ -53,7 +63,7 @@ export async function POST(request: NextRequest) {
     // Check permission: admin.structure-management.create
     const { getCollection } = await import('@/lib/db');
     const usersCollection = await getCollection('users');
-    const user = await usersCollection.findOne({ id: authResult.userId });
+    const user = await usersCollection.findOne<User>({ id: authResult.userId });
     const userPermissions = user?.permissions || [];
 
     if (
@@ -69,6 +79,13 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = createDepartmentSchema.parse(body);
 
+    // GOLDEN RULE: tenantId must ALWAYS come from session
+    const { requireTenantId } = await import('@/lib/tenant');
+    const tenantIdResult = await requireTenantId(request);
+    if (tenantIdResult instanceof NextResponse) {
+      return tenantIdResult;
+    }
+    const tenantId = tenantIdResult;
     const department = await structureService.createDepartment({
       floorId: validatedData.floorId,
       floorKey: validatedData.floorKey,
@@ -77,6 +94,7 @@ export async function POST(request: NextRequest) {
       label_en: validatedData.label_en,
       label_ar: validatedData.label_ar,
       createdBy: authResult.userId,
+      tenantId: tenantId, // Always set tenantId on creation
     });
 
     return NextResponse.json({ success: true, data: department }, { status: 201 });

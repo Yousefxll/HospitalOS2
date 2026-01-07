@@ -1,21 +1,21 @@
-# SIRA Rebranding Report
+# SYRA Rebranding Report
 
 ## Summary
 
-This report documents the complete rebranding of the project from various legacy names (MedFlow, HospitalOS, Policy Engine) to **SIRA — Enterprise Policy & Procedure Platform**.
+This report documents the complete rebranding of the project from various legacy names (MedFlow, HospitalOS, Policy Engine) to **SYRA — Enterprise Policy & Procedure Platform**.
 
 ## Scope of Changes
 
 ### ✅ 1. Product Identity
 
 **Changed:**
-- **Product Name**: "MedFlow - Hospital Operations Platform" → "SIRA — Enterprise Policy & Procedure Platform"
-- **Display Name (English)**: "Hospital OS" → "SIRA"
+- **Product Name**: "MedFlow - Hospital Operations Platform" → "SYRA — Enterprise Policy & Procedure Platform"
+- **Display Name (English)**: "Hospital OS" → "SYRA"
 - **Display Name (Arabic)**: "نظام المستشفى" → "سِيرَه"
 
 **Files Updated:**
 - `README.md` - Title and description
-- `package.json` - Package name: "nextjs-mongo-template" → "sira"
+- `package.json` - Package name: "nextjs-mongo-template" → "syra"
 - `app/layout.tsx` - Metadata title and description
 - `lib/i18n.ts` - Header translations (English and Arabic)
 - `components/shell/MobileShell.tsx` - Page title defaults
@@ -23,9 +23,9 @@ This report documents the complete rebranding of the project from various legacy
 ### ✅ 2. API & Backend
 
 **Changed:**
-- FastAPI title: "Policy Engine API" → "SIRA API"
-- Error messages: "Policy engine" → "SIRA service"
-- Log messages updated to use "SIRA" branding
+- FastAPI title: "Policy Engine API" → "SYRA API"
+- Error messages: "Policy engine" → "SYRA service"
+- Log messages updated to use "SYRA" branding
 
 **Files Updated:**
 - `policy-engine/app/main.py` - FastAPI app title
@@ -47,7 +47,7 @@ This report documents the complete rebranding of the project from various legacy
 ### ✅ 4. UI Text & Labels
 
 **Changed:**
-- All user-facing headers now display "SIRA" (English) or "سِيرَه" (Arabic)
+- All user-facing headers now display "SYRA" (English) or "سِيرَه" (Arabic)
 - Login page title updated
 - Mobile shell page titles updated
 
@@ -58,7 +58,7 @@ This report documents the complete rebranding of the project from various legacy
 ### ✅ 5. Build Configuration
 
 **Changed:**
-- `package.json` name field: "nextjs-mongo-template" → "sira"
+- `package.json` name field: "nextjs-mongo-template" → "syra"
 
 **Note:** `render.yaml` service name remains unchanged (infrastructure config, not branding).
 
@@ -109,7 +109,7 @@ Key files:
 ## Next Steps
 
 1. **Fix Pre-existing TypeScript Errors**: The remaining TypeScript error in `ERRepository.ts` should be addressed separately
-2. **Test Application**: Manual testing of the application to ensure all UI displays "SIRA" correctly
+2. **Test Application**: Manual testing of the application to ensure all UI displays "SYRA" correctly
 3. **Update Deployment Configs**: If needed, update deployment service names (Render, etc.) for consistency
 
 ## Production Safety
@@ -123,10 +123,10 @@ Key files:
 
 ⚠️ **Recommendation:**
 - Fix remaining TypeScript errors before production deployment
-- Verify all UI elements display "SIRA" correctly in both languages
+- Verify all UI elements display "SYRA" correctly in both languages
 
 ---
 
-**Rebranding completed**: All user-facing branding updated to SIRA
-**Commit ready**: Changes are ready for commit as "chore: rebrand to SIRA"
+**Rebranding completed**: All user-facing branding updated to SYRA
+**Commit ready**: Changes are ready for commit as "chore: rebrand to SYRA"
 

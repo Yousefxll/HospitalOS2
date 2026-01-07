@@ -4,6 +4,7 @@ import { comparePassword, hashPassword } from '@/lib/auth';
 import { deleteUserSessions, validateSession } from '@/lib/auth/sessions';
 import { verifyTokenEdge } from '@/lib/auth/edge';
 import { User } from '@/lib/models/User';
+import { serialize } from 'cookie';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,29 +39,13 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest) {
   try {
     // 1. Authentication check (same as /api/auth/me)
-    const userId = request.headers.get('x-user-id');
-
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { requireAuth } = await import('@/lib/security/auth');
+    const auth = await requireAuth(request);
+    if (auth instanceof NextResponse) {
+      return auth;
     }
-
-    // Validate session if token is present
-    const token = request.cookies.get('auth-token')?.value;
-    if (token) {
-      const payload = await verifyTokenEdge(token);
-      if (payload?.sessionId && payload.userId) {
-        const sessionValidation = await validateSession(payload.userId, payload.sessionId);
-        if (!sessionValidation.valid) {
-          return NextResponse.json(
-            { 
-              error: 'Session expired',
-              message: sessionValidation.message || 'Session expired (logged in elsewhere)'
-            },
-            { status: 401 }
-          );
-        }
-      }
-    }
+    
+    const userId = auth.userId;
 
     // 2. Parse and validate request body
     const body = await request.json();
@@ -126,14 +111,20 @@ export async function POST(request: NextRequest) {
     // 8. Invalidate all existing sessions (force re-login with new password)
     await deleteUserSessions(userId);
 
-    // 9. Clear auth cookie and return success
+    // 9. Clear auth cookie and return success (use same secure setting as login)
     const res = NextResponse.json({ ok: true });
-    res.cookies.set('auth-token', '', {
-      httpOnly: true,
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 0,
-    });
+    const protocol = request.headers.get('x-forwarded-proto') || (request.url.startsWith('https://') ? 'https' : 'http');
+    const isSecure = protocol === 'https';
+    res.headers.set(
+      'Set-Cookie',
+      serialize('auth-token', '', {
+        httpOnly: true,
+        secure: isSecure,
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 0,
+      })
+    );
     return res;
   } catch (error) {
     console.error('Change password error:', error);

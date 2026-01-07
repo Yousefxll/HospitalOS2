@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { runPxSla } from '@/lib/patient-experience/runSla';
 import { env } from '@/lib/env';
 
-/**
-
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+
+/**
+
  * GET /api/cron/patient-experience/run-sla
  * Cron endpoint for automatic SLA escalation
  * 

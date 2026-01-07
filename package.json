@@ -1,16 +1,24 @@
 {
-    "name": "sira",
+    "name": "sam",
     "version": "0.1.0",
     "private": true,
     "scripts": {
-        "dev": "NODE_OPTIONS='--max-old-space-size=512' next dev --hostname 0.0.0.0 --port 3000",
-        "dev:no-reload": "next dev --hostname 0.0.0.0 --port 3000",
-        "dev:webpack": "next dev --hostname 0.0.0.0 --port 3000",
-        "build": "next build",
-        "start": "next start -H 0.0.0.0",
+    "dev": "NODE_OPTIONS='--max-old-space-size=512' next dev --hostname 0.0.0.0 --port 3000",
+    "dev:no-reload": "next dev --hostname 0.0.0.0 --port 3000",
+    "dev:webpack": "next dev --hostname 0.0.0.0 --port 3000",
+    "build": "next build",
+    "start": "next start -H 0.0.0.0",
         "lint": "next lint --max-warnings=0 || true",
         "typecheck": "tsc --noEmit",
-        "test": "echo \"No tests specified\" && exit 0"
+        "test": "echo \"No tests specified\" && exit 0",
+        "bootstrap:owner": "dotenv -e .env.local -- tsx scripts/bootstrapOwner.ts",
+        "migrate:assign-users": "tsx scripts/migrations/005_assign_users_to_tenants.ts",
+        "migrate:tenant1": "dotenv -e .env.local -- tsx scripts/migrations/010_migrate_all_data_to_tenant1.ts",
+        "migrate:tenant-indexes": "dotenv -e .env.local -- tsx scripts/migrations/011_add_tenant_indexes.ts",
+        "migrate:transfer-tenants": "dotenv -e .env.local -- tsx scripts/migrations/012_transfer_data_between_tenants.ts",
+        "seed:test-tenant": "dotenv -e .env.local -- tsx scripts/seed/seed_test_tenant.ts",
+        "verify:tenant-isolation": "dotenv -e .env.local -- tsx scripts/verify_tenant_isolation.ts",
+        "verify:db-isolation": "node scripts/verify-tenant-isolation.cjs"
     },
     "engines": {
         "node": ">=20.0.0",
@@ -78,6 +86,7 @@
         "react-resizable-panels": "^3.0.3",
         "recharts": "^2.15.3",
         "sonner": "^2.0.5",
+        "swr": "^2.3.8",
         "tailwind-merge": "^3.3.1",
         "tailwindcss-animate": "^1.0.7",
         "uuid": "^9.0.1",
@@ -87,6 +96,7 @@
     "devDependencies": {
         "@types/react": "19.2.7",
         "autoprefixer": "^10.4.19",
+        "dotenv-cli": "^11.0.0",
         "globals": "^16.2.0",
         "postcss": "^8",
         "tailwindcss": "^3.4.1",

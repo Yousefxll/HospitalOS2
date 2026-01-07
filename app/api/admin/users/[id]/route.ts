@@ -5,6 +5,7 @@ import { requireAuth } from '@/lib/auth/requireAuth';
 import { getDefaultPermissionsForRole } from '@/lib/permissions';
 import { hashPassword } from '@/lib/auth';
 import { createAuditLog } from '@/lib/utils/audit';
+import { User } from '@/lib/models/User';
 
 
 export const dynamic = 'force-dynamic';
@@ -12,7 +13,7 @@ export const revalidate = 0;
 const updateUserSchema = z.object({
   permissions: z.array(z.string()).optional(),
   password: z.string().min(6).optional(),
-  role: z.enum(['admin', 'supervisor', 'staff', 'viewer', 'group-admin', 'hospital-admin']).optional(),
+  role: z.enum(['admin', 'supervisor', 'staff', 'viewer']).optional(),
   groupId: z.string().min(1).optional(),
   hospitalId: z.string().optional().nullable(),
   department: z.string().optional(),
@@ -45,6 +46,7 @@ export async function PATCH(
     const { id } = resolvedParams;
     
     const body = await request.json();
+    console.log('[Update User] Request body:', JSON.stringify(body, null, 2));
     const data = updateUserSchema.parse(body);
 
     const usersCollection = await getCollection('users');
@@ -72,7 +74,7 @@ export async function PATCH(
     }
 
     // Verify user exists and user has access
-    const existingUser = await usersCollection.findOne(query);
+    const existingUser = await usersCollection.findOne<User>(query);
 
     if (!existingUser) {
       return NextResponse.json(
@@ -81,23 +83,37 @@ export async function PATCH(
       );
     }
 
-    // Validate hospitalId based on role if role is being updated
-    const targetRole = data.role !== undefined ? data.role : existingUser.role;
-    const targetHospitalId = data.hospitalId !== undefined ? data.hospitalId : existingUser.hospitalId;
+    // Validate hospitalId based on role - only validate if role or hospitalId is being updated
+    // If only updating permissions/staffId/password, skip hospitalId validation
+    const isUpdatingRoleOrHospitalId = data.role !== undefined || data.hospitalId !== undefined;
+    
+    if (isUpdatingRoleOrHospitalId) {
+      const targetRole = data.role !== undefined ? data.role : existingUser.role;
+      const targetHospitalId = data.hospitalId !== undefined ? data.hospitalId : existingUser.hospitalId;
 
-    if (targetRole === 'hospital-admin' || targetRole === 'staff') {
-      if (!targetHospitalId) {
-        return NextResponse.json(
-          { error: 'hospitalId is required for hospital-admin and staff roles' },
-          { status: 400 }
-        );
-      }
-    } else if (targetRole === 'group-admin') {
-      if (targetHospitalId !== null && targetHospitalId !== undefined) {
-        return NextResponse.json(
-          { error: 'hospitalId must be null for group-admin role' },
-          { status: 400 }
-        );
+      console.log('[Update User] Validation (role/hospitalId update):', {
+        targetRole,
+        targetHospitalId,
+        existingUserRole: existingUser.role,
+        existingUserHospitalId: existingUser.hospitalId,
+        dataHospitalId: data.hospitalId,
+      });
+
+      if (targetRole === 'hospital-admin' || targetRole === 'staff') {
+        if (!targetHospitalId) {
+          console.error('[Update User] Validation failed: hospitalId required for', targetRole);
+          return NextResponse.json(
+            { error: 'hospitalId is required for hospital-admin and staff roles' },
+            { status: 400 }
+          );
+        }
+      } else if (targetRole === 'group-admin') {
+        if (targetHospitalId !== null && targetHospitalId !== undefined) {
+          return NextResponse.json(
+            { error: 'hospitalId must be null for group-admin role' },
+            { status: 400 }
+          );
+        }
       }
     }
 
@@ -189,7 +205,7 @@ export async function PATCH(
       { $set: updateData }
     );
 
-    const updatedUser = await usersCollection.findOne(
+    const updatedUser = await usersCollection.findOne<User>(
       query,
       { projection: { password: 0 } }
     );
@@ -207,6 +223,7 @@ export async function PATCH(
     console.error('Update user error:', error);
 
     if (error instanceof z.ZodError) {
+      console.error('[Update User] Zod validation errors:', JSON.stringify(error.errors, null, 2));
       return NextResponse.json(
         { error: 'Invalid request format', details: error.errors },
         { status: 400 }

@@ -2,26 +2,37 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Search, Bell, User } from 'lucide-react';
+import { LayoutDashboard, Stethoscope, Activity, Heart, FileText, User, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { useState, useEffect } from 'react';
+import { useMe } from '@/lib/hooks/useMe';
+import { hasRoutePermission } from '@/lib/permissions';
+import { useTranslation } from '@/hooks/use-translation';
 
 interface NavItem {
   href: string;
   icon: React.ComponentType<{ className?: string }>;
-  label: string;
+  labelKey: string; // Translation key instead of hardcoded label
   badge?: number;
+  requiredPermission?: string;
 }
 
-const navItems: NavItem[] = [
-  { href: '/dashboard', icon: Home, label: 'Home' },
-  { href: '/notifications', icon: Bell, label: 'Alerts' },
-  { href: '/account', icon: User, label: 'Profile' },
+// All possible nav items with translation keys
+const allNavItems: NavItem[] = [
+  { href: '/dashboard', icon: LayoutDashboard, labelKey: 'nav.dashboard', requiredPermission: 'dashboard.view' },
+  { href: '/opd/dashboard', icon: Stethoscope, labelKey: 'nav.opdDashboard', requiredPermission: 'opd.dashboard.view' },
+  { href: '/nursing/operations', icon: Activity, labelKey: 'nav.nursingOperations', requiredPermission: 'nursing.operations.view' },
+  { href: '/patient-experience/dashboard', icon: Heart, labelKey: 'nav.patientExperience', requiredPermission: 'px.dashboard.view' },
+  { href: '/policies', icon: FileText, labelKey: 'nav.library', requiredPermission: 'policies.view' },
+  { href: '/admin', icon: Settings, labelKey: 'nav.admin', requiredPermission: 'admin.users.view' },
+  { href: '/account', icon: User, labelKey: 'nav.account', requiredPermission: 'account.view' },
 ];
 
 export function MobileBottomNav() {
   const pathname = usePathname();
+  const { me } = useMe();
+  const { t } = useTranslation();
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
@@ -49,14 +60,31 @@ export function MobileBottomNav() {
     return () => clearInterval(interval);
   }, []);
 
-  const getNavItemsWithBadges = (): NavItem[] => {
-    return navItems.map((item) => {
-      if (item.href === '/notifications' && unreadCount > 0) {
-        return { ...item, badge: unreadCount };
-      }
-      return item;
-    });
-  };
+  // Filter nav items based on permissions
+  const userPermissions = me?.user?.permissions || [];
+  const userRole = me?.user?.role || '';
+  
+  // SYRA Owner sees all items
+  const visibleNavItems = userRole === 'syra-owner'
+    ? allNavItems
+    : allNavItems.filter((item) => {
+        if (!item.requiredPermission) return true;
+        return hasRoutePermission(userPermissions, item.href);
+      });
+
+  // Limit to 5 items max, prioritize main ones
+  const priorityOrder = ['/dashboard', '/opd/dashboard', '/nursing/operations', '/patient-experience/dashboard', '/policies', '/account', '/admin'];
+  const sortedItems = visibleNavItems.sort((a, b) => {
+    const aIndex = priorityOrder.indexOf(a.href);
+    const bIndex = priorityOrder.indexOf(b.href);
+    if (aIndex === -1 && bIndex === -1) return 0;
+    if (aIndex === -1) return 1;
+    if (bIndex === -1) return -1;
+    return aIndex - bIndex;
+  });
+
+  const mainNavItems = sortedItems.slice(0, 5);
+  const overflowItems = sortedItems.slice(5);
 
   return (
     <nav
@@ -70,7 +98,7 @@ export function MobileBottomNav() {
       }}
     >
       <div className="flex items-center justify-around h-16 px-2">
-        {getNavItemsWithBadges().map((item) => {
+        {mainNavItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
           
@@ -103,13 +131,41 @@ export function MobileBottomNav() {
                 )}
               </div>
               <span className="text-xs mt-0.5 truncate w-full text-center">
-                {item.label}
+                {(() => {
+                  const keys = item.labelKey.split('.');
+                  let value: any = t;
+                  for (const k of keys) {
+                    value = value?.[k];
+                  }
+                  return value || item.labelKey;
+                })()}
               </span>
             </Link>
           );
         })}
+        
+        {/* More button if there are overflow items */}
+        {overflowItems.length > 0 && (
+          <Link
+            href="/account"
+            className={cn(
+              'flex flex-col items-center justify-center',
+              'flex-1 h-full min-w-0',
+              'transition-all duration-200 active:scale-95',
+              pathname === '/account' || pathname.startsWith('/account/')
+                ? 'text-primary'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <div className="relative">
+              <User className="h-5 w-5" />
+            </div>
+            <span className="text-xs mt-0.5 truncate w-full text-center">
+              {t.common?.more || 'More'}
+            </span>
+          </Link>
+        )}
       </div>
     </nav>
   );
 }
-

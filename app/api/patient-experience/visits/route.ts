@@ -1,14 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
 import { detectLang } from '@/lib/translate/detectLang';
-
-/**
+import { requireAuth } from '@/lib/auth/requireAuth';
+import { requireRoleAsync, buildScopeFilter } from '@/lib/auth/requireRole';
+import { getActiveTenantId } from '@/lib/auth/sessionHelpers';
+import { addTenantDebugHeader } from '@/lib/utils/addTenantDebugHeader';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+
+/**
+
  * Helper to resolve keys to English labels
  */
-async function resolveLabels(records: any[]): Promise<any[]> {
+async function resolveLabels(records: any[], tenantId: string): Promise<any[]> {
   // Get all unique keys (including from classifications array)
   const floorKeys = Array.from(new Set(records.map(r => r.floorKey).filter(Boolean)));
   const departmentKeys = Array.from(new Set(records.map(r => r.departmentKey).filter(Boolean)));
@@ -24,28 +29,45 @@ async function resolveLabels(records: any[]): Promise<any[]> {
     ...records.flatMap(r => (r.classifications || []).map((c: any) => c.typeKey).filter(Boolean))
   ]));
 
-  // Fetch all labels in parallel
+  // OPTIMIZED: Fetch all labels in parallel with projection to reduce data transfer
+  // Note: tenantId must be passed as parameter for tenant isolation
   const floorsCollection = await getCollection('floors');
   const departmentsCollection = await getCollection('floor_departments');
   const roomsCollection = await getCollection('floor_rooms');
   const domainsCollection = await getCollection('complaint_domains');
   const typesCollection = await getCollection('complaint_types');
 
+  // Use projection to only fetch needed fields (faster)
   const [floors, departments, rooms, domains, types] = await Promise.all([
     floorKeys.length > 0
-      ? floorsCollection.find({ key: { $in: floorKeys }, active: true }).toArray()
+      ? floorsCollection.find(
+          { key: { $in: floorKeys }, active: true, tenantId: tenantId },
+          { projection: { key: 1, label_en: 1, labelEn: 1, name: 1, number: 1 } }
+        ).toArray()
       : Promise.resolve([]),
     departmentKeys.length > 0
-      ? departmentsCollection.find({ key: { $in: departmentKeys }, active: true }).toArray()
+      ? departmentsCollection.find(
+          { key: { $in: departmentKeys }, active: true, tenantId: tenantId },
+          { projection: { key: 1, label_en: 1, labelEn: 1, departmentName: 1 } }
+        ).toArray()
       : Promise.resolve([]),
     roomKeys.length > 0
-      ? roomsCollection.find({ key: { $in: roomKeys }, active: true }).toArray()
+      ? roomsCollection.find(
+          { key: { $in: roomKeys }, active: true, tenantId: tenantId },
+          { projection: { key: 1, label_en: 1, labelEn: 1, roomNumber: 1 } }
+        ).toArray()
       : Promise.resolve([]),
     domainKeys.length > 0
-      ? domainsCollection.find({ key: { $in: domainKeys }, active: true }).toArray()
+      ? domainsCollection.find(
+          { key: { $in: domainKeys }, active: true, tenantId: tenantId },
+          { projection: { key: 1, label_en: 1, labelEn: 1, name: 1 } }
+        ).toArray()
       : Promise.resolve([]),
     typeKeys.length > 0
-      ? typesCollection.find({ key: { $in: typeKeys }, active: true }).toArray()
+      ? typesCollection.find(
+          { key: { $in: typeKeys }, active: true, tenantId: tenantId },
+          { projection: { key: 1, label_en: 1, labelEn: 1, name: 1 } }
+        ).toArray()
       : Promise.resolve([]),
   ]);
 
@@ -101,13 +123,30 @@ async function resolveLabels(records: any[]): Promise<any[]> {
  */
 export async function GET(request: NextRequest) {
   try {
-    const userId = request.headers.get('x-user-id');
-    
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
+    // SINGLE SOURCE OF TRUTH: Get activeTenantId from session
+    const activeTenantId = await getActiveTenantId(request);
+    if (!activeTenantId) {
+      const response = NextResponse.json(
+        { error: 'Tenant not selected. Please log in again.' },
+        { status: 400 }
       );
+      addTenantDebugHeader(response, null);
+      return response;
+    }
+
+    // Authentication
+    const authResult = await requireAuth(request);
+    if (authResult instanceof NextResponse) {
+      addTenantDebugHeader(authResult, activeTenantId);
+      return authResult;
+    }
+    const { tenantId, userId, userRole } = authResult;
+
+    // RBAC: staff, supervisor, admin, syra-owner can view visits (with scope restrictions)
+    // syra-owner has full access when working within tenant context
+    const roleCheck = await requireRoleAsync(request, ['staff', 'supervisor', 'admin', 'syra-owner']);
+    if (roleCheck instanceof NextResponse) {
+      return roleCheck; // Returns 401 or 403
     }
 
     const { searchParams } = new URL(request.url);
@@ -133,9 +172,25 @@ export async function GET(request: NextRequest) {
 
     const patientExperienceCollection = await getCollection('patient_experience');
     
-    // Build query
-    const query: any = {};
+    // Build query with tenant isolation (GOLDEN RULE: tenantId from session only)
+    // Backward compatibility: include documents without tenantId until migration is run
+    const query: any = {
+      $or: [
+        { tenantId: tenantId },
+        { tenantId: { $exists: false } }, // Backward compatibility for existing data
+        { tenantId: null },
+        { tenantId: '' },
+      ],
+    };
     
+    // Apply role-based filtering
+    // Staff and Admin: see all visits within tenant (same organization)
+    if (userRole === 'supervisor') {
+      // Supervisor: department scope
+      const scopeFilter = buildScopeFilter(roleCheck, 'departmentKey');
+      Object.assign(query, scopeFilter);
+    }
+    // Staff, Admin and syra-owner: no additional filter (sees all within tenant)
     // Date range filter
     if (from || to) {
       query.visitDate = {};
@@ -213,13 +268,13 @@ export async function GET(request: NextRequest) {
       return record;
     });
 
-    // Resolve keys to English labels
-    const resolvedRecords = await resolveLabels(normalizedRecords);
+    // OPTIMIZED: Get total count in parallel with label resolution
+    const [resolvedRecords, total] = await Promise.all([
+      resolveLabels(normalizedRecords, tenantId),
+      patientExperienceCollection.countDocuments(query)
+    ]);
 
-    // Get total count for pagination
-    const total = await patientExperienceCollection.countDocuments(query);
-
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       data: resolvedRecords,
       pagination: {
@@ -232,11 +287,19 @@ export async function GET(request: NextRequest) {
         hasMore: skip + limit < total,
       },
     });
+    
+    // Add debug header (X-Active-Tenant)
+    addTenantDebugHeader(response, activeTenantId);
+    
+    return response;
   } catch (error: any) {
     console.error('Patient experience visits error:', error);
-    return NextResponse.json(
+    const response = NextResponse.json(
       { error: 'Failed to fetch visits', details: error.message },
       { status: 500 }
     );
+    const activeTenantId = await getActiveTenantId(request).catch(() => null);
+    addTenantDebugHeader(response, activeTenantId);
+    return response;
   }
 }

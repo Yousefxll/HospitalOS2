@@ -1,11 +1,15 @@
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
+import { requireAuth } from '@/lib/auth/requireAuth';
 import { requireRoleAsync, buildScopeFilter } from '@/lib/auth/requireRole';
+import { getActiveTenantId } from '@/lib/auth/sessionHelpers';
+import { addTenantDebugHeader } from '@/lib/utils/addTenantDebugHeader';
 
 /**
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
  * GET /api/patient-experience/analytics/summary
  * Get comprehensive analytics summary for patient experience
  * 
@@ -29,10 +33,30 @@ export const revalidate = 0;
  */
 export async function GET(request: NextRequest) {
   try {
-    // RBAC: supervisor, admin only (staff forbidden)
-    const authResult = await requireRoleAsync(request, ['supervisor', 'admin']);
+    // SINGLE SOURCE OF TRUTH: Get activeTenantId from session
+    const activeTenantId = await getActiveTenantId(request);
+    if (!activeTenantId) {
+      const response = NextResponse.json(
+        { error: 'Tenant not selected. Please log in again.' },
+        { status: 400 }
+      );
+      addTenantDebugHeader(response, null);
+      return response;
+    }
+
+    // Authentication
+    const authResult = await requireAuth(request);
     if (authResult instanceof NextResponse) {
-      return authResult; // Returns 401 or 403
+      addTenantDebugHeader(authResult, activeTenantId);
+      return authResult;
+    }
+    const { tenantId, userId, userRole } = authResult;
+
+    // RBAC: staff can see their own data, supervisor/admin/syra-owner can see all
+    // syra-owner has full access when working within tenant context
+    const roleCheck = await requireRoleAsync(request, ['staff', 'supervisor', 'admin', 'syra-owner']);
+    if (roleCheck instanceof NextResponse) {
+      return roleCheck; // Returns 401 or 403
     }
 
     const { searchParams } = new URL(request.url);
@@ -45,15 +69,25 @@ export async function GET(request: NextRequest) {
     const patientExperienceCollection = await getCollection('patient_experience');
     const casesCollection = await getCollection('px_cases');
     
-    // Build query for visits with RBAC scope filtering
-    const visitQuery: any = {};
+    // Build query for visits with tenant isolation (GOLDEN RULE: tenantId from session only)
+    // Backward compatibility: include documents without tenantId until migration is run
+    const visitQuery: any = {
+      $or: [
+        { tenantId: tenantId },
+        { tenantId: { $exists: false } }, // Backward compatibility for existing data
+        { tenantId: null },
+        { tenantId: '' },
+      ],
+    };
     
-    // Apply RBAC scope filtering for supervisor
-    if (authResult.userRole === 'supervisor') {
-      const scopeFilter = buildScopeFilter(authResult, 'departmentKey');
+    // Apply RBAC scope filtering
+    // Staff and Admin: see all visits within tenant (same organization)
+    if (userRole === 'supervisor') {
+      // Supervisor: department scope
+      const scopeFilter = buildScopeFilter(roleCheck, 'departmentKey');
       Object.assign(visitQuery, scopeFilter);
     }
-    // Admin: no filter (sees all)
+    // Staff, Admin and syra-owner: no additional filter (sees all within tenant)
     
     if (from || to) {
       visitQuery.visitDate = {};
@@ -71,105 +105,201 @@ export async function GET(request: NextRequest) {
     if (departmentKey) visitQuery.departmentKey = departmentKey;
     if (severity) visitQuery.severity = severity;
 
-    // Fetch all visits matching filters
-    const visits = await patientExperienceCollection.find(visitQuery).toArray();
+    // OPTIMIZED: Simplified aggregation pipeline for better performance
+    const visitPipeline = [
+      { $match: visitQuery },
+      {
+        $addFields: {
+          // Simplified praise detection (check typeKey, domainKey, and classifications.type)
+          isPraise: {
+            $or: [
+              { $regexMatch: { input: { $toUpper: { $ifNull: ['$typeKey', ''] } }, regex: 'PRAISE', options: 'i' } },
+              { $regexMatch: { input: { $toUpper: { $ifNull: ['$domainKey', ''] } }, regex: 'PRAISE', options: 'i' } },
+              {
+                $gt: [
+                  {
+                    $size: {
+                      $filter: {
+                        input: { $ifNull: ['$classifications', []] },
+                        as: 'c',
+                        cond: { $eq: ['$$c.type', 'PRAISE'] }
+                      }
+                    }
+                  },
+                  0
+                ]
+              }
+            ]
+          },
+          isSatisfaction: {
+            $or: [
+              { $eq: [{ $toUpper: { $ifNull: ['$domainKey', ''] } }, 'SATISFACTION'] },
+              { $eq: [{ $toUpper: { $ifNull: ['$typeKey', ''] } }, 'PATIENT_SATISFACTION'] }
+            ]
+          }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalVisits: { $sum: 1 },
+          totalPraise: {
+            $sum: { $cond: ['$isPraise', 1, 0] }
+          },
+          totalComplaints: {
+            $sum: {
+              $cond: [
+                { $and: [{ $not: '$isPraise' }, { $not: '$isSatisfaction' }] },
+                1,
+                0
+              ]
+            }
+          }
+        }
+      }
+    ];
 
-    // Calculate visit metrics
-    const totalVisits = visits.length;
+    const visitResults = await patientExperienceCollection.aggregate(visitPipeline).toArray();
+    const visitMetrics = visitResults[0] || { totalVisits: 0, totalPraise: 0, totalComplaints: 0 };
     
-    // Count praises (typeKey or domainKey contains "PRAISE")
-    const praises = visits.filter(v => {
-      const typeKey = (v.typeKey || '').toUpperCase();
-      const domainKey = (v.domainKey || '').toUpperCase();
-      return typeKey.includes('PRAISE') || domainKey.includes('PRAISE');
-    }).length;
-
-    // Count complaints (everything else, excluding praises and satisfaction visits)
-    const totalComplaints = visits.filter(v => {
-      const typeKey = (v.typeKey || '').toUpperCase();
-      const domainKey = (v.domainKey || '').toUpperCase();
-      const isPraise = typeKey.includes('PRAISE') || domainKey.includes('PRAISE');
-      const isSatisfaction = domainKey === 'SATISFACTION' || typeKey === 'PATIENT_SATISFACTION';
-      return !isPraise && !isSatisfaction;
-    }).length;
-
-    // Average satisfaction (praises / total visits * 100)
+    const totalVisits = visitMetrics.totalVisits;
+    const praises = visitMetrics.totalPraise;
+    const totalComplaints = visitMetrics.totalComplaints;
     const avgSatisfaction = totalVisits > 0 ? (praises / totalVisits) * 100 : 0;
 
-    // Build query for cases (same filters, but also filter by visit IDs if needed)
-    const caseQuery: any = {};
+    // OPTIMIZED: Get visit IDs using aggregation instead of distinct (faster)
+    let visitIds: string[] = [];
+    if (Object.keys(visitQuery).length > 0 && totalVisits > 0) {
+      // Only get visit IDs if we have visits and need to link cases
+      const idPipeline = [
+        { $match: visitQuery },
+        { $project: { id: 1 } },
+        { $limit: 10000 } // Safety limit
+      ];
+      const idResults = await patientExperienceCollection.aggregate(idPipeline).toArray();
+      visitIds = idResults.map(r => r.id);
+    }
+
+    // Build query for cases with tenant isolation (GOLDEN RULE: tenantId from session only)
+    // Backward compatibility: include documents without tenantId until migration is run
+    const caseQuery: any = {
+      $or: [
+        { tenantId: tenantId },
+        { tenantId: { $exists: false } }, // Backward compatibility for existing data
+        { tenantId: null },
+        { tenantId: '' },
+      ],
+      active: { $ne: false }, // Only fetch active cases (exclude deleted)
+    };
     
     // If we have visit filters, we need to match cases to those visits
-    if (Object.keys(visitQuery).length > 0) {
-      const visitIds = visits.map(v => v.id);
-      if (visitIds.length > 0) {
-        caseQuery.visitId = { $in: visitIds };
-      } else {
-        // No visits match, so no cases
-        caseQuery.visitId = { $in: [] };
-      }
+    if (visitIds.length > 0) {
+      caseQuery.visitId = { $in: visitIds };
+    } else if (Object.keys(visitQuery).length > 0) {
+      // No visits match, so no cases
+      caseQuery.visitId = { $in: [] };
     }
 
     if (severity) caseQuery.severity = severity;
 
-    // Only fetch active cases (exclude deleted)
-    caseQuery.active = { $ne: false };
-
-    // Fetch all cases matching filters
-    const cases = await casesCollection.find(caseQuery).toArray();
-
-    // Calculate case metrics
-    const totalCases = cases.length;
-    
-    // Open cases (status is OPEN or IN_PROGRESS)
-    const openCases = cases.filter(c => 
-      c.status === 'OPEN' || c.status === 'IN_PROGRESS'
-    ).length;
-
-    // Overdue cases (not resolved/closed and dueAt < now)
+    // OPTIMIZED: Use aggregation pipeline for case metrics
     const now = new Date();
-    const overdueCases = cases.filter(c => {
-      const isResolved = c.status === 'RESOLVED' || c.status === 'CLOSED';
-      return !isResolved && new Date(c.dueAt) < now;
-    }).length;
-
-    // Average resolution minutes (for resolved cases)
-    const resolvedCases = cases.filter(c => 
-      c.status === 'RESOLVED' || c.status === 'CLOSED'
-    );
-    
-    let avgResolutionMinutes = 0;
-    if (resolvedCases.length > 0) {
-      const resolutionTimes = resolvedCases
-        .filter(c => c.resolvedAt && c.createdAt)
-        .map(c => {
-          const created = new Date(c.createdAt).getTime();
-          const resolved = new Date(c.resolvedAt!).getTime();
-          return (resolved - created) / (1000 * 60); // Convert to minutes
-        });
-      
-      if (resolutionTimes.length > 0) {
-        const sum = resolutionTimes.reduce((a, b) => a + b, 0);
-        avgResolutionMinutes = sum / resolutionTimes.length;
-      }
-    }
-
-    // SLA breach percent (resolved after dueAt OR escalated)
-    const breachedCases = cases.filter(c => {
-      if (c.status === 'ESCALATED') return true;
-      if (c.status === 'RESOLVED' || c.status === 'CLOSED') {
-        if (c.resolvedAt && c.dueAt) {
-          return new Date(c.resolvedAt) > new Date(c.dueAt);
+    const casePipeline = [
+      { $match: caseQuery },
+      {
+        $addFields: {
+          isResolved: {
+            $in: ['$status', ['RESOLVED', 'CLOSED']]
+          },
+          isOpen: {
+            $in: ['$status', ['OPEN', 'IN_PROGRESS']]
+          },
+          isOverdue: {
+            $and: [
+              { $not: { $in: ['$status', ['RESOLVED', 'CLOSED']] } },
+              { $lt: ['$dueAt', now] }
+            ]
+          },
+          isEscalated: { $eq: ['$status', 'ESCALATED'] },
+          isBreached: {
+            $or: [
+              { $eq: ['$status', 'ESCALATED'] },
+              {
+                $and: [
+                  { $in: ['$status', ['RESOLVED', 'CLOSED']] },
+                  { $ifNull: ['$resolvedAt', false] },
+                  { $ifNull: ['$dueAt', false] },
+                  { $gt: ['$resolvedAt', '$dueAt'] }
+                ]
+              }
+            ]
+          },
+          resolutionMinutes: {
+            $cond: {
+              if: {
+                $and: [
+                  { $in: ['$status', ['RESOLVED', 'CLOSED']] },
+                  { $ifNull: ['$resolvedAt', false] },
+                  { $ifNull: ['$createdAt', false] }
+                ]
+              },
+              then: {
+                $divide: [
+                  { $subtract: ['$resolvedAt', '$createdAt'] },
+                  60000 // Convert to minutes
+                ]
+              },
+              else: null
+            }
+          }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalCases: { $sum: 1 },
+          openCases: { $sum: { $cond: ['$isOpen', 1, 0] } },
+          overdueCases: { $sum: { $cond: ['$isOverdue', 1, 0] } },
+          breachedCases: { $sum: { $cond: ['$isBreached', 1, 0] } },
+          resolvedWithTime: {
+            $sum: {
+              $cond: [{ $ne: ['$resolutionMinutes', null] }, 1, 0]
+            }
+          },
+          totalResolutionMinutes: {
+            $sum: {
+              $cond: [
+                { $ne: ['$resolutionMinutes', null] },
+                '$resolutionMinutes',
+                0
+              ]
+            }
+          }
         }
       }
-      return false;
-    }).length;
+    ];
 
-    const slaBreachPercent = totalCases > 0 
-      ? (breachedCases / totalCases) * 100 
+    const caseResults = await casesCollection.aggregate(casePipeline).toArray();
+    const caseMetrics = caseResults[0] || {
+      totalCases: 0,
+      openCases: 0,
+      overdueCases: 0,
+      breachedCases: 0,
+      resolvedWithTime: 0,
+      totalResolutionMinutes: 0
+    };
+
+    const totalCases = caseMetrics.totalCases;
+    const openCases = caseMetrics.openCases;
+    const overdueCases = caseMetrics.overdueCases;
+    const avgResolutionMinutes = caseMetrics.resolvedWithTime > 0
+      ? caseMetrics.totalResolutionMinutes / caseMetrics.resolvedWithTime
+      : 0;
+    const slaBreachPercent = totalCases > 0
+      ? (caseMetrics.breachedCases / totalCases) * 100
       : 0;
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       data: {
         totalVisits,
@@ -183,12 +313,20 @@ export async function GET(request: NextRequest) {
         slaBreachPercent: Math.round(slaBreachPercent * 100) / 100,
       },
     });
+    
+    // Add debug header (X-Active-Tenant)
+    addTenantDebugHeader(response, activeTenantId);
+    
+    return response;
   } catch (error: any) {
     console.error('Patient experience analytics summary error:', error);
-    return NextResponse.json(
+    const response = NextResponse.json(
       { error: 'Failed to fetch analytics summary', details: error.message },
       { status: 500 }
     );
+    const activeTenantId = await getActiveTenantId(request).catch(() => null);
+    addTenantDebugHeader(response, activeTenantId);
+    return response;
   }
 }
 

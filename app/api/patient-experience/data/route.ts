@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireRoleAsync } from '@/lib/auth/requireRole';
 import { getCollection } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
+import type { User } from '@/lib/models/User';
+import type { Department } from '@/lib/models/Department';
+import type { Floor, FloorDepartment, FloorRoom } from '@/lib/models/Floor';
 
 // Helper function to generate English keys
 
@@ -38,7 +41,8 @@ export async function GET(request: NextRequest) {
   try {
     // RBAC: Allow all authenticated users to read structure data (floors, departments, rooms)
     // Only admin can modify via /api/admin/structure
-    const authResult = await requireRoleAsync(request, ['admin', 'supervisor', 'staff', 'viewer']);
+    // syra-owner has full access when working within tenant context
+    const authResult = await requireRoleAsync(request, ['admin', 'supervisor', 'staff', 'viewer', 'syra-owner']);
     if (authResult instanceof NextResponse) {
       return authResult; // Returns 401 or 403
     }
@@ -46,10 +50,21 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type'); // 'floors', 'departments', 'rooms', 'complaint-types'
 
+    // GOLDEN RULE: tenantId must ALWAYS come from session
+    const { requireTenantId } = await import('@/lib/tenant');
+    const tenantIdResult = await requireTenantId(request);
+    if (tenantIdResult instanceof NextResponse) {
+      return tenantIdResult;
+    }
+    const tenantId = tenantIdResult;
+
     if (type === 'floors') {
       const floorsCollection = await getCollection('floors');
       const floors = await floorsCollection
-        .find({ active: true })
+        .find({ 
+          active: true,
+          tenantId: tenantId, // TENANT ISOLATION: Only show floors for current tenant
+        })
         .sort({ number: 1 })
         .toArray();
       // Normalize labels for backward compatibility
@@ -67,29 +82,32 @@ export async function GET(request: NextRequest) {
       
       // If floorId or floorKey is provided, filter departments that belong to that floor
       if (floorId || floorKey) {
-        // Get floor info
+        // Get floor info (with tenant isolation)
         let floor: any = null;
         if (floorKey) {
-          floor = await floorsCollection.findOne({ key: floorKey, active: true });
+          floor = await floorsCollection.findOne<Floor>({ key: floorKey, active: true, tenantId: tenantId });
         } else if (floorId) {
-          floor = await floorsCollection.findOne({ 
+          floor = await floorsCollection.findOne<Floor>({ 
             $or: [
-              { id: floorId, active: true },
-              { number: floorId, active: true }
+              { id: floorId, active: true, tenantId: tenantId },
+              { number: floorId, active: true, tenantId: tenantId }
             ]
           });
         }
         
         if (floor) {
           // Filter departments that have this floorId (departments collection has floorId field)
+          // Use floor_departments collection (not departments) for PX structure
+          const floorDepartmentsCollection = await getCollection('floor_departments');
           const departmentsQuery: any = { 
-            isActive: true,
-            floorId: floor.id // Use floor.id directly from structure API
+            active: true,
+            tenantId: tenantId, // TENANT ISOLATION
+            floorKey: floor.key // Use floorKey to match
           };
           
-          const filteredDepts = await departmentsCollection
+          const filteredDepts = await floorDepartmentsCollection
             .find(departmentsQuery)
-            .sort({ name: 1 })
+            .sort({ label_en: 1 })
             .toArray();
           
           // Transform to match expected format
@@ -113,11 +131,15 @@ export async function GET(request: NextRequest) {
         }
       }
       
-      // If all=true or no floor filter: return all departments
-      const departmentsQuery: any = { isActive: true };
-      const allDepts = await departmentsCollection
+      // If all=true or no floor filter: return all departments (with tenant isolation)
+      const floorDepartmentsCollection = await getCollection('floor_departments');
+      const departmentsQuery: any = { 
+        active: true,
+        tenantId: tenantId, // TENANT ISOLATION
+      };
+      const allDepts = await floorDepartmentsCollection
         .find(departmentsQuery)
-        .sort({ name: 1 })
+        .sort({ label_en: 1 })
         .toArray();
       
       // Transform to match expected format
@@ -150,14 +172,71 @@ export async function GET(request: NextRequest) {
     if (type === 'all-departments') {
       // Get all departments (OPD, IPD, and BOTH) for Patient Experience
       // Patient Experience needs access to all hospital departments regardless of type
+      // Check both 'departments' (Structure Management) and 'floor_departments' (PX structure) collections
       const departmentsCollection = await getCollection('departments');
-      const departments = await departmentsCollection
+      const floorDepartmentsCollection = await getCollection('floor_departments');
+      
+      // TENANT ISOLATION: Build query with tenant filter
+      const tenantFilter = {
+        $or: [
+          { tenantId: tenantId },
+          { tenantId: { $exists: false } }, // Backward compatibility
+          { tenantId: null },
+          { tenantId: '' },
+        ],
+      };
+      
+      // Get departments from Structure Management (departments collection)
+      const structureDepts = await departmentsCollection
         .find({ 
-          isActive: true, // Use isActive for departments collection (not active)
+          isActive: true,
+          ...tenantFilter
         })
         .sort({ name: 1 })
         .toArray();
-      return NextResponse.json({ success: true, data: departments });
+      
+      // Get departments from PX structure (floor_departments collection)
+      const pxDepts = await floorDepartmentsCollection
+        .find({ 
+          active: true,
+          ...tenantFilter
+        })
+        .sort({ label_en: 1 })
+        .toArray();
+      
+      // Transform structure departments to match expected format
+      const transformedStructureDepts = structureDepts.map((dept: any) => ({
+        id: dept.id,
+        floorId: dept.floorId,
+        floorKey: dept.floorId ? `FLOOR_${dept.floorId}` : undefined,
+        departmentId: dept.id,
+        departmentKey: dept.code || dept.id,
+        departmentName: dept.name,
+        name: dept.name,
+        code: dept.code,
+        type: dept.type || 'BOTH',
+        key: dept.code || dept.id,
+        label_en: dept.name,
+        label_ar: dept.name,
+        active: dept.isActive !== false,
+        isActive: dept.isActive !== false,
+        createdAt: dept.createdAt,
+        updatedAt: dept.updatedAt,
+        createdBy: dept.createdBy,
+        updatedBy: dept.updatedBy,
+        tenantId: dept.tenantId,
+      }));
+      
+      // Combine both sources (prefer structure departments, add PX departments that don't exist)
+      const allDepts = [...transformedStructureDepts];
+      pxDepts.forEach((pxDept: any) => {
+        // Only add if not already in structure departments
+        if (!allDepts.find(d => d.id === pxDept.id || d.departmentKey === pxDept.departmentKey)) {
+          allDepts.push(pxDept);
+        }
+      });
+      
+      return NextResponse.json({ success: true, data: allDepts });
     }
 
     if (type === 'rooms') {
@@ -175,9 +254,12 @@ export async function GET(request: NextRequest) {
         );
       }
       
-      // Use 'rooms' collection (same as structure API)
-      const roomsCollection = await getCollection('rooms');
-      const query: any = { active: true };
+      // Use 'floor_rooms' collection (same as structure API) with tenant isolation
+      const roomsCollection = await getCollection('floor_rooms');
+      const query: any = { 
+        active: true,
+        tenantId: tenantId, // TENANT ISOLATION
+      };
       
       // Filter by department
       if (departmentId) {
@@ -206,7 +288,10 @@ export async function GET(request: NextRequest) {
       const complaintTypesCollection = await getCollection('complaint_types');
       const domainKey = searchParams.get('domainKey');
       
-      const query: any = { active: true };
+      const query: any = { 
+        active: true,
+        tenantId: tenantId, // TENANT ISOLATION
+      };
       if (domainKey) {
         query.domainKey = domainKey;
       }
@@ -223,7 +308,10 @@ export async function GET(request: NextRequest) {
     if (type === 'complaint-domains') {
       const complaintDomainsCollection = await getCollection('complaint_domains');
       const domains = await complaintDomainsCollection
-        .find({ active: true })
+        .find({ 
+          active: true,
+          tenantId: tenantId, // TENANT ISOLATION
+        })
         .sort({ label_en: 1 })
         .toArray();
       return NextResponse.json({ success: true, data: domains });
@@ -232,7 +320,10 @@ export async function GET(request: NextRequest) {
     if (type === 'praise-categories') {
       const praiseCategoriesCollection = await getCollection('praise_categories');
       const categories = await praiseCategoriesCollection
-        .find({ active: true })
+        .find({ 
+          active: true,
+          tenantId: tenantId, // TENANT ISOLATION
+        })
         .sort({ label_en: 1 })
         .toArray();
       return NextResponse.json({ success: true, data: categories });
@@ -241,7 +332,10 @@ export async function GET(request: NextRequest) {
     if (type === 'sla-rules') {
       const slaRulesCollection = await getCollection('sla_rules');
       const severity = searchParams.get('severity');
-      const query: any = { active: true };
+      const query: any = { 
+        active: true,
+        tenantId: tenantId, // TENANT ISOLATION
+      };
       if (severity) {
         query.severity = severity;
       }
@@ -255,7 +349,10 @@ export async function GET(request: NextRequest) {
     if (type === 'nursing-complaint-types') {
       const nursingComplaintTypesCollection = await getCollection('nursing_complaint_types');
       const complaintTypeKey = searchParams.get('complaintTypeKey'); // Filter by parent Classification
-      const query: any = { active: true };
+      const query: any = { 
+        active: true,
+        tenantId: tenantId, // TENANT ISOLATION
+      };
       if (complaintTypeKey) {
         query.complaintTypeKey = complaintTypeKey; // Filter by parent Classification
       }
@@ -290,7 +387,7 @@ export async function POST(request: NextRequest) {
 
     // Check permission: admin.structure-management.create
     const usersCollection = await getCollection('users');
-    const user = await usersCollection.findOne({ id: authResult.userId });
+    const user = await usersCollection.findOne<User>({ id: authResult.userId });
     const userPermissions = user?.permissions || [];
     
     console.log('[POST /api/patient-experience/data] User permissions:', userPermissions);
@@ -362,7 +459,7 @@ export async function POST(request: NextRequest) {
 
       if (data.departmentId) {
         // Using existing department
-        const department = await departmentsCollection.findOne({ id: data.departmentId });
+        const department = await departmentsCollection.findOne<Department>({ id: data.departmentId });
         if (!department) {
           return NextResponse.json(
             { error: 'القسم غير موجود' },
@@ -374,7 +471,7 @@ export async function POST(request: NextRequest) {
       } else if (data.departmentName) {
         // Creating new department
         // Check if department with same name already exists
-        const existingDept = await departmentsCollection.findOne({ 
+        const existingDept = await departmentsCollection.findOne<Department>({ 
           name: data.departmentName,
           isActive: true // Use isActive for departments collection
         });
@@ -416,7 +513,7 @@ export async function POST(request: NextRequest) {
 
       // Get floor info for floorKey
       const floorsCollection = await getCollection('floors');
-      const floor = await floorsCollection.findOne({ 
+      const floor = await floorsCollection.findOne<Floor>({ 
         $or: [
           { number: data.floorId },
           { key: data.floorKey }
@@ -426,16 +523,17 @@ export async function POST(request: NextRequest) {
       const floorKey = floor?.key || data.floorKey || generateKey('FLOOR', data.floorId);
 
       // Get department key
-      const dept = await departmentsCollection.findOne({ id: departmentId, active: true });
-      const departmentKey = dept?.key || generateKey('DEPT', departmentName);
+      const dept = await departmentsCollection.findOne<Department>({ id: departmentId, active: true });
+      // Department doesn't have 'key', use FloorDepartment if needed, or generate key
+      const departmentKey = generateKey('DEPT', departmentName);
       const deptKey = data.key || data.departmentKey || departmentKey;
       
       // Support both camelCase and snake_case input
-      const label_en = data.label_en || data.labelEn || dept?.label_en || dept?.labelEn || departmentName;
-      const label_ar = data.label_ar || data.labelAr || dept?.label_ar || dept?.labelAr || departmentName;
+      const label_en = data.label_en || data.labelEn || departmentName;
+      const label_ar = data.label_ar || data.labelAr || departmentName;
 
       // Check if department already exists in this floor (only active)
-      const existing = await floorDepartmentsCollection.findOne({
+      const existing = await floorDepartmentsCollection.findOne<FloorDepartment>({
         $or: [
           { floorId: data.floorId, departmentId: departmentId },
           { floorKey: floorKey, departmentKey: departmentKey }
@@ -474,7 +572,7 @@ export async function POST(request: NextRequest) {
       const floorRoomsCollection = await getCollection('floor_rooms');
       
       // Check if room already exists (only active rooms)
-      const existing = await floorRoomsCollection.findOne({
+      const existing = await floorRoomsCollection.findOne<FloorRoom>({
         floorId: data.floorId,
         departmentId: data.departmentId,
         roomNumber: data.roomNumber,
@@ -490,8 +588,8 @@ export async function POST(request: NextRequest) {
       // Get floor and department keys
       const floorsCollection = await getCollection('floors');
       const floorDepartmentsCollection = await getCollection('floor_departments');
-      const floor = await floorsCollection.findOne({ number: data.floorId, active: true });
-      const floorDept = await floorDepartmentsCollection.findOne({ 
+      const floor = await floorsCollection.findOne<Floor>({ number: data.floorId, active: true });
+      const floorDept = await floorDepartmentsCollection.findOne<FloorDepartment>({ 
         floorId: data.floorId, 
         departmentId: data.departmentId,
         active: true
@@ -795,7 +893,7 @@ export async function PUT(request: NextRequest) {
 
     // Check permission: admin.structure-management.edit
     const usersCollection = await getCollection('users');
-    const user = await usersCollection.findOne({ id: authResult.userId });
+    const user = await usersCollection.findOne<User>({ id: authResult.userId });
     const userPermissions = user?.permissions || [];
     
     // Allow if user has admin.structure-management.edit or admin.users (admin access)
@@ -869,7 +967,7 @@ export async function PUT(request: NextRequest) {
       const floorsCollection = await getCollection('floors');
       
       if (data.departmentId) {
-        const department = await departmentsCollection.findOne({ id: data.departmentId, active: true });
+        const department = await departmentsCollection.findOne<Department>({ id: data.departmentId, active: true });
         if (!department) {
           return NextResponse.json(
             { error: 'القسم غير موجود' },
@@ -878,7 +976,7 @@ export async function PUT(request: NextRequest) {
         }
 
         // Check if department already exists in this floor (excluding current, only active)
-        const existing = await floorDepartmentsCollection.findOne({
+        const existing = await floorDepartmentsCollection.findOne<FloorDepartment>({
           floorId: data.floorId,
           departmentId: data.departmentId,
           id: { $ne: id },
@@ -891,21 +989,21 @@ export async function PUT(request: NextRequest) {
           );
         }
 
-        const dept = await departmentsCollection.findOne({ id: data.departmentId, active: true });
-        const departmentKey = dept?.key || generateKey('DEPT', department.name);
+        const dept = await departmentsCollection.findOne<Department>({ id: data.departmentId, active: true });
+        const departmentKey = generateKey('DEPT', department.name);
         const updateData: any = {
           key: data.key || departmentKey,
           departmentId: data.departmentId,
           departmentName: department.name,
           departmentKey,
-          label_en: data.label_en || data.labelEn || dept?.label_en || dept?.labelEn || department.name,
-          label_ar: data.label_ar || data.labelAr || dept?.label_ar || dept?.labelAr || department.name,
+          label_en: data.label_en || data.labelEn || department.name,
+          label_ar: data.label_ar || data.labelAr || department.name,
           updatedAt: new Date(),
           updatedBy: authResult.userId,
         };
         
         if (data.floorId) {
-          const floor = await floorsCollection.findOne({ number: data.floorId, active: true });
+          const floor = await floorsCollection.findOne<Floor>({ number: data.floorId, active: true });
           updateData.floorId = data.floorId;
           updateData.floorKey = floor?.key || generateKey('FLOOR', data.floorId);
         }
@@ -925,7 +1023,7 @@ export async function PUT(request: NextRequest) {
       
       if (data.roomNumber) {
         // Check if room already exists (excluding current, only active)
-        const existing = await floorRoomsCollection.findOne({
+        const existing = await floorRoomsCollection.findOne<FloorRoom>({
           floorId: data.floorId,
           departmentId: data.departmentId,
           roomNumber: data.roomNumber,
@@ -946,12 +1044,12 @@ export async function PUT(request: NextRequest) {
       };
       
       if (data.floorId) {
-        const floor = await floorsCollection.findOne({ number: data.floorId, active: true });
+        const floor = await floorsCollection.findOne<Floor>({ number: data.floorId, active: true });
         updateData.floorId = data.floorId;
         updateData.floorKey = floor?.key || generateKey('FLOOR', data.floorId);
       }
       if (data.departmentId) {
-        const floorDept = await floorDepartmentsCollection.findOne({ 
+        const floorDept = await floorDepartmentsCollection.findOne<FloorDepartment>({ 
           floorId: data.floorId || updateData.floorId,
           departmentId: data.departmentId,
           active: true
@@ -1217,7 +1315,7 @@ export async function DELETE(request: NextRequest) {
 
     // Check permission: admin.structure-management.delete
     const usersCollection = await getCollection('users');
-    const user = await usersCollection.findOne({ id: authResult.userId });
+    const user = await usersCollection.findOne<User>({ id: authResult.userId });
     const userPermissions = user?.permissions || [];
     
     // Allow if user has admin.structure-management.delete or admin.users (admin access)

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
-import { requireRole } from '@/lib/rbac';
+import { requireAuth } from '@/lib/security/auth';
+import { requireRole } from '@/lib/security/auth';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 import fs from 'fs';
@@ -10,6 +11,7 @@ import pdfParse from 'pdf-parse';
 export const runtime = 'nodejs';
 
 import { env } from '@/lib/env';
+import type { PolicyDocument } from '@/lib/models/Policy';
 
 // Dynamic import for pdf-parse
 
@@ -121,12 +123,19 @@ async function createIndexes() {
 
 export async function POST(request: NextRequest) {
   try {
-    const userRole = request.headers.get('x-user-role') as 'admin' | 'supervisor' | 'staff' | 'viewer' | null;
-    const userId = request.headers.get('x-user-id');
-
-    if (!userRole || !requireRole(userRole, ['admin', 'supervisor'])) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // Authenticate
+    const auth = await requireAuth(request);
+    if (auth instanceof NextResponse) {
+      return auth;
     }
+
+    // Check role: admin or supervisor
+    const roleCheck = await requireRole(request, ['admin', 'supervisor'], auth);
+    if (roleCheck instanceof NextResponse) {
+      return roleCheck;
+    }
+    
+    const userId = auth.userId;
 
     const formData = await request.formData();
     const file = formData.get('file') as File;
@@ -156,7 +165,7 @@ export async function POST(request: NextRequest) {
 
     // Check if file already exists
     const policiesCollection = await getCollection('policy_documents');
-    const existing = await policiesCollection.findOne({ fileHash, isActive: true });
+    const existing = await policiesCollection.findOne<PolicyDocument>({ fileHash, isActive: true });
 
     if (existing) {
       return NextResponse.json(

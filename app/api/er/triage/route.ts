@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
+import type { ERTriage, ERRegistration } from '@/lib/cdo/repositories/ERRepository';
 
 
 export const dynamic = 'force-dynamic';
@@ -98,7 +99,7 @@ export async function POST(request: NextRequest) {
 
     // Get patient registration
     const erRegistrationsCollection = await getCollection('er_registrations');
-    const registration = await erRegistrationsCollection.findOne({
+    const registration = await erRegistrationsCollection.findOne<ERRegistration>({
       erVisitId: triageData.erVisitId,
     });
 
@@ -197,7 +198,7 @@ export async function GET(request: NextRequest) {
     }
 
     const erTriageCollection = await getCollection('er_triage');
-    const triage = await erTriageCollection.findOne({ erVisitId });
+    const triage = await erTriageCollection.findOne<ERTriage>({ erVisitId });
 
     if (!triage) {
       return NextResponse.json(

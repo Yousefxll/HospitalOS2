@@ -10,6 +10,8 @@ export interface Floor {
   // Bilingual labels (snake_case for consistency)
   label_en: string;
   label_ar: string;
+  // Tenant isolation
+  tenantId: string;
   // Soft delete
   active: boolean;
   createdAt: Date;
@@ -31,6 +33,9 @@ export interface FloorDepartment {
   // Bilingual labels (snake_case)
   label_en: string;
   label_ar: string;
+  // Tenant isolation
+  tenantId: string;
+
   // Soft delete
   active: boolean;
   createdAt: Date;
@@ -53,6 +58,8 @@ export interface FloorRoom {
   // Bilingual labels (snake_case)
   label_en: string;
   label_ar: string;
+  // Tenant isolation
+  tenantId: string;
   // Soft delete
   active: boolean;
   createdAt: Date;

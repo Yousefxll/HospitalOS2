@@ -4,6 +4,7 @@
  */
 
 import { env } from '@/lib/env';
+import { appConfig } from '@/lib/config';
 
 /**
  * Session configuration
@@ -89,7 +90,7 @@ export const SECURITY_HEADERS = {
  */
 export const MFA_CONFIG = {
   // TOTP settings
-  TOTP_ISSUER: process.env.MFA_TOTP_ISSUER || 'HospitalOS',
+  TOTP_ISSUER: process.env.MFA_TOTP_ISSUER || appConfig.name,
   TOTP_WINDOW: 2, // Allow 2 time steps (60 seconds) tolerance
   
   // Backup codes

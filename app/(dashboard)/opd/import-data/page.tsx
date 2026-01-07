@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from '@/hooks/use-translation';
 import { useLang } from '@/hooks/use-lang';
-import { LanguageToggle } from '@/components/LanguageToggle';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Upload, Download, FileSpreadsheet, Loader2, CheckCircle2, AlertCircle, X } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
@@ -16,6 +16,7 @@ export default function OPDImportDataPage() {
   const { toast } = useToast();
   const { t } = useTranslation();
   const { isRTL, language } = useLang();
+  const isMobile = useIsMobile();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [isUploading, setIsUploading] = useState(false);
@@ -146,19 +147,17 @@ export default function OPDImportDataPage() {
   }
 
   return (
-    <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
-      <div className="flex justify-between items-start">
-        <div>
-          <h1 className="text-3xl font-bold">
-            {language === 'ar' ? 'استيراد بيانات OPD' : 'OPD Data Import'}
-          </h1>
-          <p className="text-muted-foreground">
-            {language === 'ar' 
-              ? 'استيراد بيانات OPD اليومية من ملف Excel' 
-              : 'Import OPD daily data from Excel file'}
-          </p>
-        </div>
-        <LanguageToggle />
+    <div className="space-y-4 md:space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
+      {/* Header - Hidden on mobile (MobileTopBar shows it) */}
+      <div className="hidden md:block">
+        <h1 className="text-3xl font-bold">
+          {language === 'ar' ? 'استيراد بيانات OPD' : 'OPD Data Import'}
+        </h1>
+        <p className="text-muted-foreground">
+          {language === 'ar' 
+            ? 'استيراد بيانات OPD اليومية من ملف Excel' 
+            : 'Import OPD daily data from Excel file'}
+        </p>
       </div>
 
       {/* Instructions */}
@@ -203,7 +202,7 @@ export default function OPDImportDataPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Button onClick={handleDownloadTemplate} variant="outline" className="w-full md:w-auto">
+          <Button onClick={handleDownloadTemplate} variant="outline" className="w-full md:w-auto h-11">
             <Download className="mr-2 h-4 w-4" />
             {language === 'ar' ? 'تحميل القالب' : 'Download Template'}
           </Button>
@@ -233,7 +232,7 @@ export default function OPDImportDataPage() {
                 accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
                 onChange={handleFileUpload}
                 disabled={isUploading}
-                className="cursor-pointer"
+                className="cursor-pointer h-11"
               />
               {isUploading && (
                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />

@@ -44,37 +44,40 @@ const DrawerContent = React.forwardRef(({ className, children, ...props }, ref) 
 ))
 DrawerContent.displayName = "DrawerContent"
 
-const DrawerHeader = ({
-  className,
-  ...props
-}) => (
+const DrawerHeader = React.forwardRef(({ className, children, ...props }, ref) => (
   <div
+    ref={ref}
     className={cn("grid gap-1.5 p-4 text-center sm:text-left", className)}
-    {...props} />
-)
+    {...props}>
+    {children}
+  </div>
+))
 DrawerHeader.displayName = "DrawerHeader"
 
-const DrawerFooter = ({
-  className,
-  ...props
-}) => (
-  <div className={cn("mt-auto flex flex-col gap-2 p-4", className)} {...props} />
-)
+const DrawerFooter = React.forwardRef(({ className, children, ...props }, ref) => (
+  <div ref={ref} className={cn("mt-auto flex flex-col gap-2 p-4", className)} {...props}>
+    {children}
+  </div>
+))
 DrawerFooter.displayName = "DrawerFooter"
 
-const DrawerTitle = React.forwardRef(({ className, ...props }, ref) => (
+const DrawerTitle = React.forwardRef(({ className, children, ...props }, ref) => (
   <DrawerPrimitive.Title
     ref={ref}
     className={cn("text-lg font-semibold leading-none tracking-tight", className)}
-    {...props} />
+    {...props}>
+    {children}
+  </DrawerPrimitive.Title>
 ))
 DrawerTitle.displayName = DrawerPrimitive.Title.displayName
 
-const DrawerDescription = React.forwardRef(({ className, ...props }, ref) => (
+const DrawerDescription = React.forwardRef(({ className, children, ...props }, ref) => (
   <DrawerPrimitive.Description
     ref={ref}
     className={cn("text-sm text-muted-foreground", className)}
-    {...props} />
+    {...props}>
+    {children}
+  </DrawerPrimitive.Description>
 ))
 DrawerDescription.displayName = DrawerPrimitive.Description.displayName
 

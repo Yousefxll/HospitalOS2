@@ -22,12 +22,14 @@ export async function POST(request: NextRequest) {
 
     const response = NextResponse.json({ success: true });
 
-    // Clear auth cookie
+    // Clear auth cookie (use same secure setting as login)
+    const protocol = request.headers.get('x-forwarded-proto') || (request.url.startsWith('https://') ? 'https' : 'http');
+    const isSecure = protocol === 'https';
     response.headers.set(
       'Set-Cookie',
       serialize('auth-token', '', {
         httpOnly: true,
-        secure: env.isProd,
+        secure: isSecure,
         sameSite: 'lax',
         maxAge: 0,
         path: '/',
@@ -39,11 +41,13 @@ export async function POST(request: NextRequest) {
     console.error('Logout error:', error);
     // Still return success even if session deletion fails
     const response = NextResponse.json({ success: true });
+    const protocol = request.headers.get('x-forwarded-proto') || (request.url.startsWith('https://') ? 'https' : 'http');
+    const isSecure = protocol === 'https';
     response.headers.set(
       'Set-Cookie',
       serialize('auth-token', '', {
         httpOnly: true,
-        secure: env.isProd,
+        secure: isSecure,
         sameSite: 'lax',
         maxAge: 0,
         path: '/',

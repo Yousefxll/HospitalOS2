@@ -50,14 +50,37 @@ yarn-error.log*
 # docs/
 # *.md
 
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-venv/
-env/
+# Python (policy-engine)
+# Virtual environments
+policy-engine/.venv/
+policy-engine/venv/
+policy-engine/env/
+policy-engine/*.venv/
+
+# Python cache
+policy-engine/__pycache__/
+policy-engine/**/__pycache__/
+policy-engine/.pytest_cache/
+policy-engine/**/*.pyc
+policy-engine/**/*.pyo
+policy-engine/**/*.pyd
+policy-engine/.Python
+policy-engine/**/*.so
+
+# Python distribution / packaging
+policy-engine/.eggs/
+policy-engine/dist/
+policy-engine/build/
+policy-engine/*.egg-info/
+policy-engine/.installed.cfg
+policy-engine/*.egg
+
+# Keep Python source
+!policy-engine/app/
+!policy-engine/requirements.txt
+!policy-engine/*.md
+!policy-engine/*.sh
+!policy-engine/*.py
 
 # Storage (keep structure but ignore contents)
 storage/policies/*

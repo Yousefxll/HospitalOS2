@@ -16,12 +16,16 @@ import {
 } from '@/components/ui/select';
 import { Bed, Loader2, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useTranslation } from '@/hooks/use-translation';
 
 function ERDispositionPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const erVisitId = searchParams.get('erVisitId');
   const { toast } = useToast();
+  const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const [isLoading, setIsLoading] = useState(false);
   const [patientInfo, setPatientInfo] = useState<any>(null);
   const [triageInfo, setTriageInfo] = useState<any>(null);
@@ -103,8 +107,9 @@ function ERDispositionPageContent() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
+    <div className="space-y-4 md:space-y-6">
+      {/* Header - Hidden on mobile (MobileTopBar shows it) */}
+      <div className="hidden md:block">
         <h1 className="text-3xl font-bold">ER Disposition</h1>
         <p className="text-muted-foreground">
           Track final patient outcome after ER management
@@ -117,7 +122,7 @@ function ERDispositionPageContent() {
             <CardTitle>Patient Information</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <Label>Name</Label>
                 <div className="font-semibold">{patientInfo.fullName}</div>
@@ -141,7 +146,7 @@ function ERDispositionPageContent() {
             <CardTitle>Triage Information</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <Label>CTAS Level</Label>
                 <div className="font-semibold">{triageInfo.ctasLevel}</div>
@@ -173,7 +178,7 @@ function ERDispositionPageContent() {
                 onValueChange={(value) => setFormData({ ...formData, dispositionType: value })}
                 required
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-11">
                   <SelectValue placeholder="Select disposition" />
                 </SelectTrigger>
                 <SelectContent>
@@ -201,12 +206,13 @@ function ERDispositionPageContent() {
                 onChange={(e) => setFormData({ ...formData, physicianName: e.target.value })}
                 required
                 placeholder="Enter physician name"
+                className="h-11"
               />
             </div>
 
             {(formData.dispositionType === 'admit-to-inpatient' || 
               formData.dispositionType === 'admit-to-icu') && (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="departmentId">Department ID</Label>
                   <Input
@@ -214,6 +220,7 @@ function ERDispositionPageContent() {
                     value={formData.departmentId}
                     onChange={(e) => setFormData({ ...formData, departmentId: e.target.value })}
                     placeholder="Enter department ID"
+                    className="h-11"
                   />
                 </div>
                 <div className="space-y-2">
@@ -223,6 +230,7 @@ function ERDispositionPageContent() {
                     value={formData.bedId}
                     onChange={(e) => setFormData({ ...formData, bedId: e.target.value })}
                     placeholder="Enter bed ID"
+                    className="h-11"
                   />
                 </div>
               </div>
@@ -236,10 +244,11 @@ function ERDispositionPageContent() {
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                 placeholder="Additional notes about disposition"
                 rows={4}
+                className="min-h-[100px]"
               />
             </div>
 
-            <Button type="submit" disabled={isLoading} className="w-full">
+            <Button type="submit" disabled={isLoading} className="w-full h-11">
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

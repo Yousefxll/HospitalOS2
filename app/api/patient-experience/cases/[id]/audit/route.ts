@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
+import { getTenantContextOrThrow } from '@/lib/auth/getTenantIdOrThrow';
+import type { PXCase } from '@/lib/models/PXCase';
+import type { PXCaseAudit } from '@/lib/models/PXCaseAudit';
+import type { User } from '@/lib/models/User';
 
 /**
 
@@ -13,20 +17,28 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const userId = request.headers.get('x-user-id');
-    
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    // Tenant isolation: get tenantId from session
+    const tenantContext = await getTenantContextOrThrow(request);
+    const { tenantId, userId, userEmail, userRole } = tenantContext;
+
+    // Debug logging (if enabled)
+    if (process.env.DEBUG_TENANT === '1') {
+      console.log('[TENANT]', '/api/patient-experience/cases/[id]/audit (GET)', 'tenant=', tenantId, 'user=', userEmail, 'role=', userRole, 'collection=px_case_audits');
     }
 
     const { id } = params;
 
-    // Verify case exists
+    // Verify case exists (with tenant isolation)
     const casesCollection = await getCollection('px_cases');
-    const caseItem = await casesCollection.findOne({ id });
+    const caseItem = await casesCollection.findOne<PXCase>({ 
+      id,
+      $or: [
+        { tenantId: tenantId },
+        { tenantId: { $exists: false } }, // Backward compatibility
+        { tenantId: null },
+        { tenantId: '' },
+      ],
+    });
 
     if (!caseItem) {
       return NextResponse.json(
@@ -35,10 +47,10 @@ export async function GET(
       );
     }
 
-    // Get audit records
+    // Get audit records (audits inherit tenantId from case, but we filter by caseId which is already tenant-scoped)
     const auditCollection = await getCollection('px_case_audits');
     const audits = await auditCollection
-      .find({ caseId: id })
+      .find<PXCaseAudit>({ caseId: id }) // caseId is already tenant-scoped via case lookup above
       .sort({ createdAt: 1 }) // Chronological order
       .toArray();
 
@@ -46,14 +58,14 @@ export async function GET(
     const userIds = Array.from(new Set(audits.map(a => a.actorUserId).filter(Boolean)));
     const usersCollection = await getCollection('users');
     const users = userIds.length > 0
-      ? await usersCollection.find({ id: { $in: userIds } }).toArray()
+      ? await usersCollection.find<User>({ id: { $in: userIds } }).toArray()
       : [];
     const userMap = new Map(users.map(u => [u.id, u]));
 
     // Enrich audits with actor info
     const enrichedAudits = audits.map(audit => ({
       ...audit,
-      actorName: audit.actorUserId ? (userMap.get(audit.actorUserId)?.name || audit.actorEmployeeId || 'Unknown') : 'System',
+      actorName: audit.actorUserId ? (userMap.get(audit.actorUserId) ? `${userMap.get(audit.actorUserId)?.firstName || ''} ${userMap.get(audit.actorUserId)?.lastName || ''}`.trim() || audit.actorEmployeeId || 'Unknown' : audit.actorEmployeeId || 'Unknown') : 'System',
       actorEmail: audit.actorUserId ? userMap.get(audit.actorUserId)?.email : undefined,
     }));
 

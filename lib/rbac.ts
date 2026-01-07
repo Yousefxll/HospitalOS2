@@ -1,6 +1,7 @@
-export type Role = 'admin' | 'supervisor' | 'staff' | 'viewer' | 'group-admin' | 'hospital-admin';
+export type Role = 'syra-owner' | 'admin' | 'supervisor' | 'staff' | 'viewer' | 'group-admin' | 'hospital-admin';
 
 export const roleHierarchy: Record<Role, number> = {
+  'syra-owner': 10, // Highest level - manages all tenants
   admin: 5,
   'group-admin': 4,
   'hospital-admin': 3,

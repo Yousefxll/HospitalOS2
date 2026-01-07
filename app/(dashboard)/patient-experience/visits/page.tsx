@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,7 +31,12 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useLang } from '@/hooks/use-lang';
+import { useTranslation } from '@/hooks/use-translation';
 import { LanguageToggle } from '@/components/LanguageToggle';
+import { MobileSearchBar } from '@/components/mobile/MobileSearchBar';
+import { MobileCardList } from '@/components/mobile/MobileCardList';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { FilterSkeleton, StatsSkeleton } from '@/components/mobile/SkeletonLoaders';
 import { format } from 'date-fns';
 
 interface Classification {
@@ -75,8 +81,11 @@ interface PaginationInfo {
 }
 
 export default function PatientExperienceVisitsPage() {
+  const router = useRouter();
   const { toast } = useToast();
   const { language, dir } = useLang();
+  const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const [refreshKey, setRefreshKey] = useState(0);
   
   // Listen for language changes to force re-render
@@ -93,6 +102,7 @@ export default function PatientExperienceVisitsPage() {
     window.addEventListener('languageChanged', handleLanguageChange);
     return () => window.removeEventListener('languageChanged', handleLanguageChange);
   }, []);
+
   
   const [isLoading, setIsLoading] = useState(false);
   const [visits, setVisits] = useState<VisitRecord[]>([]);
@@ -104,6 +114,7 @@ export default function PatientExperienceVisitsPage() {
   });
 
   // Search and filter state
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [mrn, setMrn] = useState<string>('');
   const [fromDate, setFromDate] = useState<string>('');
   const [toDate, setToDate] = useState<string>('');
@@ -126,7 +137,7 @@ export default function PatientExperienceVisitsPage() {
 
   async function loadAllDepartments() {
     try {
-      const response = await fetch('/api/patient-experience/data?type=all-departments');
+      const response = await fetch('/api/patient-experience/data?type=all-departments', { cache: 'no-store' });
       const data = await response.json();
       if (data.success) {
         setAllDepartments(data.data);
@@ -156,11 +167,11 @@ export default function PatientExperienceVisitsPage() {
 
   useEffect(() => {
     fetchVisits();
-  }, [pagination.skip, mrn, fromDate, toDate, floorKey, departmentKey, roomKey, staffEmployeeId, type]);
+  }, [pagination.skip, mrn, fromDate, toDate, floorKey, departmentKey, roomKey, staffEmployeeId, type, searchQuery]);
 
   async function loadFloors() {
     try {
-      const response = await fetch('/api/patient-experience/data?type=floors');
+      const response = await fetch('/api/patient-experience/data?type=floors', { cache: 'no-store' });
       if (response.ok) {
         const data = await response.json();
         setFloors(data.data || []);
@@ -172,7 +183,7 @@ export default function PatientExperienceVisitsPage() {
 
   async function loadDepartments(floorKey: string) {
     try {
-      const response = await fetch(`/api/patient-experience/data?type=departments&floorKey=${floorKey}`);
+      const response = await fetch(`/api/patient-experience/data?type=departments&floorKey=${floorKey}`, { cache: 'no-store' });
       if (response.ok) {
         const data = await response.json();
         setDepartments(data.data || []);
@@ -184,7 +195,7 @@ export default function PatientExperienceVisitsPage() {
 
   async function loadRooms(floorKey: string, departmentKey: string) {
     try {
-      const response = await fetch(`/api/patient-experience/data?type=rooms&floorKey=${floorKey}&departmentKey=${departmentKey}`);
+      const response = await fetch(`/api/patient-experience/data?type=rooms&floorKey=${floorKey}&departmentKey=${departmentKey}`, { cache: 'no-store' });
       if (response.ok) {
         const data = await response.json();
         setRooms(data.data || []);
@@ -208,8 +219,9 @@ export default function PatientExperienceVisitsPage() {
       if (roomKey) params.append('roomKey', roomKey);
       if (staffEmployeeId) params.append('staffEmployeeId', staffEmployeeId);
       if (type) params.append('type', type);
+      if (searchQuery) params.append('search', searchQuery);
 
-      const response = await fetch(`/api/patient-experience/visits?${params.toString()}`);
+      const response = await fetch(`/api/patient-experience/visits?${params.toString()}`, { cache: 'no-store' });
       if (response.ok) {
         const data = await response.json();
         setVisits(data.data || []);
@@ -392,18 +404,96 @@ export default function PatientExperienceVisitsPage() {
   const currentPage = Math.floor(pagination.skip / pagination.limit) + 1;
   const totalPages = Math.ceil(pagination.total / pagination.limit);
 
+  // Convert visits to card format for mobile
+  const cardItems = visits.map((visit) => {
+    const classifications = visit.classifications && visit.classifications.length > 0
+      ? visit.classifications
+      : [{
+          domainKey: visit.domainKey,
+          typeKey: visit.typeKey,
+          severity: visit.severity,
+          shift: 'DAY' as const,
+          domainLabel: visit.domainLabel,
+          typeLabel: visit.typeLabel,
+        }];
+
+    return {
+      id: visit.id,
+      title: visit.patientName || '-',
+      subtitle: `${visit.patientFileNumber || ''} • ${format(new Date(visit.createdAt), 'MMM dd, yyyy')}`,
+      description: visit.detailsEn || '',
+      badges: [
+        ...classifications.map(c => ({
+          label: c.severity,
+          variant: (c.severity === 'CRITICAL' || c.severity === 'HIGH' ? 'destructive' : 'secondary') as 'destructive' | 'secondary',
+        })),
+        {
+          label: visit.status,
+          variant: (visit.status === 'RESOLVED' ? 'default' : visit.status === 'CLOSED' ? 'secondary' : 'outline') as 'default' | 'secondary' | 'outline',
+        },
+      ],
+      metadata: [
+        { label: language === 'ar' ? 'الموظف' : 'Staff', value: visit.staffName || '-' },
+        { label: language === 'ar' ? 'الموقع' : 'Location', value: visit.floorLabel && visit.departmentLabel && visit.roomLabel
+          ? `${visit.floorLabel} / ${visit.departmentLabel} / ${visit.roomLabel}`
+          : visit.floorKey || '-' },
+        { label: language === 'ar' ? 'النوع' : 'Type', value: classifications.map(c => 
+          `${c.domainLabel || c.domainKey} - ${c.typeLabel || c.typeKey}`
+        ).join(', ') },
+      ],
+      onCardClick: () => router.push(`/patient-experience/visit/${visit.id}`),
+    };
+  });
+
   return (
-    <div key={`${language}-${refreshKey}`} className="space-y-6" dir={dir}>
-      <div className="flex justify-between items-center">
+    <div key={`${language}-${refreshKey}`} className="space-y-4 md:space-y-6" dir={dir}>
+      {/* Header - Hidden on mobile (MobileTopBar shows it) */}
+      <div className="hidden md:flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">
-            {language === 'ar' ? 'جميع الزيارات' : 'All Visits'}
+            {t.nav.allVisits || (language === 'ar' ? 'جميع الزيارات' : 'All Visits')}
           </h1>
           <p className="text-muted-foreground">
             {language === 'ar' ? 'عرض وتصدير جميع زيارات تجربة المريض' : 'View and export all patient experience visits'}
           </p>
         </div>
         <LanguageToggle />
+      </div>
+
+      {/* Mobile Quick Summary */}
+      <div className="md:hidden">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">{t.nav.allVisits || 'All Visits'}</CardTitle>
+            <CardDescription>
+              {language === 'ar' 
+                ? `إجمالي ${pagination.total} زيارة` 
+                : `Total ${pagination.total} visits`}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button 
+              onClick={handleExportCSV} 
+              variant="outline" 
+              className="w-full min-h-[44px]"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              {language === 'ar' ? 'تصدير CSV' : 'Export CSV'}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Mobile Search */}
+      <div className="md:hidden">
+        <MobileSearchBar
+          placeholderKey="common.search"
+          queryParam="q"
+          onSearch={(q) => {
+            setSearchQuery(q);
+            setMrn(q); // Also set MRN for backward compatibility
+          }}
+        />
       </div>
 
       {/* Filters */}
@@ -469,7 +559,7 @@ export default function PatientExperienceVisitsPage() {
                 <SelectContent>
                   <SelectItem value="all">{language === 'ar' ? 'الكل' : 'All'}</SelectItem>
                   {floors.map((floor) => (
-                    <SelectItem key={floor.key || floor.id} value={floor.key || floor.id}>
+                    <SelectItem key={floor.id || floor._id || `floor-${floor.number}`} value={floor.key || floor.id}>
                       {language === 'ar' ? (floor.label_ar || floor.labelAr || floor.name) : (floor.label_en || floor.labelEn || floor.name)}
                     </SelectItem>
                   ))}
@@ -526,8 +616,56 @@ export default function PatientExperienceVisitsPage() {
         </CardContent>
       </Card>
 
-      {/* Table */}
-      <Card>
+      {/* Mobile: Card List */}
+      <div className="md:hidden">
+        <MobileCardList
+          items={cardItems}
+          isLoading={isLoading}
+          emptyMessage={language === 'ar' ? 'لا توجد زيارات' : 'No visits found'}
+        />
+        
+        {/* Mobile Pagination */}
+        {!isLoading && visits.length > 0 && (
+          <div className="flex items-center justify-between mt-4">
+            <div className="text-sm text-muted-foreground">
+              {language === 'ar'
+                ? `الصفحة ${currentPage} من ${totalPages}`
+                : `Page ${currentPage} of ${totalPages}`}
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="min-h-[44px]"
+                onClick={() => {
+                  const newSkip = Math.max(0, pagination.skip - pagination.limit);
+                  setPagination({ ...pagination, skip: newSkip });
+                }}
+                disabled={pagination.skip === 0 || isLoading}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                {t.common.previous || (language === 'ar' ? 'السابق' : 'Previous')}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="min-h-[44px]"
+                onClick={() => {
+                  const newSkip = pagination.skip + pagination.limit;
+                  setPagination({ ...pagination, skip: newSkip });
+                }}
+                disabled={!pagination.hasMore || isLoading}
+              >
+                {t.common.next || (language === 'ar' ? 'التالي' : 'Next')}
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Desktop: Table */}
+      <Card className="hidden md:block">
         <CardHeader>
           <div className="flex justify-between items-center">
             <div>

@@ -3,6 +3,9 @@ import { z } from 'zod';
 import { getCollection } from '@/lib/db';
 import { requireRoleAsync } from '@/lib/auth/requireRole';
 import { v4 as uuidv4 } from 'uuid';
+import { User } from '@/lib/models/User';
+import { Floor, FloorRoom } from '@/lib/models/Floor';
+import { Department } from '@/lib/models/Department';
 
 // Schemas
 
@@ -40,22 +43,75 @@ export async function GET(request: NextRequest) {
     }
 
     // Check permission: admin.structure-management.view
+    // Use userRole from authResult (already verified by requireRoleAsync)
+    const userRole = authResult.userRole;
+    
+    // Fetch user permissions from DB
     const usersCollection = await getCollection('users');
-    const user = await usersCollection.findOne({ id: authResult.userId });
+    const user = await usersCollection.findOne<User>({ id: authResult.userId });
     const userPermissions = user?.permissions || [];
     
-    // Allow if user has admin.structure-management.view or admin.users (admin access)
-    if (!userPermissions.includes('admin.structure-management.view') && !userPermissions.includes('admin.users.view') && !userPermissions.includes('admin.users')) {
+    // Allow if user has admin.structure-management.view, admin.users permissions, or admin role
+    // Also allow if user has any admin.* permission
+    const hasPermission = 
+      userRole === 'admin' || // Admin role has full access
+      userPermissions.includes('admin.structure-management.view') ||
+      userPermissions.includes('admin.users.view') ||
+      userPermissions.includes('admin.users') ||
+      userPermissions.some(p => p.startsWith('admin.'));
+    
+    if (!hasPermission) {
       return NextResponse.json({ error: 'Forbidden: Insufficient permissions' }, { status: 403 });
     }
+
+    // GOLDEN RULE: tenantId must ALWAYS come from session
+    const { requireTenantId } = await import('@/lib/tenant');
+    const tenantIdResult = await requireTenantId(request);
+    if (tenantIdResult instanceof NextResponse) {
+      return tenantIdResult;
+    }
+    const tenantId = tenantIdResult;
 
     const floorsCollection = await getCollection('floors');
     const departmentsCollection = await getCollection('departments');
     const roomsCollection = await getCollection('rooms');
 
-    const floors = await floorsCollection.find({ active: true }).toArray();
-    const departments = await departmentsCollection.find({ isActive: true }).toArray();
-    const rooms = await roomsCollection.find({ active: true }).toArray();
+    // TENANT ISOLATION: Only fetch data for current tenant
+    // Backward compatibility: include documents without tenantId until migration is run
+    const tenantFilter = {
+      $or: [
+        { tenantId: tenantId },
+        { tenantId: { $exists: false } }, // Backward compatibility
+        { tenantId: null },
+        { tenantId: '' },
+      ],
+    };
+
+    const query = {
+      active: true,
+      ...tenantFilter
+    };
+
+    const floors = await floorsCollection.find(query).sort({ number: 1 }).toArray();
+    const departments = await departmentsCollection.find({ 
+      isActive: true, 
+      ...tenantFilter 
+    }).sort({ name: 1 }).toArray();
+    const rooms = await roomsCollection.find({ 
+      active: true, 
+      ...tenantFilter 
+    }).sort({ roomNumber: 1 }).toArray();
+
+    // Debug logging (if enabled)
+    if (process.env.DEBUG_TENANT === '1') {
+      console.log('[GET /api/admin/structure]', {
+        tenantId,
+        floorsCount: floors.length,
+        departmentsCount: departments.length,
+        roomsCount: rooms.length,
+        query,
+      });
+    }
 
     return NextResponse.json({ floors, departments, rooms });
   } catch (error) {
@@ -76,14 +132,41 @@ export async function POST(request: NextRequest) {
     }
 
     // Check permission: admin.structure-management.create
+    // Use userRole from authResult (already verified by requireRoleAsync)
+    const userRole = authResult.userRole;
+    
+    // Fetch user permissions from DB
     const usersCollection = await getCollection('users');
-    const user = await usersCollection.findOne({ id: authResult.userId });
+    const user = await usersCollection.findOne<User>({ id: authResult.userId });
     const userPermissions = user?.permissions || [];
     
-    // Allow if user has admin.structure-management.create or admin.users (admin access)
-    if (!userPermissions.includes('admin.structure-management.create') && !userPermissions.includes('admin.users.view') && !userPermissions.includes('admin.users')) {
+    // Allow if user has admin.structure-management.create, admin.users permissions, or admin role
+    // Also allow if user has any admin.* permission
+    const hasPermission = 
+      userRole === 'admin' || // Admin role has full access
+      userPermissions.includes('admin.structure-management.create') ||
+      userPermissions.includes('admin.users.view') ||
+      userPermissions.includes('admin.users') ||
+      userPermissions.some(p => p.startsWith('admin.'));
+    
+    if (!hasPermission) {
+      // Log for debugging
+      console.log('[POST /api/admin/structure] Permission check failed:', {
+        userId: authResult.userId,
+        userRole,
+        permissions: userPermissions,
+        hasAdminPermission: userPermissions.some(p => p.startsWith('admin.')),
+      });
       return NextResponse.json({ error: 'Forbidden: Insufficient permissions to create' }, { status: 403 });
     }
+
+    // GOLDEN RULE: tenantId must ALWAYS come from session
+    const { requireTenantId } = await import('@/lib/tenant');
+    const tenantIdResult = await requireTenantId(request);
+    if (tenantIdResult instanceof NextResponse) {
+      return tenantIdResult;
+    }
+    const tenantId = tenantIdResult;
 
     const body = await request.json();
     const { type, data } = body;
@@ -92,10 +175,11 @@ export async function POST(request: NextRequest) {
       const validated = createFloorSchema.parse(data);
       const floorsCollection = await getCollection('floors');
       
-      // Check for duplicate floor number
-      const existingFloor = await floorsCollection.findOne({ 
+      // Check for duplicate floor number WITHIN THE SAME TENANT
+      const existingFloor = await floorsCollection.findOne<Floor>({ 
         number: validated.number,
-        active: true 
+        active: true,
+        tenantId: tenantId // TENANT ISOLATION: Only check within current tenant
       });
       
       if (existingFloor) {
@@ -113,6 +197,7 @@ export async function POST(request: NextRequest) {
         label_en: validated.label_en,
         label_ar: validated.label_ar,
         active: true,
+        tenantId: tenantId, // TENANT ISOLATION: Store tenantId
         createdAt: new Date(),
         updatedAt: new Date(),
         createdBy: authResult.userId,
@@ -128,8 +213,11 @@ export async function POST(request: NextRequest) {
       const departmentsCollection = await getCollection('departments');
       const floorsCollection = await getCollection('floors');
       
-      // Verify floor exists
-      const floor = await floorsCollection.findOne({ id: validated.floorId });
+      // Verify floor exists WITHIN THE SAME TENANT
+      const floor = await floorsCollection.findOne<Floor>({ 
+        id: validated.floorId,
+        tenantId: tenantId // TENANT ISOLATION: Verify floor belongs to current tenant
+      });
       if (!floor) {
         return NextResponse.json(
           { error: 'Floor not found' },
@@ -137,14 +225,15 @@ export async function POST(request: NextRequest) {
         );
       }
       
-      // Check for duplicate department name or code in the same floor
-      const existingDept = await departmentsCollection.findOne({
+      // Check for duplicate department name or code in the same floor WITHIN THE SAME TENANT
+      const existingDept = await departmentsCollection.findOne<Department>({
         floorId: validated.floorId,
         $or: [
           { name: validated.name },
           { code: validated.code }
         ],
-        isActive: true
+        isActive: true,
+        tenantId: tenantId // TENANT ISOLATION: Only check within current tenant
       });
       
       if (existingDept) {
@@ -169,6 +258,7 @@ export async function POST(request: NextRequest) {
         type: validated.type,
         floorId: validated.floorId,
         isActive: true,
+        tenantId: tenantId, // TENANT ISOLATION: Store tenantId
         createdAt: new Date(),
         updatedAt: new Date(),
         createdBy: authResult.userId,
@@ -187,8 +277,15 @@ export async function POST(request: NextRequest) {
       const floorsCollection = await getCollection('floors');
       const departmentsCollection = await getCollection('departments');
       
-      const floor = await floorsCollection.findOne({ id: validated.floorId });
-      const department = await departmentsCollection.findOne({ id: validated.departmentId });
+      // Verify floor and department exist WITHIN THE SAME TENANT
+      const floor = await floorsCollection.findOne<Floor>({ 
+        id: validated.floorId,
+        tenantId: tenantId // TENANT ISOLATION: Verify floor belongs to current tenant
+      });
+      const department = await departmentsCollection.findOne<Department>({ 
+        id: validated.departmentId,
+        tenantId: tenantId // TENANT ISOLATION: Verify department belongs to current tenant
+      });
 
       if (!floor || !department) {
         return NextResponse.json(
@@ -197,12 +294,13 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Check for duplicate room number in the same floor and department
-      const existingRoom = await roomsCollection.findOne({
+      // Check for duplicate room number in the same floor and department WITHIN THE SAME TENANT
+      const existingRoom = await roomsCollection.findOne<FloorRoom>({
         floorId: validated.floorId,
         departmentId: validated.departmentId,
         roomNumber: validated.roomNumber,
-        active: true
+        active: true,
+        tenantId: tenantId // TENANT ISOLATION: Only check within current tenant
       });
 
       if (existingRoom) {
@@ -224,6 +322,7 @@ export async function POST(request: NextRequest) {
         label_en: validated.label_en,
         label_ar: validated.label_ar,
         active: true,
+        tenantId: tenantId, // TENANT ISOLATION: Store tenantId
         createdAt: new Date(),
         updatedAt: new Date(),
         createdBy: authResult.userId,
@@ -277,7 +376,7 @@ async function checkDepartmentDependencies(departmentId: string): Promise<{ room
 
   // Get department to find its key for patient_experience lookup
   const departmentsCollection = await getCollection('departments');
-  const department = await departmentsCollection.findOne({ id: departmentId });
+  const department = await departmentsCollection.findOne<Department>({ id: departmentId });
   const departmentKey = department?.code || department?.id;
 
   const patientExperienceCollection = await getCollection('patient_experience');
@@ -327,12 +426,24 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Check permission: admin.structure-management.delete
+    // Use userRole from authResult (already verified by requireRoleAsync)
+    const userRole = authResult.userRole;
+    
+    // Fetch user permissions from DB
     const usersCollection = await getCollection('users');
-    const user = await usersCollection.findOne({ id: authResult.userId });
+    const user = await usersCollection.findOne<User>({ id: authResult.userId });
     const userPermissions = user?.permissions || [];
     
-    // Allow if user has admin.structure-management.delete or admin.users (admin access)
-    if (!userPermissions.includes('admin.structure-management.delete') && !userPermissions.includes('admin.users.view') && !userPermissions.includes('admin.users')) {
+    // Allow if user has admin.structure-management.delete, admin.users permissions, or admin role
+    // Also allow if user has any admin.* permission
+    const hasPermission = 
+      userRole === 'admin' || // Admin role has full access
+      userPermissions.includes('admin.structure-management.delete') ||
+      userPermissions.includes('admin.users.view') ||
+      userPermissions.includes('admin.users') ||
+      userPermissions.some(p => p.startsWith('admin.'));
+    
+    if (!hasPermission) {
       return NextResponse.json({ error: 'Forbidden: Insufficient permissions to delete' }, { status: 403 });
     }
 
@@ -419,7 +530,7 @@ export async function DELETE(request: NextRequest) {
     if (type === 'room') {
       // Get room to find its key for dependency checking
       const roomsCollection = await getCollection('rooms');
-      const room = await roomsCollection.findOne({ id });
+      const room = await roomsCollection.findOne<FloorRoom>({ id });
       
       if (!room) {
         return NextResponse.json(

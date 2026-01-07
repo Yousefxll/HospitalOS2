@@ -4,6 +4,7 @@ import { getCollection } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import { pxComplaintTaxonomySeed } from '@/lib/seed/pxComplaintTaxonomySeed';
 import { env } from '@/lib/env';
+import type { ComplaintType } from '@/lib/models/ComplaintType';
 
 /**
  * POST /api/patient-experience/complaints/seed
@@ -93,7 +94,7 @@ export async function POST(request: NextRequest) {
             createdBy: authResult.userId,
             updatedBy: authResult.userId,
             ...(domain.sortOrder !== undefined && { sortOrder: domain.sortOrder }),
-          });
+          } as any);
           stats.domains.inserted++;
         }
       } catch (error: any) {
@@ -155,7 +156,7 @@ export async function POST(request: NextRequest) {
             createdBy: authResult.userId,
             updatedBy: authResult.userId,
             ...(classItem.sortOrder !== undefined && { sortOrder: classItem.sortOrder }),
-          });
+          } as ComplaintType);
           stats.classes.inserted++;
         }
       } catch (error: any) {
@@ -171,8 +172,8 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Verify class exists
-        const classExists = await classesCollection.findOne({ 
+        // Verify class exists and get its domainKey
+        const classExists = await classesCollection.findOne<ComplaintType>({ 
           key: subclass.classKey, 
           active: true 
         });
@@ -227,6 +228,7 @@ export async function POST(request: NextRequest) {
           await subclassesCollection.insertOne({
             id: uuidv4(),
             key: subclass.key,
+            domainKey: classExists.domainKey, // Get domainKey from parent class
             complaintTypeKey: subclass.classKey, // Link to parent class
             type,
             typeKey,
@@ -239,7 +241,7 @@ export async function POST(request: NextRequest) {
             createdBy: authResult.userId,
             updatedBy: authResult.userId,
             ...(subclass.sortOrder !== undefined && { sortOrder: subclass.sortOrder }),
-          });
+          } as ComplaintType);
           stats.subclasses.inserted++;
         }
       } catch (error: any) {

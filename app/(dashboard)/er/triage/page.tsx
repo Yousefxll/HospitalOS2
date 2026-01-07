@@ -16,12 +16,16 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle, Heart, Thermometer, Activity, Loader2, ArrowRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useTranslation } from '@/hooks/use-translation';
 
 function ERTriagePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const erVisitId = searchParams.get('erVisitId');
   const { toast } = useToast();
+  const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const [isLoading, setIsLoading] = useState(false);
   const [patientInfo, setPatientInfo] = useState<any>(null);
   const [formData, setFormData] = useState({
@@ -131,7 +135,7 @@ function ERTriagePageContent() {
       'text-green-500';
 
     return (
-      <div className="space-y-6">
+      <div className="space-y-4 md:space-y-6">
         <Card className={`border-l-4 ${borderColorClass}`}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -148,19 +152,19 @@ function ERTriagePageContent() {
             </div>
             <div>
               <Label>Routing</Label>
-              <div className="text-2xl font-bold mt-2">{triageResult.routing}</div>
+              <div className="text-xl md:text-2xl font-bold mt-2">{triageResult.routing}</div>
             </div>
             <div>
               <Label>Age Group</Label>
-              <div className="text-lg mt-2">{triageResult.ageGroup}</div>
+              <div className="text-base md:text-lg mt-2">{triageResult.ageGroup}</div>
             </div>
             <div>
               <Label>CTAS Level</Label>
-              <div className="text-lg mt-2">{triageResult.ctasLevel}</div>
+              <div className="text-base md:text-lg mt-2">{triageResult.ctasLevel}</div>
             </div>
             <Button
               onClick={() => router.push(`/er/disposition?erVisitId=${erVisitId}`)}
-              className="w-full"
+              className="w-full h-11"
             >
               Continue to Disposition
               <ArrowRight className="ml-2 h-4 w-4" />
@@ -172,8 +176,9 @@ function ERTriagePageContent() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
+    <div className="space-y-4 md:space-y-6">
+      {/* Header - Hidden on mobile (MobileTopBar shows it) */}
+      <div className="hidden md:block">
         <h1 className="text-3xl font-bold">ER Triage</h1>
         <p className="text-muted-foreground">
           Perform clinical triage and determine patient severity and ER routing
@@ -186,7 +191,7 @@ function ERTriagePageContent() {
             <CardTitle>Patient Information</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <Label>Name</Label>
                 <div className="font-semibold">{patientInfo.fullName}</div>
@@ -211,7 +216,7 @@ function ERTriagePageContent() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="bloodPressure">Blood Pressure</Label>
                 <Input
@@ -219,6 +224,7 @@ function ERTriagePageContent() {
                   value={formData.bloodPressure}
                   onChange={(e) => setFormData({ ...formData, bloodPressure: e.target.value })}
                   placeholder="120/80"
+                  className="h-11"
                 />
               </div>
               <div className="space-y-2">
@@ -229,6 +235,7 @@ function ERTriagePageContent() {
                   value={formData.heartRate}
                   onChange={(e) => setFormData({ ...formData, heartRate: e.target.value })}
                   placeholder="72"
+                  className="h-11"
                 />
               </div>
               <div className="space-y-2">
@@ -239,11 +246,12 @@ function ERTriagePageContent() {
                   value={formData.respiratoryRate}
                   onChange={(e) => setFormData({ ...formData, respiratoryRate: e.target.value })}
                   placeholder="16"
+                  className="h-11"
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="temperature">Temperature (°C)</Label>
                 <Input
@@ -253,6 +261,7 @@ function ERTriagePageContent() {
                   value={formData.temperature}
                   onChange={(e) => setFormData({ ...formData, temperature: e.target.value })}
                   placeholder="37.0"
+                  className="h-11"
                 />
               </div>
               <div className="space-y-2">
@@ -263,6 +272,7 @@ function ERTriagePageContent() {
                   value={formData.oxygenSaturation}
                   onChange={(e) => setFormData({ ...formData, oxygenSaturation: e.target.value })}
                   placeholder="98"
+                  className="h-11"
                 />
               </div>
               <div className="space-y-2">
@@ -275,6 +285,7 @@ function ERTriagePageContent() {
                   value={formData.painScore}
                   onChange={(e) => setFormData({ ...formData, painScore: e.target.value })}
                   placeholder="0"
+                  className="h-11"
                 />
               </div>
             </div>
@@ -287,10 +298,11 @@ function ERTriagePageContent() {
                 onChange={(e) => setFormData({ ...formData, chiefComplaint: e.target.value })}
                 required
                 placeholder="Enter chief complaint"
+                className="h-11"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="ctasLevel">CTAS Level *</Label>
                 <Select
@@ -298,7 +310,7 @@ function ERTriagePageContent() {
                   onValueChange={(value) => setFormData({ ...formData, ctasLevel: value })}
                   required
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-11">
                     <SelectValue placeholder="Select CTAS level" />
                   </SelectTrigger>
                   <SelectContent>
@@ -317,7 +329,7 @@ function ERTriagePageContent() {
                     value={formData.pregnancyStatus}
                     onValueChange={(value) => setFormData({ ...formData, pregnancyStatus: value })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="h-11">
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
                     <SelectContent>
@@ -330,7 +342,7 @@ function ERTriagePageContent() {
               )}
             </div>
 
-            <Button type="submit" disabled={isLoading} className="w-full">
+            <Button type="submit" disabled={isLoading} className="w-full h-11">
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

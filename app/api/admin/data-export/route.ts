@@ -2,14 +2,22 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 import ExcelJS from 'exceljs';
-import { getCollection } from '@/lib/db';
-import { requireRole } from '@/lib/rbac';
+import { requireAuthContext } from '@/lib/auth/requireAuthContext';
+import { getTenantCollection, getPlatformCollection } from '@/lib/db-tenant';
 
 export async function GET(request: NextRequest) {
   try {
-    const userRole = request.headers.get('x-user-role') as any;
+    // Require auth context with tenant isolation
+    const authContext = await requireAuthContext(request, true); // Allow platform access
+    if (authContext instanceof NextResponse) {
+      return authContext;
+    }
 
-    if (!requireRole(userRole, ['admin', 'supervisor'])) {
+    const { userRole, tenantId } = authContext;
+
+    // Only admin/supervisor can export, or platform roles for cross-tenant export
+    const isPlatformRole = ['syra-owner', 'platform', 'owner'].includes(userRole);
+    if (!isPlatformRole && !['admin', 'supervisor'].includes(userRole)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -23,8 +31,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Fetch data from MongoDB
-    const targetCollection = await getCollection(collection);
+    // Fetch data from MongoDB with tenant isolation
+    // Platform roles can access cross-tenant, others are tenant-scoped
+    const targetCollection = isPlatformRole && tenantId === 'platform'
+      ? await getPlatformCollection(collection, userRole, 'admin/data-export')
+      : await getTenantCollection(collection, tenantId, 'admin/data-export');
+    
     const documents = await targetCollection.find({}).limit(1000).toArray();
 
     // Create Excel workbook

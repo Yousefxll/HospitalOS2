@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/requireAuth';
+import { requireTenantId } from '@/lib/tenant';
 import { env } from '@/lib/env';
 
 
@@ -21,14 +22,21 @@ export async function GET(
   const resolvedParams = params instanceof Promise ? await params : params;
   const { policyId } = resolvedParams;
 
-    // Get tenantId from user or env fallback
-    const tenantId = env.POLICY_ENGINE_TENANT_ID;
+    // Get tenantId from session (SINGLE SOURCE OF TRUTH)
+    const tenantIdResult = await requireTenantId(request);
+    if (tenantIdResult instanceof NextResponse) {
+      return tenantIdResult;
+    }
+    const tenantId = tenantIdResult;
 
-    // Forward to policy-engine
+    // Forward to policy-engine with tenantId in query parameter (required by policy-engine)
     const policyEngineUrl = `${env.POLICY_ENGINE_URL}/v1/policies/${policyId}/file?tenantId=${encodeURIComponent(tenantId)}`;
     
     const response = await fetch(policyEngineUrl, {
       method: 'GET',
+      headers: {
+        'x-tenant-id': tenantId, // Also send in header for compatibility
+      },
     });
 
     if (!response.ok) {
@@ -48,6 +56,8 @@ export async function GET(
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `inline; filename="${policyId}.pdf"`,
+        'X-Content-Type-Options': 'nosniff',
+        'Cache-Control': 'public, max-age=3600',
       },
     });
 

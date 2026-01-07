@@ -1,4 +1,9 @@
 import { getCollection } from '@/lib/db';
+import { PatientExperience } from '@/lib/models/PatientExperience';
+import { PXCase } from '@/lib/models/PXCase';
+import { Floor, FloorDepartment, FloorRoom } from '@/lib/models/Floor';
+import { ComplaintDomain } from '@/lib/models/ComplaintDomain';
+import { ComplaintType } from '@/lib/models/ComplaintType';
 
 export interface PXReportParams {
   from?: string;
@@ -7,6 +12,7 @@ export interface PXReportParams {
   departmentKey?: string;
   severity?: string;
   status?: string;
+  tenantId?: string; // TENANT ISOLATION: Required for tenant-scoped queries
 }
 
 export interface SummaryKPIs {
@@ -71,8 +77,15 @@ export interface PXReportData {
 
 /**
  * Get Patient Experience report data with English labels resolved
+ * 
+ * TENANT ISOLATION: tenantId is required for all queries
  */
 export async function getPXReportData(params: PXReportParams): Promise<PXReportData> {
+  if (!params.tenantId) {
+    throw new Error('tenantId is required for tenant isolation');
+  }
+
+  const tenantId = params.tenantId;
   const patientExperienceCollection = await getCollection('patient_experience');
   const casesCollection = await getCollection('px_cases');
   const floorsCollection = await getCollection('floors');
@@ -81,8 +94,16 @@ export async function getPXReportData(params: PXReportParams): Promise<PXReportD
   const domainsCollection = await getCollection('complaint_domains');
   const typesCollection = await getCollection('complaint_types');
 
-  // Build query for visits
-  const visitQuery: any = {};
+  // Build query for visits with tenant isolation (GOLDEN RULE: tenantId from params)
+  // Backward compatibility: include documents without tenantId until migration is run
+  const visitQuery: any = {
+    $or: [
+      { tenantId: tenantId },
+      { tenantId: { $exists: false } }, // Backward compatibility for existing data
+      { tenantId: null },
+      { tenantId: '' },
+    ],
+  };
   
   if (params.from || params.to) {
     // Use createdAt as primary field (more reliable)
@@ -92,15 +113,19 @@ export async function getPXReportData(params: PXReportParams): Promise<PXReportD
       toDate.setHours(23, 59, 59, 999);
     }
     
-    visitQuery.$or = [];
     if (fromDate || toDate) {
       const dateFilter: any = {};
       if (fromDate) dateFilter.$gte = fromDate;
       if (toDate) dateFilter.$lte = toDate;
       
       // Check both createdAt and visitDate for compatibility
-      visitQuery.$or.push({ createdAt: dateFilter });
-      visitQuery.$or.push({ visitDate: dateFilter });
+      visitQuery.$and = visitQuery.$and || [];
+      visitQuery.$and.push({
+        $or: [
+          { createdAt: dateFilter },
+          { visitDate: dateFilter },
+        ],
+      });
     }
   }
 
@@ -108,11 +133,27 @@ export async function getPXReportData(params: PXReportParams): Promise<PXReportD
   if (params.departmentKey) visitQuery.departmentKey = params.departmentKey;
   if (params.severity) visitQuery.severity = params.severity;
 
-  // Fetch visits
-  const visits = await patientExperienceCollection.find(visitQuery).toArray();
+  // OPTIMIZED: Limit visits to prevent memory issues (max 50000 visits)
+  // For reports, we typically don't need all visits, just a reasonable sample
+  const MAX_VISITS_FOR_REPORT = 50000;
+  const visits = await patientExperienceCollection
+    .find<PatientExperience>(visitQuery)
+    .sort({ createdAt: -1 }) // Get most recent first
+    .limit(MAX_VISITS_FOR_REPORT)
+    .toArray();
 
-  // Build query for cases
-  const caseQuery: any = {};
+  // Build query for cases with tenant isolation (GOLDEN RULE: tenantId from params)
+  // Backward compatibility: include documents without tenantId until migration is run
+  const caseQuery: any = {
+    $or: [
+      { tenantId: tenantId },
+      { tenantId: { $exists: false } }, // Backward compatibility for existing data
+      { tenantId: null },
+      { tenantId: '' },
+    ],
+    active: { $ne: false }, // Only fetch active cases (exclude deleted)
+  };
+  
   const visitIds = visits.map(v => v.id);
   if (visitIds.length > 0) {
     caseQuery.visitId = { $in: visitIds };
@@ -123,11 +164,13 @@ export async function getPXReportData(params: PXReportParams): Promise<PXReportD
   if (params.severity) caseQuery.severity = params.severity;
   if (params.status) caseQuery.status = params.status;
 
-  // Only fetch active cases (exclude deleted)
-  caseQuery.active = { $ne: false };
-
-  // Fetch cases
-  const cases = await casesCollection.find(caseQuery).toArray();
+  // OPTIMIZED: Limit cases to prevent memory issues (max 50000 cases)
+  const MAX_CASES_FOR_REPORT = 50000;
+  const cases = await casesCollection
+    .find<PXCase>(caseQuery)
+    .sort({ createdAt: -1 }) // Get most recent first
+    .limit(MAX_CASES_FOR_REPORT)
+    .toArray();
 
   // Get all unique keys for label resolution
   const floorKeys = Array.from(new Set(visits.map(v => v.floorKey).filter(Boolean)));
@@ -139,22 +182,37 @@ export async function getPXReportData(params: PXReportParams): Promise<PXReportD
   const domainKeys = Array.from(new Set(visits.map(v => v.domainKey).filter(Boolean)));
   const typeKeys = Array.from(new Set(visits.map(v => v.typeKey).filter(Boolean)));
 
-  // Fetch labels in parallel
+  // OPTIMIZED: Fetch labels in parallel with projection to reduce memory usage
   const [floors, departments, rooms, domains, types] = await Promise.all([
     floorKeys.length > 0
-      ? floorsCollection.find({ key: { $in: floorKeys }, active: true }).toArray()
+      ? floorsCollection.find<Floor>(
+          { key: { $in: floorKeys }, active: true, tenantId: tenantId },
+          { projection: { key: 1, label_en: 1, labelEn: 1, name: 1, number: 1 } }
+        ).toArray()
       : Promise.resolve([]),
     departmentKeys.length > 0
-      ? departmentsCollection.find({ key: { $in: departmentKeys }, active: true }).toArray()
+      ? departmentsCollection.find<FloorDepartment>(
+          { key: { $in: departmentKeys }, active: true, tenantId: tenantId },
+          { projection: { key: 1, label_en: 1, labelEn: 1, departmentName: 1 } }
+        ).toArray()
       : Promise.resolve([]),
     roomKeys.length > 0
-      ? roomsCollection.find({ key: { $in: roomKeys }, active: true }).toArray()
+      ? roomsCollection.find<FloorRoom>(
+          { key: { $in: roomKeys }, active: true, tenantId: tenantId },
+          { projection: { key: 1, label_en: 1, labelEn: 1, roomNumber: 1 } }
+        ).toArray()
       : Promise.resolve([]),
     domainKeys.length > 0
-      ? domainsCollection.find({ key: { $in: domainKeys }, active: true }).toArray()
+      ? domainsCollection.find<ComplaintDomain>(
+          { key: { $in: domainKeys }, active: true, tenantId: tenantId },
+          { projection: { key: 1, label_en: 1, labelEn: 1, name: 1 } }
+        ).toArray()
       : Promise.resolve([]),
     typeKeys.length > 0
-      ? typesCollection.find({ key: { $in: typeKeys }, active: true }).toArray()
+      ? typesCollection.find<ComplaintType>(
+          { key: { $in: typeKeys }, active: true, tenantId: tenantId },
+          { projection: { key: 1, label_en: 1, labelEn: 1, name: 1 } }
+        ).toArray()
       : Promise.resolve([]),
   ]);
 

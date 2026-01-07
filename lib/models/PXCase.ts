@@ -34,6 +34,9 @@ export interface PXCase {
   // Escalation
   escalationLevel: number; // 0 = no escalation, 1+ = escalation level
   
+  // Tenant isolation
+  tenantId: string;
+
   // Audit fields
   createdAt: Date;
   updatedAt: Date;

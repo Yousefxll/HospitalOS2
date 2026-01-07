@@ -3,10 +3,11 @@ import { getCollection } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import { requireAuth } from '@/lib/auth/requireAuth';
 
-/**
-
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+
+/**
+
  * GET /api/notifications
  * List notifications for current user
  * 

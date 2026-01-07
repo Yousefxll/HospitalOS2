@@ -5,6 +5,7 @@ import { env } from '@/lib/env';
 import { RiskRun } from '@/lib/models/Practice';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
+import type { Department } from '@/lib/models/Department';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -58,16 +59,16 @@ export async function POST(request: NextRequest) {
       })
       .toArray();
 
-    // Get department name for context (from structure service)
+    // Get department name for context (from departments collection, same as Structure Management)
     let departmentName = validated.departmentId;
     try {
-      const departmentsCollection = await getCollection('floor_departments');
-      const dept = await departmentsCollection.findOne({
+      const departmentsCollection = await getCollection('departments');
+      const dept = await departmentsCollection.findOne<Department>({
         id: validated.departmentId,
-        active: true,
+        isActive: true,
       });
       if (dept) {
-        departmentName = dept.label_en || dept.labelEn || dept.departmentName || validated.departmentId;
+        departmentName = dept.name || validated.departmentId;
       }
     } catch (err) {
       console.warn('Could not fetch department name:', err);
@@ -88,11 +89,18 @@ export async function POST(request: NextRequest) {
         documentId: pol.documentId,
         title: pol.title || pol.originalFileName,
       })),
-      tenantId: env.POLICY_ENGINE_TENANT_ID,
     };
 
-    // Call policy-engine
+    // Call policy-engine with tenantId in header
     const policyEngineUrl = `${env.POLICY_ENGINE_URL}/v1/risk-detector/analyze`;
+    
+    console.log('[risk-detector/run] Calling policy-engine:', policyEngineUrl);
+    console.log('[risk-detector/run] Payload:', {
+      department: policyEnginePayload.department,
+      setting: policyEnginePayload.setting,
+      practicesCount: policyEnginePayload.practices.length,
+      policiesCount: policyEnginePayload.policies.length,
+    });
     
     let response;
     try {
@@ -100,11 +108,12 @@ export async function POST(request: NextRequest) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-tenant-id': tenantId,
         },
         body: JSON.stringify(policyEnginePayload),
       });
     } catch (fetchError) {
-      console.error('Failed to connect to policy-engine:', fetchError);
+      console.error('[risk-detector/run] Failed to connect to policy-engine:', fetchError);
       return NextResponse.json(
         {
           serviceUnavailable: true,
@@ -114,15 +123,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const responseText = await response.text();
+    
     if (!response.ok) {
-      const errorText = await response.text();
+      console.error(`[risk-detector/run] Policy Engine returned ${response.status}:`, responseText.substring(0, 500));
       return NextResponse.json(
-        { error: `Policy Engine error: ${errorText}` },
+        { error: `Policy Engine error: ${responseText.substring(0, 200)}` },
         { status: response.status }
       );
     }
 
-    const analysisResults = await response.json();
+    let analysisResults;
+    try {
+      console.log('[risk-detector/run] Policy Engine response length:', responseText.length);
+      analysisResults = JSON.parse(responseText);
+      console.log('[risk-detector/run] Parsed analysis results:', {
+        practicesCount: analysisResults?.practices?.length || 0,
+        hasMetadata: !!analysisResults?.metadata,
+      });
+    } catch (jsonError) {
+      console.error('[risk-detector/run] Failed to parse policy-engine response as JSON:', jsonError);
+      console.error('[risk-detector/run] Response text (first 500 chars):', responseText.substring(0, 500));
+      return NextResponse.json(
+        { error: `Policy Engine returned invalid JSON: ${responseText.substring(0, 200)}` },
+        { status: 500 }
+      );
+    }
 
     // Store RiskRun
     const riskRunsCollection = await getCollection('risk_runs');
@@ -139,7 +165,18 @@ export async function POST(request: NextRequest) {
       createdAt: new Date(),
     };
 
-    await riskRunsCollection.insertOne(riskRun as any);
+    try {
+      await riskRunsCollection.insertOne(riskRun as any);
+    } catch (dbError) {
+      console.error('Failed to store risk run in database:', dbError);
+      // Return the analysis results even if DB storage fails
+      return NextResponse.json({
+        success: true,
+        runId,
+        results: analysisResults,
+        warning: 'Analysis completed but failed to store in database',
+      });
+    }
 
     return NextResponse.json({
       success: true,

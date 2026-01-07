@@ -8,6 +8,8 @@ import { Activity, Users, Bed, PackagePlus, TrendingUp, AlertCircle, Scissors, S
 import { useTranslation } from '@/hooks/use-translation';
 import { useLang } from '@/hooks/use-lang';
 import { hasRoutePermission } from '@/lib/permissions';
+import { useMe } from '@/lib/hooks/useMe';
+import { KPISkeleton, StatsSkeleton } from '@/components/mobile/SkeletonLoaders';
 
 interface KPI {
   title: string;
@@ -63,46 +65,31 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [currentDateTime, setCurrentDateTime] = useState<string>('');
 
+  const { me, isLoading: meLoading } = useMe();
+
   useEffect(() => {
     setMounted(true);
     
-    // Fetch user permissions
-    async function fetchUserPermissions() {
-      try {
-        const response = await fetch('/api/auth/me', {
-          credentials: 'include', // Ensure cookies are sent
-        });
-        if (response.ok) {
-          const data = await response.json();
-          const permissions = data.user?.permissions || [];
-          setUserPermissions(permissions);
-          
-          // Check if user has dashboard.view permission
-          const hasAccess = hasRoutePermission(permissions, '/dashboard');
-          setHasPermission(hasAccess);
-          
-          // If user doesn't have dashboard access, redirect to welcome page
-          if (!hasAccess) {
-            router.push('/welcome');
-            return;
-          }
-          
-          // Only fetch data if user has permission
-          if (hasAccess) {
-            fetchDashboardStats();
-          }
-        } else if (response.status === 401) {
-          // Not authenticated - redirect handled by middleware
-          setHasPermission(false);
-        }
-      } catch (error) {
-        console.error('Failed to fetch user permissions:', error);
-        setHasPermission(false);
-      }
+    if (meLoading || !me) return;
+
+    const permissions = me.user?.permissions || [];
+    setUserPermissions(permissions);
+    
+    // Check if user has dashboard.view permission
+    const hasAccess = hasRoutePermission(permissions, '/dashboard');
+    setHasPermission(hasAccess);
+    
+    // If user doesn't have dashboard access, redirect to welcome page
+    if (!hasAccess) {
+      router.push('/welcome');
+      return;
     }
     
-    fetchUserPermissions();
-  }, [router]);
+    // Only fetch data if user has permission
+    if (hasAccess) {
+      fetchDashboardStats();
+    }
+  }, [me, meLoading, router]);
 
   useEffect(() => {
     if (!mounted || hasPermission === null) return;
@@ -257,27 +244,73 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
+    <div className="space-y-4 md:space-y-6">
+      {/* Header - Hidden on mobile (MobileTopBar shows it) */}
+      <div className="hidden md:block">
         <h1 className="text-3xl font-bold">{t.dashboard.home}</h1>
         {currentDateTime && (
           <p className="text-muted-foreground">{currentDateTime}</p>
         )}
       </div>
-
-      {/* Loading Indicator */}
-      {isLoading && (
-        <div className="text-center text-muted-foreground">{t.dashboard.loadingData}</div>
+      
+      {/* Mobile DateTime */}
+      {currentDateTime && (
+        <p className="md:hidden text-sm text-muted-foreground text-center">{currentDateTime}</p>
       )}
 
-      {/* KPI Cards - 3 rows, 4 cards per row */}
-      <div className="space-y-4">
+      {/* Loading State */}
+      {isLoading || meLoading ? (
+        <>
+          {/* Mobile Skeleton */}
+          <div className="md:hidden space-y-3">
+            <StatsSkeleton count={4} />
+          </div>
+          {/* Desktop Skeleton */}
+          <div className="hidden md:block space-y-4">
+            <KPISkeleton count={4} />
+            <KPISkeleton count={4} />
+            <KPISkeleton count={4} />
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Mobile Quick Summary - Top 4 KPIs */}
+          <div className="md:hidden space-y-3">
+            <h2 className="text-lg font-semibold">{(t.dashboard as any)?.quickSummary || 'Quick Summary'}</h2>
+            <div className="grid grid-cols-2 gap-3">
+              {kpis.slice(0, 4).map((kpi) => {
+                const Icon = kpi.icon;
+                return (
+                  <Card key={kpi.title} className="hover:shadow-md transition-shadow">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center gap-2">
+                        <Icon className="h-4 w-4 text-muted-foreground" />
+                        <CardTitle className="text-xs font-medium">{kpi.title}</CardTitle>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="text-2xl font-bold">{kpi.value}</div>
+                      {kpi.trend && (
+                        <div className="flex items-center gap-1 text-xs mt-1">
+                          <TrendingUp className="h-3 w-3 text-green-500" />
+                          <span className="text-green-500">{kpi.trend}</span>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+        </div>
+      </div>
+
+      {/* Desktop KPI Cards - 3 rows, 4 cards per row */}
+      <div className="hidden md:block space-y-4">
         {/* Row 1 */}
-        <div className="flex flex-row gap-4">
+        <div className="grid grid-cols-4 gap-4">
           {kpis.slice(0, 4).map((kpi) => {
             const Icon = kpi.icon;
             return (
-              <Card key={kpi.title} className="flex-1 hover-lift group">
+              <Card key={kpi.title} className="hover-lift group">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-center gap-2 mb-2">
                     <Icon className="h-5 w-5 text-muted-foreground transition-colors group-hover:text-primary" />
@@ -301,11 +334,11 @@ export default function DashboardPage() {
         </div>
         
         {/* Row 2 */}
-        <div className="flex flex-row gap-4">
+        <div className="grid grid-cols-4 gap-4">
           {kpis.slice(4, 8).map((kpi) => {
             const Icon = kpi.icon;
             return (
-              <Card key={kpi.title} className="flex-1 hover-lift group">
+              <Card key={kpi.title} className="hover-lift group">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-center gap-2 mb-2">
                     <Icon className="h-5 w-5 text-muted-foreground transition-colors group-hover:text-primary" />
@@ -329,11 +362,11 @@ export default function DashboardPage() {
         </div>
         
         {/* Row 3 */}
-        <div className="flex flex-row gap-4">
+        <div className="grid grid-cols-4 gap-4">
           {kpis.slice(8, 12).map((kpi) => {
             const Icon = kpi.icon;
             return (
-              <Card key={kpi.title} className="flex-1 hover-lift group">
+              <Card key={kpi.title} className="hover-lift group">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-center gap-2 mb-2">
                     <Icon className="h-5 w-5 text-muted-foreground transition-colors group-hover:text-primary" />
@@ -348,6 +381,36 @@ export default function DashboardPage() {
                       <TrendingUp className="h-3 w-3 text-green-500" />
                       <span className="text-green-500">{kpi.trend}</span>
                       <span className="text-muted-foreground">{t.dashboard.fromLastPeriod}</span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Mobile All KPIs - Scrollable Grid */}
+      <div className="md:hidden space-y-3 mt-4">
+        <h2 className="text-lg font-semibold">{(t.dashboard as any)?.allMetrics || 'All Metrics'}</h2>
+        <div className="grid grid-cols-2 gap-3">
+          {kpis.slice(4).map((kpi) => {
+            const Icon = kpi.icon;
+            return (
+              <Card key={kpi.title} className="hover:shadow-md transition-shadow">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center gap-2">
+                    <Icon className="h-4 w-4 text-muted-foreground" />
+                    <CardTitle className="text-xs font-medium">{kpi.title}</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="text-2xl font-bold">{kpi.value}</div>
+                  <p className="text-xs text-muted-foreground mt-1">{kpi.description}</p>
+                  {kpi.trend && (
+                    <div className="flex items-center gap-1 text-xs mt-1">
+                      <TrendingUp className="h-3 w-3 text-green-500" />
+                      <span className="text-green-500">{kpi.trend}</span>
                     </div>
                   )}
                 </CardContent>
@@ -454,6 +517,8 @@ export default function DashboardPage() {
           </div>
         </CardContent>
       </Card>
+        </>
+      )}
     </div>
   );
 }

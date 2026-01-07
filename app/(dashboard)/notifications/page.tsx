@@ -23,6 +23,11 @@ import { useToast } from '@/hooks/use-toast';
 import { useLang } from '@/hooks/use-lang';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { format, formatDistanceToNow } from 'date-fns';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { MobileSearchBar } from '@/components/mobile/MobileSearchBar';
+import { MobileCardList } from '@/components/mobile/MobileCardList';
+import { StatsSkeleton } from '@/components/mobile/SkeletonLoaders';
+import { useTranslation } from '@/hooks/use-translation';
 
 interface NotificationRecord {
   id: string;
@@ -44,11 +49,14 @@ interface NotificationRecord {
 export default function NotificationsPage() {
   const { toast } = useToast();
   const { language, dir } = useLang();
+  const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const [refreshKey, setRefreshKey] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   useEffect(() => {
     fetchNotifications();
@@ -177,9 +185,48 @@ export default function NotificationsPage() {
     }
   }
 
+  // Filter notifications by search query
+  const filteredNotifications = searchQuery.trim()
+    ? notifications.filter(notification =>
+        notification.title_en.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        notification.message_en.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : notifications;
+
+  // Convert notifications to card format for mobile
+  const notificationCardItems = filteredNotifications.map((notification) => ({
+    id: notification.id,
+    title: notification.title_en,
+    subtitle: format(new Date(notification.createdAt), 'MMM dd, yyyy HH:mm'),
+    description: notification.message_en,
+    badges: [
+      {
+        label: notification.type.replace('PX_', '').replace(/_/g, ' '),
+        variant: (notification.type === 'PX_CASE_ESCALATED' ? 'destructive' : 'secondary') as 'destructive' | 'secondary',
+      },
+      {
+        label: notification.readAt ? (language === 'ar' ? 'مقروء' : 'Read') : (language === 'ar' ? 'غير مقروء' : 'Unread'),
+        variant: (notification.readAt ? 'outline' : 'default') as 'outline' | 'default',
+      },
+    ],
+    metadata: [
+      { label: language === 'ar' ? 'التاريخ' : 'Date', value: formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true }) },
+    ],
+    actions: !notification.readAt ? [
+      {
+        label: language === 'ar' ? 'تعليم كمقروء' : 'Mark Read',
+        onClick: () => handleMarkRead(notification.id),
+        icon: <CheckCircle2 className="h-4 w-4" />,
+        variant: 'outline' as const,
+      },
+    ] : [],
+    onCardClick: () => !notification.readAt && handleMarkRead(notification.id),
+  }));
+
   return (
-    <div key={`${language}-${refreshKey}`} className="space-y-6" dir={dir}>
-      <div className="flex justify-between items-center">
+    <div className="space-y-4 md:space-y-6" dir={dir}>
+      {/* Header - Hidden on mobile (MobileTopBar shows it) */}
+      <div className="hidden md:flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">
             {language === 'ar' ? 'الإشعارات' : 'Notifications'}
@@ -208,18 +255,88 @@ export default function NotificationsPage() {
               {language === 'ar' ? 'تعليم الكل كمقروء' : 'Mark All Read'}
             </Button>
           )}
-          <LanguageToggle />
         </div>
       </div>
 
-      {/* Notifications Table */}
-      <Card>
+      {/* Mobile Quick Summary */}
+      <div className="md:hidden">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">
+              {language === 'ar' ? 'الإشعارات' : 'Notifications'}
+            </CardTitle>
+            <CardDescription>
+              {language === 'ar' 
+                ? `لديك ${unreadCount} إشعار غير مقروء` 
+                : `You have ${unreadCount} unread notifications`}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowUnreadOnly(!showUnreadOnly)}
+                className="w-full min-h-[44px]"
+              >
+                {showUnreadOnly 
+                  ? (language === 'ar' ? 'عرض الكل' : 'Show All')
+                  : (language === 'ar' ? 'غير المقروءة فقط' : 'Unread Only')}
+              </Button>
+              {unreadCount > 0 && (
+                <Button
+                  variant="outline"
+                  onClick={handleMarkAllRead}
+                  className="w-full min-h-[44px]"
+                >
+                  <CheckCheck className="h-4 w-4 mr-2" />
+                  {language === 'ar' ? 'تعليم الكل كمقروء' : 'Mark All Read'}
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Mobile Search */}
+      {notifications.length > 0 && (
+        <div className="md:hidden">
+          <MobileSearchBar
+            placeholderKey="common.search"
+            queryParam="q"
+            onSearch={setSearchQuery}
+          />
+        </div>
+      )}
+
+      {/* Mobile: Card List */}
+      <div className="md:hidden">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">{language === 'ar' ? 'الإشعارات' : 'Notifications'}</CardTitle>
+            <CardDescription>
+              {language === 'ar' 
+                ? `إجمالي ${filteredNotifications.length} إشعار` 
+                : `Total ${filteredNotifications.length} notifications`}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <MobileCardList
+              items={notificationCardItems}
+              isLoading={isLoading}
+              emptyMessage={language === 'ar' ? 'لا توجد إشعارات' : 'No notifications found'}
+            />
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Desktop: Table */}
+      <Card className="hidden md:block">
         <CardHeader>
           <CardTitle>{language === 'ar' ? 'الإشعارات' : 'Notifications'}</CardTitle>
           <CardDescription>
             {language === 'ar' 
-              ? `إجمالي ${notifications.length} إشعار` 
-              : `Total ${notifications.length} notifications`}
+              ? `إجمالي ${filteredNotifications.length} إشعار` 
+              : `Total ${filteredNotifications.length} notifications`}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -227,7 +344,7 @@ export default function NotificationsPage() {
             <div className="flex justify-center items-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-          ) : notifications.length === 0 ? (
+          ) : filteredNotifications.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               {language === 'ar' ? 'لا توجد إشعارات' : 'No notifications found'}
             </div>
@@ -245,7 +362,7 @@ export default function NotificationsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {notifications.map((notification) => (
+                  {filteredNotifications.map((notification) => (
                     <TableRow 
                       key={notification.id}
                       className={!notification.readAt ? 'bg-muted/50' : ''}

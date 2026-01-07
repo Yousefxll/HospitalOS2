@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
+import { requireAuth } from '@/lib/auth/requireAuth';
+import { getActiveTenantId } from '@/lib/auth/sessionHelpers';
 import { getAggregatedOPDData, calculateStatsFromRecords } from '@/lib/opd/data-aggregator';
-
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -142,6 +143,21 @@ function buildDateQuery(params: FilterParams) {
 
 export async function GET(request: NextRequest) {
   try {
+    // SINGLE SOURCE OF TRUTH: Get activeTenantId from session
+    const activeTenantId = await getActiveTenantId(request);
+    if (!activeTenantId) {
+      return NextResponse.json(
+        { error: 'Tenant not selected. Please log in again.' },
+        { status: 400 }
+      );
+    }
+
+    // Authentication
+    const authResult = await requireAuth(request);
+    if (authResult instanceof NextResponse) {
+      return authResult;
+    }
+
     const { searchParams } = new URL(request.url);
     const params: FilterParams = {
       granularity: searchParams.get('granularity') || 'day',
@@ -159,8 +175,8 @@ export async function GET(request: NextRequest) {
 
     const dateQuery = buildDateQuery(params);
 
-    // Get aggregated data from both opd_daily_data and opd_census
-    const records = await getAggregatedOPDData(dateQuery);
+    // Get aggregated data from both opd_daily_data and opd_census WITH tenant isolation
+    const records = await getAggregatedOPDData(dateQuery, undefined, activeTenantId);
     
     // Calculate statistics
     const stats = calculateStatsFromRecords(records);

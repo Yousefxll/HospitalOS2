@@ -1,0 +1,339 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+import { requireAuth } from '@/lib/auth/requireAuth';
+import { getCollection } from '@/lib/db';
+import { ClinicalEvent } from '@/lib/models/ClinicalEvent';
+import { PolicyAlert } from '@/lib/models/PolicyAlert';
+import { verifyTokenEdge } from '@/lib/auth/edge';
+import { env } from '@/lib/env';
+import { v4 as uuidv4 } from 'uuid';
+import { isIntegrationEnabled, getSeverityThreshold, meetsSeverityThreshold } from '@/lib/integrations/settings';
+
+export const dynamic = 'force-dynamic';
+
+const policyCheckSchema = z.object({
+  eventId: z.string().optional(),
+  type: z.enum(['NOTE', 'ORDER', 'PROCEDURE', 'OTHER']).optional(),
+  subject: z.string().optional(),
+  payload: z.object({
+    text: z.string().optional(),
+    content: z.string().optional(),
+    metadata: z.record(z.any()).optional(),
+  }).passthrough().optional(),
+}).refine(
+  (data) => data.eventId || (data.type && data.payload),
+  { message: 'Either eventId or (type + payload) must be provided' }
+);
+
+/**
+ * POST /api/integrations/policy-check
+ * Run policy check on a clinical event
+ * 
+ * Requires: User must have BOTH sam=true AND health=true entitlements
+ * 
+ * Body: { eventId } OR { type, subject?, payload }
+ * Response: { ok: true, alertId, resultSummary }
+ */
+export async function POST(request: NextRequest) {
+  try {
+    // Authentication
+    const authResult = await requireAuth(request);
+    if (authResult instanceof NextResponse) {
+      return authResult;
+    }
+
+    const { tenantId, userId } = authResult;
+
+    // Check entitlements: requires BOTH sam AND health
+    const token = request.cookies.get('auth-token')?.value;
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const payload = await verifyTokenEdge(token);
+    if (!payload || !payload.entitlements) {
+      return NextResponse.json(
+        { error: 'Invalid token or entitlements not found' },
+        { status: 401 }
+      );
+    }
+
+    // Enforce entitlement requirement: BOTH sam AND health
+    if (!payload.entitlements.sam || !payload.entitlements.health) {
+      return NextResponse.json(
+        { 
+          error: 'Forbidden', 
+          message: 'Integration requires access to both SAM and SYRA Health platforms' 
+        },
+        { status: 403 }
+      );
+    }
+
+    // Check if integration is enabled in settings
+    const integrationEnabled = await isIntegrationEnabled(
+      tenantId,
+      payload.entitlements.sam,
+      payload.entitlements.health
+    );
+
+    if (!integrationEnabled) {
+      return NextResponse.json(
+        { 
+          error: 'Forbidden', 
+          message: 'Integration is disabled in tenant settings' 
+        },
+        { status: 403 }
+      );
+    }
+
+    // Validate request body
+    const body = await request.json();
+    const validation = policyCheckSchema.safeParse(body);
+    
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: 'Invalid request', details: validation.error.errors },
+        { status: 400 }
+      );
+    }
+
+    const { eventId, type, subject, payload: eventPayload } = validation.data;
+
+    let event: ClinicalEvent | null = null;
+    let eventText = '';
+
+    // Load event if eventId provided, otherwise use direct input
+    if (eventId) {
+      const eventsCollection = await getCollection('clinical_events');
+      event = await eventsCollection.findOne<ClinicalEvent>({
+        id: eventId,
+        tenantId, // Tenant isolation
+      });
+
+      if (!event) {
+        return NextResponse.json(
+          { error: 'Event not found' },
+          { status: 404 }
+        );
+      }
+
+      // Extract text from event payload
+      eventText = event.payload.text || event.payload.content || JSON.stringify(event.payload);
+    } else if (type && eventPayload) {
+      // Create temporary event structure for processing
+      eventText = eventPayload.text || eventPayload.content || JSON.stringify(eventPayload);
+    } else {
+      return NextResponse.json(
+        { error: 'Invalid request: eventId or (type + payload) required' },
+        { status: 400 }
+      );
+    }
+
+    if (!eventText || eventText.trim().length === 0) {
+      return NextResponse.json(
+        { error: 'Event text/content is required' },
+        { status: 400 }
+      );
+    }
+
+    // Update event status to processing
+    if (event) {
+      const eventsCollection = await getCollection('clinical_events');
+      await eventsCollection.updateOne(
+        { id: event.id, tenantId },
+        {
+          $set: {
+            status: 'processing',
+            updatedAt: new Date(),
+          },
+        }
+      );
+    }
+
+    try {
+      // Call policy-engine search endpoint
+      // Reuse existing integration pattern from SAM
+      // Use tenantId from session (not env fallback)
+      const policyEngineUrl = `${env.POLICY_ENGINE_URL}/v1/search`;
+      
+      const searchResponse = await fetch(policyEngineUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          tenantId, // From session (not env)
+          query: eventText,
+          topK: 10, // Get top 10 relevant policies
+        }),
+      });
+
+      if (!searchResponse.ok) {
+        const errorText = await searchResponse.text();
+        throw new Error(`Policy engine error: ${errorText}`);
+      }
+
+      const searchStartTime = Date.now();
+      const searchData = await searchResponse.json();
+      const results = searchData.results || [];
+      const searchEndTime = Date.now();
+
+      // Get severity threshold from settings
+      const severityThreshold = await getSeverityThreshold(tenantId);
+
+      // Process results and create policy alerts
+      const alertsCollection = await getCollection('policy_alerts');
+      const alertIds: string[] = [];
+      const now = new Date();
+      const processingTimeMs = searchEndTime - searchStartTime;
+
+      // Collect all policy IDs for traceability
+      const matchedPolicyIds: string[] = [];
+      const evidenceItems: PolicyAlert['evidence'] = [];
+
+      // Create alerts for high-relevance results (score > 0.7)
+      for (const result of results) {
+        const score = result.score || 0;
+        
+        // Only create alerts for highly relevant policies (threshold: 0.7)
+        if (score > 0.7) {
+          const alertId = uuidv4();
+          
+          // Determine severity based on relevance score
+          let severity: 'low' | 'medium' | 'high' | 'critical' = 'low';
+          if (score > 0.9) {
+            severity = 'critical';
+          } else if (score > 0.85) {
+            severity = 'high';
+          } else if (score > 0.75) {
+            severity = 'medium';
+          }
+
+          // Extract policy title from filename (remove extension)
+          const policyTitle = result.filename 
+            ? result.filename.replace(/\.[^/.]+$/, '').replace(/_/g, ' ')
+            : result.policyId;
+
+          // Determine source (heuristic: check filename for common standards)
+          let source = 'Internal';
+          const filenameLower = (result.filename || '').toLowerCase();
+          if (filenameLower.includes('cbahi') || filenameLower.includes('cbahi')) {
+            source = 'CBAHI';
+          } else if (filenameLower.includes('jci')) {
+            source = 'JCI';
+          } else if (filenameLower.includes('iso')) {
+            source = 'ISO';
+          }
+
+          // Build evidence item with extended structure
+          const evidenceItem = {
+            policyId: result.policyId,
+            policyTitle,
+            policyName: result.filename, // Backward compatibility
+            snippet: result.snippet,
+            pageNumber: result.pageNumber,
+            score,
+            relevanceScore: score, // Backward compatibility
+            source,
+            lineStart: result.lineStart,
+            lineEnd: result.lineEnd,
+          };
+
+          evidenceItems.push(evidenceItem);
+          if (result.policyId && !matchedPolicyIds.includes(result.policyId)) {
+            matchedPolicyIds.push(result.policyId);
+          }
+
+          // Check if alert severity meets threshold
+          if (!meetsSeverityThreshold(severity, severityThreshold)) {
+            continue; // Skip this alert - doesn't meet threshold
+          }
+
+          const alert: PolicyAlert = {
+            id: alertId,
+            tenantId,
+            eventId: event?.id || 'direct',
+            severity,
+            summary: `Relevant policy found: ${policyTitle} (relevance: ${(score * 100).toFixed(1)}%)`,
+            recommendations: [
+              `Review policy: ${policyTitle}`,
+              result.snippet ? `Relevant section: "${result.snippet.substring(0, 200)}..."` : 'See policy document for details',
+            ],
+            policyIds: [result.policyId].filter(Boolean),
+            evidence: [evidenceItem],
+            trace: {
+              eventId: event?.id || 'direct',
+              engineCallId: searchData.tenantId ? `${searchData.tenantId}-${Date.now()}` : undefined,
+              checkedAt: now,
+              processingTimeMs,
+            },
+            createdAt: now,
+          };
+
+          await alertsCollection.insertOne(alert);
+          alertIds.push(alertId);
+        }
+      }
+
+      // Update event status to processed
+      if (event) {
+        const eventsCollection = await getCollection('clinical_events');
+        await eventsCollection.updateOne(
+          { id: event.id, tenantId },
+          {
+            $set: {
+              status: 'processed',
+              updatedAt: now,
+            },
+          }
+        );
+      }
+
+      // Return result summary
+      return NextResponse.json({
+        ok: true,
+        alertId: alertIds[0] || null,
+        alertIds,
+        resultSummary: {
+          totalResults: results.length,
+          alertsCreated: alertIds.length,
+          topScore: results.length > 0 ? results[0].score : 0,
+        },
+      });
+    } catch (error) {
+      // Update event status to failed
+      if (event) {
+        const eventsCollection = await getCollection('clinical_events');
+        await eventsCollection.updateOne(
+          { id: event.id, tenantId },
+          {
+            $set: {
+              status: 'failed',
+              errorMessage: error instanceof Error ? error.message : String(error),
+              updatedAt: new Date(),
+            },
+          }
+        );
+      }
+
+      console.error('Policy check error:', error);
+      return NextResponse.json(
+        { 
+          error: 'Policy check failed',
+          message: error instanceof Error ? error.message : String(error),
+        },
+        { status: 500 }
+      );
+    }
+  } catch (error) {
+    console.error('Policy check error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+

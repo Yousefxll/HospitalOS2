@@ -56,3 +56,41 @@ yarn-error.log*
 Thumbs.db
 *.zip
 policy-engine.zip
+
+# macOS
+.DS_Store
+
+# Next.js
+.next/
+out/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python (policy-engine)
+# Virtual environments
+policy-engine/.venv/
+policy-engine/venv/
+policy-engine/env/
+policy-engine/*.venv/
+
+# Python cache
+policy-engine/__pycache__/
+policy-engine/**/__pycache__/
+policy-engine/.pytest_cache/
+policy-engine/**/*.pyc
+policy-engine/**/*.pyo
+policy-engine/**/*.pyd
+policy-engine/.Python
+policy-engine/**/*.so
+
+# Python distribution / packaging
+policy-engine/.eggs/
+policy-engine/dist/
+policy-engine/build/
+policy-engine/*.egg-info/
+policy-engine/.installed.cfg
+policy-engine/*.egg

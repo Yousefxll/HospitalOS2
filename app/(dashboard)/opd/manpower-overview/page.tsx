@@ -5,13 +5,16 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, AlertTriangle } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 export default function ManpowerOverviewPage() {
   const router = useRouter();
+  const isMobile = useIsMobile();
 
   return (
-    <div className="space-y-6">
-      <div>
+    <div className="space-y-4 md:space-y-6">
+      {/* Header - Hidden on mobile (MobileTopBar shows it) */}
+      <div className="hidden md:block">
         <h1 className="text-3xl font-bold">OPD Manpower Overview</h1>
         <p className="text-muted-foreground">View-only dashboard (legacy)</p>
       </div>
@@ -28,7 +31,7 @@ export default function ManpowerOverviewPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Button onClick={() => router.push('/opd/manpower-edit')}>
+          <Button onClick={() => router.push('/opd/manpower-edit')} className="w-full md:w-auto h-11">
             Go to New Manpower Editor
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>

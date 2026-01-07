@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRoleAsync } from '@/lib/auth/requireRole';
 import { getPXReportData } from '@/lib/reports/patientExperienceReport';
+import { getTenantContextOrThrow } from '@/lib/auth/getTenantIdOrThrow';
 import ExcelJS from 'exceljs';
 import { format } from 'date-fns';
+import { appConfig } from '@/lib/config';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,8 +20,17 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(request: NextRequest) {
   try {
-    // RBAC: supervisor, admin only (staff forbidden)
-    const authResult = await requireRoleAsync(request, ['supervisor', 'admin']);
+    // Tenant isolation: get tenantId from session
+    const tenantContext = await getTenantContextOrThrow(request);
+    const { tenantId, userId, userEmail, userRole } = tenantContext;
+
+    // Debug logging (if enabled)
+    if (process.env.DEBUG_TENANT === '1') {
+      console.log('[TENANT]', '/api/patient-experience/reports/xlsx (GET)', 'tenant=', tenantId, 'user=', userEmail, 'role=', userRole, 'collection=patient_experience,px_cases');
+    }
+
+    // RBAC: staff, supervisor, admin can export reports (same organization)
+    const authResult = await requireRoleAsync(request, ['staff', 'supervisor', 'admin', 'syra-owner']);
     if (authResult instanceof NextResponse) {
       return authResult; // Returns 401 or 403
     }
@@ -36,8 +47,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get report data
+    // Get report data (with tenant isolation)
     const reportData = await getPXReportData({
+      tenantId, // TENANT ISOLATION: Pass tenantId from session
       from,
       to,
       floorKey: searchParams.get('floorKey') || undefined,
@@ -48,7 +60,7 @@ export async function GET(request: NextRequest) {
 
     // Create workbook
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = 'HospitalOS';
+    workbook.creator = appConfig.name;
     workbook.created = new Date();
 
     // Sheet 1: Summary

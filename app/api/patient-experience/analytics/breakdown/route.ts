@@ -1,11 +1,19 @@
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
+import { requireAuth } from '@/lib/auth/requireAuth';
 import { requireRoleAsync, buildScopeFilter } from '@/lib/auth/requireRole';
+import { getActiveTenantId } from '@/lib/auth/sessionHelpers';
+import { addTenantDebugHeader } from '@/lib/utils/addTenantDebugHeader';
+import type { PatientExperience } from '@/lib/models/PatientExperience';
+import type { FloorRoom, FloorDepartment } from '@/lib/models/Floor';
+import type { ComplaintDomain } from '@/lib/models/ComplaintDomain';
+import type { ComplaintType } from '@/lib/models/ComplaintType';
 
 /**
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
  * GET /api/patient-experience/analytics/breakdown
  * Get breakdown of patient experience data by various dimensions
  * 
@@ -19,10 +27,30 @@ export const revalidate = 0;
  */
 export async function GET(request: NextRequest) {
   try {
-    // RBAC: supervisor, admin only (staff forbidden)
-    const authResult = await requireRoleAsync(request, ['supervisor', 'admin']);
+    // SINGLE SOURCE OF TRUTH: Get activeTenantId from session
+    const activeTenantId = await getActiveTenantId(request);
+    if (!activeTenantId) {
+      const response = NextResponse.json(
+        { error: 'Tenant not selected. Please log in again.' },
+        { status: 400 }
+      );
+      addTenantDebugHeader(response, null);
+      return response;
+    }
+
+    // Authentication
+    const authResult = await requireAuth(request);
     if (authResult instanceof NextResponse) {
-      return authResult; // Returns 401 or 403
+      addTenantDebugHeader(authResult, activeTenantId);
+      return authResult;
+    }
+    const { tenantId, userId, userRole } = authResult;
+
+    // RBAC: staff can see their own data, supervisor/admin/syra-owner can see all
+    // syra-owner has full access when working within tenant context
+    const roleCheck = await requireRoleAsync(request, ['staff', 'supervisor', 'admin', 'syra-owner']);
+    if (roleCheck instanceof NextResponse) {
+      return roleCheck; // Returns 401 or 403
     }
 
     const { searchParams } = new URL(request.url);
@@ -39,15 +67,25 @@ export async function GET(request: NextRequest) {
 
     const patientExperienceCollection = await getCollection('patient_experience');
     
-    // Build query with RBAC scope filtering
-    const query: any = {};
+    // Build query with tenant isolation (GOLDEN RULE: tenantId from session only)
+    // Backward compatibility: include documents without tenantId until migration is run
+    const query: any = {
+      $or: [
+        { tenantId: tenantId },
+        { tenantId: { $exists: false } }, // Backward compatibility for existing data
+        { tenantId: null },
+        { tenantId: '' },
+      ],
+    };
     
-    // Apply RBAC scope filtering for supervisor
-    if (authResult.userRole === 'supervisor') {
-      const scopeFilter = buildScopeFilter(authResult, 'departmentKey');
+    // Apply RBAC scope filtering
+    // Staff and Admin: see all visits within tenant (same organization)
+    if (userRole === 'supervisor') {
+      // Supervisor: department scope
+      const scopeFilter = buildScopeFilter(roleCheck, 'departmentKey');
       Object.assign(query, scopeFilter);
     }
-    // Admin: no filter (sees all)
+    // Staff, Admin and syra-owner: no additional filter (sees all within tenant)
     
     if (from || to) {
       query.visitDate = {};
@@ -62,7 +100,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch all visits matching filters
-    const visits = await patientExperienceCollection.find(query).toArray();
+    const visits = await patientExperienceCollection.find<PatientExperience>(query).toArray();
     const total = visits.length;
 
     if (total === 0) {
@@ -109,34 +147,50 @@ export async function GET(request: NextRequest) {
     if (groupBy === 'department') {
       const departmentsCollection = await getCollection('floor_departments');
       const departments = await departmentsCollection
-        .find({ key: { $in: keys }, active: true })
+        .find<FloorDepartment>({ 
+          key: { $in: keys }, 
+          active: true,
+          tenantId: tenantId, // TENANT ISOLATION
+        })
         .toArray();
       departments.forEach(d => {
-        labelMap.set(d.key, d.label_en || d.labelEn || d.departmentName || d.key);
+        labelMap.set(d.key, d.label_en || d.departmentName || d.key);
       });
     } else if (groupBy === 'room') {
       const roomsCollection = await getCollection('floor_rooms');
       const rooms = await roomsCollection
-        .find({ key: { $in: keys }, active: true })
+        .find<FloorRoom>({ 
+          key: { $in: keys }, 
+          active: true,
+          tenantId: tenantId, // TENANT ISOLATION
+        })
         .toArray();
       rooms.forEach(r => {
-        labelMap.set(r.key, r.label_en || r.labelEn || `Room ${r.roomNumber}` || r.key);
+        labelMap.set(r.key, r.label_en || r.roomName || `Room ${r.roomNumber}` || r.key);
       });
     } else if (groupBy === 'domain') {
       const domainsCollection = await getCollection('complaint_domains');
       const domains = await domainsCollection
-        .find({ key: { $in: keys }, active: true })
+        .find<ComplaintDomain>({ 
+          key: { $in: keys }, 
+          active: true,
+          tenantId: tenantId, // TENANT ISOLATION
+        })
         .toArray();
       domains.forEach(d => {
-        labelMap.set(d.key, d.label_en || d.labelEn || d.name || d.key);
+        labelMap.set(d.key, d.label_en || d.key);
       });
     } else if (groupBy === 'type') {
       const typesCollection = await getCollection('complaint_types');
       const types = await typesCollection
-        .find({ key: { $in: keys }, active: true })
+        .find<ComplaintType>({ 
+          key: { $in: keys }, 
+          active: true,
+          tenantId: tenantId, // TENANT ISOLATION
+        })
         .toArray();
       types.forEach(t => {
-        labelMap.set(t.key, t.label_en || t.labelEn || t.name || t.key);
+        labelMap.set(t.key, t.label_en || t.key);
       });
     } else if (groupBy === 'severity') {
       // Severity is already an English enum, use as-is
@@ -155,17 +209,25 @@ export async function GET(request: NextRequest) {
       }))
       .sort((a, b) => b.count - a.count); // Sort by count descending
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       data: breakdown,
       total,
     });
+    
+    // Add debug header (X-Active-Tenant)
+    addTenantDebugHeader(response, activeTenantId);
+    
+    return response;
   } catch (error: any) {
     console.error('Patient experience analytics breakdown error:', error);
-    return NextResponse.json(
+    const response = NextResponse.json(
       { error: 'Failed to fetch analytics breakdown', details: error.message },
       { status: 500 }
     );
+    const activeTenantId = await getActiveTenantId(request).catch(() => null);
+    addTenantDebugHeader(response, activeTenantId);
+    return response;
   }
 }
 

@@ -38,13 +38,8 @@ export default function NursingLayout({
         className="flex-1 flex flex-col w-full" 
         style={!isMobile ? (isRTL ? { marginRight: `${sidebarWidth}px` } : { marginLeft: `${sidebarWidth}px` }) : {}}
       >
-        <div 
-          className="fixed top-0 z-40 w-full" 
-          style={!isMobile ? (isRTL ? { right: `${sidebarWidth}px`, left: 0 } : { left: `${sidebarWidth}px`, right: 0 }) : { left: 0, right: 0 }}
-        >
           <Header onMenuClick={() => setSidebarOpen(true)} />
-        </div>
-        <main className="bg-background p-3 md:p-6 w-full" style={{ marginTop: '64px' }}>
+        <main className="bg-background p-3 md:p-6 w-full">
           {children}
         </main>
       </div>

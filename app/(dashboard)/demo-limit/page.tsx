@@ -39,7 +39,7 @@ function DemoLimitPageContent() {
 
   const handleContact = () => {
     // Open email client or contact form
-    window.location.href = 'mailto:support@sira.com?subject=Demo Quota Limit Reached&body=I have reached the demo quota limit and would like to upgrade my account.';
+    window.location.href = 'mailto:support@syra.com?subject=Demo Quota Limit Reached&body=I have reached the demo quota limit and would like to upgrade my account.';
   };
 
   const handleGoBack = () => {

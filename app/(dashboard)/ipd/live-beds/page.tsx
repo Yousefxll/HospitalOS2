@@ -12,6 +12,9 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Bed, RefreshCw, Users, Activity, Clock } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useTranslation } from '@/hooks/use-translation';
+import { MobileCardList } from '@/components/mobile/MobileCardList';
 
 interface Bed {
   id: string;
@@ -45,6 +48,8 @@ interface Statistics {
 }
 
 export default function LiveBedsPage() {
+  const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const [beds, setBeds] = useState<Bed[]>([]);
   const [bedsByDepartment, setBedsByDepartment] = useState<Record<string, Bed[]>>({});
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -135,9 +140,31 @@ export default function LiveBedsPage() {
       )
     : bedsByDepartment;
 
+  // Convert beds to card format for mobile
+  const bedCardItems = beds.map(bed => ({
+    id: bed.id,
+    title: `Bed ${bed.bedNumber}`,
+    subtitle: `Room ${bed.roomNumber} - ${bed.departmentName}`,
+    description: bed.admission 
+      ? `Patient: ${bed.admission.patientName} | Doctor: ${bed.admission.doctorName}`
+      : 'Vacant',
+    badges: [
+      { 
+        label: bed.status === 'occupied' ? 'Occupied' : 'Vacant', 
+        variant: bed.status === 'occupied' ? 'destructive' : 'default' as const 
+      },
+      ...(bed.bedType ? [{ label: bed.bedType, variant: 'outline' as const }] : []),
+    ],
+    metadata: bed.admission ? [
+      { label: 'Admission Date', value: new Date(bed.admission.admissionDate).toLocaleDateString() },
+      { label: 'Diagnosis', value: bed.admission.diagnosis },
+    ] : [],
+  }));
+
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-4 md:space-y-6">
+      {/* Header - Hidden on mobile (MobileTopBar shows it) */}
+      <div className="hidden md:flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">Live Beds</h1>
           <p className="text-muted-foreground">Real-time bed occupancy status</p>
@@ -161,9 +188,35 @@ export default function LiveBedsPage() {
           </Button>
         </div>
       </div>
+      
+      {/* Mobile Action Buttons */}
+      {isMobile && (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              Last update: {lastUpdate.toLocaleTimeString()}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="flex-1 h-11"
+              onClick={() => setAutoRefresh(!autoRefresh)}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${autoRefresh ? 'animate-spin' : ''}`} />
+              {autoRefresh ? 'ON' : 'OFF'}
+            </Button>
+            <Button variant="outline" className="flex-1 h-11" onClick={fetchLiveBeds} disabled={isLoading}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Beds</CardTitle>
@@ -213,9 +266,9 @@ export default function LiveBedsPage() {
           <CardDescription>Filter beds by department</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
             <Select value={selectedDepartmentId || undefined} onValueChange={(value) => setSelectedDepartmentId(value || '')}>
-              <SelectTrigger className="w-[300px]">
+              <SelectTrigger className="w-full sm:w-[300px] h-11">
                 <SelectValue placeholder="All Departments" />
               </SelectTrigger>
               <SelectContent>
@@ -229,7 +282,7 @@ export default function LiveBedsPage() {
             {selectedDepartmentId && (
               <Button
                 variant="outline"
-                size="sm"
+                className="h-11"
                 onClick={() => setSelectedDepartmentId('')}
               >
                 Clear Filter
@@ -266,61 +319,87 @@ export default function LiveBedsPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {departmentBeds.map((bed) => (
-                <Card
-                  key={bed.id}
-                  className={`border-2 ${
-                    bed.status === 'occupied'
-                      ? 'border-red-300 bg-red-50'
-                      : 'border-green-300 bg-green-50'
-                  }`}
-                >
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-base">
-                        {bed.roomNumber} - {bed.bedNumber}
-                      </CardTitle>
-                      <Badge className={getStatusColor(bed.status)}>
-                        {getStatusLabel(bed.status)}
-                      </Badge>
-                    </div>
-                    {bed.bedType && (
-                      <CardDescription className="text-xs">{bed.bedType}</CardDescription>
-                    )}
-                  </CardHeader>
-                  <CardContent>
-                    {bed.admission ? (
-                      <div className="space-y-2 text-sm">
-                        <div>
-                          <span className="font-medium">Patient:</span>{' '}
-                          {bed.admission.patientName}
-                        </div>
-                        <div>
-                          <span className="font-medium">Doctor:</span>{' '}
-                          {bed.admission.doctorName}
-                        </div>
-                        <div>
-                          <span className="font-medium">Admitted:</span>{' '}
-                          {new Date(bed.admission.admissionDate).toLocaleDateString()} at{' '}
-                          {bed.admission.admissionTime}
-                        </div>
-                        {bed.admission.diagnosis && (
+            {isMobile ? (
+              <MobileCardList
+                items={departmentBeds.map(bed => ({
+                  id: bed.id,
+                  title: `Bed ${bed.bedNumber}`,
+                  subtitle: `Room ${bed.roomNumber}`,
+                  description: bed.admission 
+                    ? `Patient: ${bed.admission.patientName} | Doctor: ${bed.admission.doctorName}`
+                    : 'Vacant',
+                  badges: [
+                    { 
+                      label: bed.status === 'occupied' ? 'Occupied' : 'Vacant', 
+                      variant: bed.status === 'occupied' ? 'destructive' : 'default' as const 
+                    },
+                    ...(bed.bedType ? [{ label: bed.bedType, variant: 'outline' as const }] : []),
+                  ],
+                  metadata: bed.admission ? [
+                    { label: 'Admission Date', value: new Date(bed.admission.admissionDate).toLocaleDateString() },
+                    ...(bed.admission.diagnosis ? [{ label: 'Diagnosis', value: bed.admission.diagnosis }] : []),
+                  ] : [],
+                }))}
+                isLoading={false}
+                emptyMessage="No beds found"
+              />
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {departmentBeds.map((bed) => (
+                  <Card
+                    key={bed.id}
+                    className={`border-2 ${
+                      bed.status === 'occupied'
+                        ? 'border-red-300 bg-red-50'
+                        : 'border-green-300 bg-green-50'
+                    }`}
+                  >
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-base">
+                          {bed.roomNumber} - {bed.bedNumber}
+                        </CardTitle>
+                        <Badge className={getStatusColor(bed.status)}>
+                          {getStatusLabel(bed.status)}
+                        </Badge>
+                      </div>
+                      {bed.bedType && (
+                        <CardDescription className="text-xs">{bed.bedType}</CardDescription>
+                      )}
+                    </CardHeader>
+                    <CardContent>
+                      {bed.admission ? (
+                        <div className="space-y-2 text-sm">
                           <div>
-                            <span className="font-medium">Diagnosis:</span>{' '}
-                            <span className="text-xs">{bed.admission.diagnosis}</span>
+                            <span className="font-medium">Patient:</span>{' '}
+                            {bed.admission.patientName}
                           </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="text-sm text-muted-foreground text-center py-2">
-                        Available
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                          <div>
+                            <span className="font-medium">Doctor:</span>{' '}
+                            {bed.admission.doctorName}
+                          </div>
+                          <div>
+                            <span className="font-medium">Admitted:</span>{' '}
+                            {new Date(bed.admission.admissionDate).toLocaleDateString()} at{' '}
+                            {bed.admission.admissionTime}
+                          </div>
+                          {bed.admission.diagnosis && (
+                            <div>
+                              <span className="font-medium">Diagnosis:</span>{' '}
+                              <span className="text-xs">{bed.admission.diagnosis}</span>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-sm text-muted-foreground text-center py-2">
+                          Available
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       ))}

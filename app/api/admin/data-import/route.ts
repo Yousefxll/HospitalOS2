@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import ExcelJS from 'exceljs';
 import { getCollection } from '@/lib/db';
-import { requireRole } from '@/lib/rbac';
+import { requireAuth } from '@/lib/security/auth';
+import { requireRole } from '@/lib/security/auth';
 import { v4 as uuidv4 } from 'uuid';
 
 
@@ -9,12 +10,19 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export async function POST(request: NextRequest) {
   try {
-    const userRole = request.headers.get('x-user-role') as any;
-    const userId = request.headers.get('x-user-id');
-
-    if (!requireRole(userRole, ['admin', 'supervisor'])) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // Authenticate
+    const auth = await requireAuth(request);
+    if (auth instanceof NextResponse) {
+      return auth;
     }
+
+    // Check role: admin or supervisor
+    const roleCheck = await requireRole(request, ['admin', 'supervisor'], auth);
+    if (roleCheck instanceof NextResponse) {
+      return roleCheck;
+    }
+    
+    const userId = auth.userId;
 
     const formData = await request.formData();
     const file = formData.get('file') as File;

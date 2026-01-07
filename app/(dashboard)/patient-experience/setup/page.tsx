@@ -26,13 +26,14 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useLang } from '@/hooks/use-lang';
 import { useTranslation } from '@/hooks/use-translation';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { translations } from '@/lib/i18n';
-import { LanguageToggle } from '@/components/LanguageToggle';
 
 export default function PatientExperienceSetupPage() {
   const { toast } = useToast();
   const { language, dir } = useLang();
   const { t, translate } = useTranslation();
+  const isMobile = useIsMobile();
   
   // Helper function to get translation with fallback
   const getTranslation = (key: string, fallbackAr: string, fallbackEn: string) => {
@@ -126,7 +127,7 @@ export default function PatientExperienceSetupPage() {
 
   async function loadFloors() {
     try {
-      const response = await fetch('/api/patient-experience/data?type=floors');
+      const response = await fetch('/api/patient-experience/data?type=floors', { cache: 'no-store' });
       const data = await response.json();
       if (data.success) {
         setFloors(data.data);
@@ -170,7 +171,7 @@ export default function PatientExperienceSetupPage() {
 
   async function loadAllDepartments() {
     try {
-      const response = await fetch('/api/patient-experience/data?type=all-departments');
+      const response = await fetch('/api/patient-experience/data?type=all-departments', { cache: 'no-store' });
       const data = await response.json();
       if (data.success) {
         setAllDepartments(data.data);
@@ -212,7 +213,7 @@ export default function PatientExperienceSetupPage() {
 
   async function loadComplaintTypes() {
     try {
-      const response = await fetch('/api/patient-experience/data?type=complaint-types');
+      const response = await fetch('/api/patient-experience/data?type=complaint-types', { cache: 'no-store' });
       const data = await response.json();
       if (data.success) {
         setComplaintTypes(data.data);
@@ -240,7 +241,7 @@ export default function PatientExperienceSetupPage() {
 
   async function loadAvailableComplaintTypes(category: string) {
     try {
-      const response = await fetch(`/api/patient-experience/data?type=complaint-types&category=${category}`);
+      const response = await fetch(`/api/patient-experience/data?type=complaint-types&category=${category}`, { cache: 'no-store' });
       const data = await response.json();
       if (data.success) {
         setAvailableComplaintTypes(data.data);
@@ -393,6 +394,7 @@ export default function PatientExperienceSetupPage() {
     setIsLoading(true);
     try {
       const response = await fetch(`/api/patient-experience/data?dataType=${dataType}&id=${id}`, {
+        cache: 'no-store',
         method: 'DELETE',
       });
 
@@ -522,6 +524,7 @@ export default function PatientExperienceSetupPage() {
     setIsImporting(true);
     try {
       const response = await fetch('/api/patient-experience/complaints/seed', {
+        cache: 'no-store',
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -565,7 +568,6 @@ export default function PatientExperienceSetupPage() {
           <h1 className="text-3xl font-bold">{pageTitle}</h1>
           <p className="text-muted-foreground">{pageSubtitle}</p>
         </div>
-        <LanguageToggle />
       </div>
 
       {/* Complaint Taxonomy Import Section */}
@@ -778,7 +780,7 @@ export default function PatientExperienceSetupPage() {
                           setShowAddForm(true);
                         }}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className="h-11">
                           <SelectValue placeholder={language === 'ar' ? 'اختر الطابق من القائمة' : 'Select floor from list'} />
                         </SelectTrigger>
                         <SelectContent>
@@ -911,7 +913,7 @@ export default function PatientExperienceSetupPage() {
                           await loadDepartments(value);
                         }}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className="h-11">
                           <SelectValue placeholder={language === 'ar' ? 'اختر الطابق من القائمة' : 'Select floor from list'} />
                         </SelectTrigger>
                         <SelectContent>
@@ -935,7 +937,7 @@ export default function PatientExperienceSetupPage() {
                               roomNumber: ''
                             })}
                           >
-                            <SelectTrigger>
+                            <SelectTrigger className="h-11">
                               <SelectValue placeholder={language === 'ar' ? 'اختر القسم من القائمة' : 'Select department from list'} />
                             </SelectTrigger>
                             <SelectContent>
@@ -1013,7 +1015,7 @@ export default function PatientExperienceSetupPage() {
                           loadAvailableComplaintTypes(value);
                         }}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className="h-11">
                           <SelectValue placeholder={language === 'ar' ? 'اختر شكر أو شكوى' : 'Select praise or complaint'} />
                         </SelectTrigger>
                         <SelectContent>
@@ -1128,7 +1130,7 @@ export default function PatientExperienceSetupPage() {
                           }
                         }}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className="h-11">
                           <SelectValue placeholder={language === 'ar' ? 'اختر التصنيف الرئيسي' : 'Select parent Classification'} />
                         </SelectTrigger>
                         <SelectContent>

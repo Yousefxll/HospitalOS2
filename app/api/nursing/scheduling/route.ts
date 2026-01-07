@@ -1,11 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
-
+import { requireAuth } from '@/lib/auth/requireAuth';
+import { getActiveTenantId } from '@/lib/auth/sessionHelpers';
+import type { Nurse } from '@/lib/models/Nurse';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export async function GET(request: NextRequest) {
   try {
+    // SINGLE SOURCE OF TRUTH: Get activeTenantId from session
+    const activeTenantId = await getActiveTenantId(request);
+    if (!activeTenantId) {
+      return NextResponse.json(
+        { error: 'Tenant not selected. Please log in again.' },
+        { status: 400 }
+      );
+    }
+
+    // Authentication
+    const authResult = await requireAuth(request);
+    if (authResult instanceof NextResponse) {
+      return authResult;
+    }
+
     const { searchParams } = new URL(request.url);
     const departmentId = searchParams.get('departmentId');
     const weekStart = searchParams.get('weekStart');
@@ -17,21 +34,36 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get nurses for the department
+    // Build tenant filter (GOLDEN RULE: tenantId from session only)
+    const tenantFilter = {
+      $or: [
+        { tenantId: activeTenantId },
+        { tenantId: { $exists: false } }, // Backward compatibility
+        { tenantId: null },
+        { tenantId: '' },
+      ],
+    };
+
+    // Get nurses for the department - WITH tenant isolation
     const nursesCollection = await getCollection('nurses');
     const nurses = await nursesCollection
-      .find({ departmentId, isActive: true })
+      .find<Nurse>({ 
+        ...tenantFilter,
+        departmentId, 
+        isActive: true 
+      })
       .toArray();
 
-    // Get or create schedules for the week
+    // Get or create schedules for the week - WITH tenant isolation
     const schedulesCollection = await getCollection('nursing_assignments');
     
     const schedules = [];
     const weekStartDate = new Date(weekStart);
     
     for (const nurse of nurses) {
-      // Try to find existing schedule
+      // Try to find existing schedule - WITH tenant isolation
       let schedule = await schedulesCollection.findOne({
+        ...tenantFilter,
         nurseId: nurse.id,
         weekStartDate: weekStart, // Store as string for easier matching
       }) as any;
@@ -43,6 +75,7 @@ export async function GET(request: NextRequest) {
 
         const newSchedule = {
           id: `${nurse.id}-${weekStart}`,
+          tenantId: activeTenantId, // Always set tenantId on creation
           nurseId: nurse.id,
           nurseName: nurse.name,
           employeeId: nurse.employeeId,

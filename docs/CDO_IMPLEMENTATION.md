@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the implementation of the SIRA Clinical Decision & Outcomes (CDO) layer as specified in `/docs/specs/SIRA_CDO_LAYER.md`.
+This document describes the implementation of the SYRA Clinical Decision & Outcomes (CDO) layer as specified in `/docs/specs/SIRA_CDO_LAYER.md`.
 
 ## Architecture
 

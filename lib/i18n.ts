@@ -2,6 +2,8 @@
  * Internationalization (i18n) Types and Utilities
  */
 
+import { appConfig } from '@/lib/config';
+
 export type Language = 'ar' | 'en';
 
 export interface Translations {
@@ -35,6 +37,9 @@ export interface Translations {
     ok: string;
     accessDenied: string;
     contactAdmin: string;
+    more: string;
+    clearAll: string;
+    filterDescription: string;
   };
 
   // Navigation
@@ -344,6 +349,49 @@ export interface Translations {
       staffNameRequired: string;
       staffIdRequired: string;
     };
+    analytics: {
+      title: string;
+      subtitle: string;
+      totalVisits: string;
+      avgSatisfaction: string;
+      openCases: string;
+      avgResolution: string;
+      trends: string;
+      trendsDescription: string;
+      topDepartments: string;
+      complaintTypes: string;
+      severityMix: string;
+      exportData: string;
+      exportDataDescription: string;
+      exportVisits: string;
+      exportCases: string;
+      noData: string;
+      complaints: string;
+      praise: string;
+      cases: string;
+      overdue: string;
+      total: string;
+      minutes: string;
+      slaBreach: string;
+      praiseRatio: string;
+    };
+    reports: {
+      title: string;
+      subtitle: string;
+      reportType: string;
+      reportTypeDescription: string;
+      executiveSummary: string;
+      slaBreachReport: string;
+      topComplaints: string;
+      visitsLog: string;
+      exportReport: string;
+      exportReportDescription: string;
+      exportCsv: string;
+      exportExcel: string;
+      exportPdf: string;
+      exportSuccessful: string;
+      exportFailed: string;
+    };
   };
 
   // Policy System
@@ -386,6 +434,9 @@ export interface Translations {
       areYouSureDelete: string;
       fileAlreadyExists: string;
       followingFilesExist: string;
+      preview: string;
+      uploadPolicy: string;
+      viewPdf: string;
     };
     conflicts: {
       title: string;
@@ -540,6 +591,9 @@ export const translations: Record<Language, Translations> = {
       ok: 'OK',
       accessDenied: 'You do not have permission to view this page.',
       contactAdmin: 'Please contact your administrator to request access.',
+      more: 'More',
+      clearAll: 'Clear All Filters',
+      filterDescription: 'Select filters to refine your results',
     },
     nav: {
       dashboard: 'Dashboard',
@@ -600,7 +654,7 @@ export const translations: Record<Language, Translations> = {
       users: 'Users',
     },
     header: {
-      hospitalOS: 'SIRA',
+      hospitalOS: appConfig.name,
       logout: 'Logout',
       welcome: 'Welcome',
     },
@@ -819,6 +873,49 @@ export const translations: Record<Language, Translations> = {
         staffNameRequired: 'Staff name is required',
         staffIdRequired: 'Staff ID is required. Please add it in the Users page.',
       },
+      analytics: {
+        title: 'Patient Experience Analytics',
+        subtitle: 'Comprehensive view of patient experience data',
+        totalVisits: 'Total Visits',
+        avgSatisfaction: 'Avg Satisfaction',
+        openCases: 'Open Cases',
+        avgResolution: 'Avg Resolution',
+        trends: 'Trends',
+        trendsDescription: 'Evolution of complaints, praise, and cases over time',
+        topDepartments: 'Top Departments',
+        complaintTypes: 'Complaint Types',
+        severityMix: 'Severity Mix',
+        exportData: 'Export Data',
+        exportDataDescription: 'Export data in CSV format',
+        exportVisits: 'Export Visits',
+        exportCases: 'Export Cases',
+        noData: 'No data available',
+        complaints: 'complaints',
+        praise: 'praise',
+        cases: 'Cases',
+        overdue: 'overdue',
+        total: 'total',
+        minutes: 'minutes',
+        slaBreach: 'SLA breach',
+        praiseRatio: 'Praise ratio',
+      },
+      reports: {
+        title: 'Patient Experience Reports',
+        subtitle: 'Export reports in various formats',
+        reportType: 'Report Type',
+        reportTypeDescription: 'Select the type of report to export',
+        executiveSummary: 'Executive Summary',
+        slaBreachReport: 'SLA Breach Report (Cases)',
+        topComplaints: 'Top Complaint Types (Pareto)',
+        visitsLog: 'Visits Log',
+        exportReport: 'Export Report',
+        exportReportDescription: 'Choose export format',
+        exportCsv: 'Export CSV',
+        exportExcel: 'Export Excel',
+        exportPdf: 'Export PDF',
+        exportSuccessful: 'Export successful',
+        exportFailed: 'Export failed',
+      },
     },
     policies: {
       library: {
@@ -859,6 +956,9 @@ export const translations: Record<Language, Translations> = {
         areYouSureDelete: 'Are you sure you want to delete this policy?',
         fileAlreadyExists: 'File already exists',
         followingFilesExist: 'The following file(s) already exist and cannot be uploaded again:',
+        preview: 'Preview',
+        uploadPolicy: 'Upload Policy',
+        viewPdf: 'View PDF',
       },
       conflicts: {
         title: 'Policy Conflicts & Issues',
@@ -1011,6 +1111,9 @@ export const translations: Record<Language, Translations> = {
       ok: 'موافق',
       accessDenied: 'ليس لديك صلاحية لعرض هذه الصفحة.',
       contactAdmin: 'يرجى الاتصال بالمسؤول لطلب الوصول.',
+      more: 'المزيد',
+      clearAll: 'مسح جميع الفلاتر',
+      filterDescription: 'اختر الفلاتر لتصفية النتائج',
     },
     nav: {
       dashboard: 'لوحة التحكم',
@@ -1071,7 +1174,7 @@ export const translations: Record<Language, Translations> = {
       users: 'المستخدمون',
     },
     header: {
-      hospitalOS: 'سِيرَه',
+      hospitalOS: appConfig.name,
       logout: 'تسجيل الخروج',
       welcome: 'مرحباً',
     },
@@ -1256,6 +1359,49 @@ export const translations: Record<Language, Translations> = {
         staffNameRequired: 'اسم الموظف مطلوب',
         staffIdRequired: 'رقم الموظف مطلوب. يرجى إضافته في صفحة المستخدمين.',
       },
+      analytics: {
+        title: 'تحليلات تجربة المريض',
+        subtitle: 'نظرة شاملة على بيانات تجربة المريض',
+        totalVisits: 'إجمالي الزيارات',
+        avgSatisfaction: 'متوسط الرضا',
+        openCases: 'الحالات المفتوحة',
+        avgResolution: 'متوسط وقت الحل',
+        trends: 'الاتجاهات الزمنية',
+        trendsDescription: 'تطور الشكاوى والمدائح والحالات بمرور الوقت',
+        topDepartments: 'أفضل الأقسام',
+        complaintTypes: 'أنواع الشكاوى',
+        severityMix: 'توزيع الشدة',
+        exportData: 'تصدير البيانات',
+        exportDataDescription: 'تصدير البيانات بتنسيق CSV',
+        exportVisits: 'تصدير الزيارات',
+        exportCases: 'تصدير الحالات',
+        noData: 'لا توجد بيانات',
+        complaints: 'شكوى',
+        praise: 'مديح',
+        cases: 'الحالات',
+        overdue: 'متأخرة',
+        total: 'إجمالي',
+        minutes: 'دقيقة',
+        slaBreach: 'انتهاك SLA',
+        praiseRatio: 'نسبة المدائح',
+      },
+      reports: {
+        title: 'تقارير تجربة المريض',
+        subtitle: 'تصدير التقارير بتنسيقات مختلفة',
+        reportType: 'نوع التقرير',
+        reportTypeDescription: 'اختر نوع التقرير المراد تصديره',
+        executiveSummary: 'ملخص تنفيذي',
+        slaBreachReport: 'تقرير انتهاك SLA',
+        topComplaints: 'أهم أنواع الشكاوى (Pareto)',
+        visitsLog: 'سجل الزيارات',
+        exportReport: 'تصدير التقرير',
+        exportReportDescription: 'اختر تنسيق التصدير',
+        exportCsv: 'تصدير CSV',
+        exportExcel: 'تصدير Excel',
+        exportPdf: 'تصدير PDF',
+        exportSuccessful: 'تم التصدير بنجاح',
+        exportFailed: 'فشل التصدير',
+      },
     },
     account: {
       accountSettings: 'إعدادات الحساب',
@@ -1330,6 +1476,9 @@ export const translations: Record<Language, Translations> = {
         areYouSureDelete: 'هل أنت متأكد من حذف هذه السياسة؟',
         fileAlreadyExists: 'الملف موجود بالفعل',
         followingFilesExist: 'الملف(ات) التالية موجودة بالفعل ولا يمكن رفعها مرة أخرى:',
+        preview: 'معاينة',
+        uploadPolicy: 'رفع سياسة',
+        viewPdf: 'عرض PDF',
       },
       conflicts: {
         title: 'تعارضات ومشاكل السياسات',

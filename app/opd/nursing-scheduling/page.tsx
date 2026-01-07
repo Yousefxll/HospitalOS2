@@ -33,6 +33,8 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useTranslation } from '@/hooks/use-translation';
 
 type DayOfWeek = 'Saturday' | 'Sunday' | 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday';
 type TaskType = 'Cover Doctor' | 'Procedure' | 'Laser' | 'VS' | 'Other';
@@ -98,6 +100,8 @@ const CODE_BLUE_ROLES: CodeBlueRole[] = [
 ];
 
 export default function NursingSchedulingPage() {
+  const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const [selectedDepartment, setSelectedDepartment] = useState('dept-1');
   const [weekStartDate, setWeekStartDate] = useState(() => {
     const today = new Date();
@@ -453,8 +457,9 @@ export default function NursingSchedulingPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-4 md:space-y-6">
+      {/* Header - Hidden on mobile (MobileTopBar shows it) */}
+      <div className="hidden md:flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">Nursing Weekly Scheduling</h1>
           <p className="text-muted-foreground">Assign tasks, manage Code Blue roles, and track hours</p>
@@ -474,6 +479,24 @@ export default function NursingSchedulingPage() {
           </Button>
         </div>
       </div>
+      
+      {/* Mobile Action Buttons */}
+      {isMobile && (
+        <div className="flex flex-col gap-2">
+          <Button variant="outline" onClick={exportToExcel} className="w-full h-11">
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            Export Excel
+          </Button>
+          <Button variant="outline" onClick={exportToPDF} className="w-full h-11">
+            <FileText className="mr-2 h-4 w-4" />
+            Export PDF
+          </Button>
+          <Button variant="outline" onClick={fetchSchedulingData} disabled={isLoading} className="w-full h-11">
+            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </div>
+      )}
 
       {/* Week and Department Selector */}
       <Card>
@@ -482,7 +505,7 @@ export default function NursingSchedulingPage() {
             <div className="space-y-2">
               <Label htmlFor="department">Department</Label>
               <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
-                <SelectTrigger>
+                <SelectTrigger className="h-11">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -499,6 +522,7 @@ export default function NursingSchedulingPage() {
                 type="date"
                 value={weekStartDate}
                 onChange={(e) => setWeekStartDate(e.target.value)}
+                className="h-11"
               />
             </div>
             <div className="space-y-2">
@@ -507,7 +531,7 @@ export default function NursingSchedulingPage() {
                 type="text"
                 value={getWeekEndDate(weekStartDate)}
                 disabled
-                className="bg-gray-50"
+                className="bg-gray-50 h-11"
               />
             </div>
           </div>
@@ -659,7 +683,7 @@ export default function NursingSchedulingPage() {
 
       {/* Add Task Dialog */}
       <Dialog open={isTaskDialogOpen} onOpenChange={setIsTaskDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add Task Assignment</DialogTitle>
             <DialogDescription>

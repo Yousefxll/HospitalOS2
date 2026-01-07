@@ -3,7 +3,8 @@ import { ObjectId } from 'mongodb';
 export interface Session {
   _id?: ObjectId;
   userId: string;
-  tenantId?: string; // Optional for multi-tenant support
+  tenantId?: string; // User's identity tenant (from user.tenantId) - kept for backward compatibility
+  activeTenantId?: string; // SINGLE SOURCE OF TRUTH: Currently active tenant for this session (selected at login)
   sessionId: string; // UUID
   createdAt: Date;
   lastSeenAt: Date;

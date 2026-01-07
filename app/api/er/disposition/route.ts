@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
+import type { ERTriage, ERRegistration } from '@/lib/cdo/repositories/ERRepository';
 
 
 export const dynamic = 'force-dynamic';
@@ -51,7 +52,12 @@ export async function POST(request: NextRequest) {
     // Check if death is only in Resus
     if (dispositionType === 'death') {
       const erTriageCollection = await getCollection('er_triage');
-      const triage = await erTriageCollection.findOne({ erVisitId });
+      // Type annotation for triage document
+      interface ERTriage {
+        routing?: string;
+        [key: string]: any;
+      }
+      const triage = await erTriageCollection.findOne<ERTriage>({ erVisitId });
       
       if (!triage || triage.routing !== 'Resus') {
         return NextResponse.json(
@@ -63,7 +69,7 @@ export async function POST(request: NextRequest) {
 
     // Get registration
     const erRegistrationsCollection = await getCollection('er_registrations');
-    const registration = await erRegistrationsCollection.findOne({
+    const registration = await erRegistrationsCollection.findOne<ERRegistration>({
       erVisitId,
     });
 

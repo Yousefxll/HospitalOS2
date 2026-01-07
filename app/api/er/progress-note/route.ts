@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
+import type { ERRegistration } from '@/lib/cdo/repositories/ERRepository';
 
 
 export const dynamic = 'force-dynamic';
@@ -26,7 +27,7 @@ export async function POST(request: NextRequest) {
 
     // Get registration to verify visit exists
     const erRegistrationsCollection = await getCollection('er_registrations');
-    const registration = await erRegistrationsCollection.findOne({
+    const registration = await erRegistrationsCollection.findOne<ERRegistration>({
       erVisitId,
     });
 

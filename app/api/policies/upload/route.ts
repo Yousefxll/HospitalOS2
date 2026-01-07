@@ -8,7 +8,7 @@ import fs from 'fs';
 import path from 'path';
 import { z } from 'zod';
 import { chunkTextWithLines } from '@/lib/policy/chunking';
-import { PolicyDocument, PolicyChunk } from '@/lib/models/Policy';
+import type { PolicyDocument, PolicyChunk } from '@/lib/models/Policy';
 // Import pdfjs-dist for PDF text extraction
 // Using dynamic import to avoid bundling issues in Next.js
 let pdfjsLib: any = null;
@@ -219,7 +219,7 @@ export async function POST(request: NextRequest) {
 
     // Check for duplicate
     const policiesCollection = await getCollection('policy_documents');
-    const existing = await policiesCollection.findOne({ fileHash, isActive: true });
+    const existing = await policiesCollection.findOne<PolicyDocument>({ fileHash, isActive: true });
 
     if (existing) {
       return NextResponse.json(

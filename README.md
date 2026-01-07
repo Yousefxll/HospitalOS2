@@ -1,6 +1,6 @@
-# SIRA — Enterprise Policy & Procedure Platform
+# SYRA — Enterprise Policy & Procedure Platform
 
-SIRA is an enterprise-grade policy and procedure management system built with Next.js, TypeScript, and MongoDB.
+SYRA is an enterprise-grade policy and procedure management system built with Next.js, TypeScript, and MongoDB.
 
 ## Features Implemented
 

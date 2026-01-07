@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCollection } from '@/lib/db';
-import { requireRole, Role } from '@/lib/rbac';
+import { requireAuth } from '@/lib/auth/requireAuth';
+import { getActiveTenantId } from '@/lib/auth/sessionHelpers';
+import { requireRoleAsync } from '@/lib/auth/requireRole';
 import { v4 as uuidv4 } from 'uuid';
-
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -21,8 +22,40 @@ const createEquipmentSchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
+    // SINGLE SOURCE OF TRUTH: Get activeTenantId from session
+    const activeTenantId = await getActiveTenantId(request);
+    if (!activeTenantId) {
+      return NextResponse.json(
+        { error: 'Tenant not selected. Please log in again.' },
+        { status: 400 }
+      );
+    }
+
+    // Authentication
+    const authResult = await requireAuth(request);
+    if (authResult instanceof NextResponse) {
+      return authResult;
+    }
+
+    // RBAC
+    const roleCheck = await requireRoleAsync(request, ['admin', 'supervisor', 'staff', 'viewer', 'syra-owner']);
+    if (roleCheck instanceof NextResponse) {
+      return roleCheck;
+    }
+
+    // Build query with tenant isolation (GOLDEN RULE: tenantId from session only)
+    // Backward compatibility: include documents without tenantId until migration is run
+    const tenantFilter = {
+      $or: [
+        { tenantId: activeTenantId },
+        { tenantId: { $exists: false } }, // Backward compatibility
+        { tenantId: null },
+        { tenantId: '' },
+      ],
+    };
+
     const equipmentCollection = await getCollection('equipment');
-    const equipment = await equipmentCollection.find({}).toArray();
+    const equipment = await equipmentCollection.find(tenantFilter).toArray();
 
     return NextResponse.json({ equipment });
   } catch (error) {
@@ -36,11 +69,24 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const userRole = request.headers.get('x-user-role') as Role | null;
-    const userId = request.headers.get('x-user-id');
+    // SINGLE SOURCE OF TRUTH: Get activeTenantId from session
+    const activeTenantId = await getActiveTenantId(request);
+    if (!activeTenantId) {
+      return NextResponse.json(
+        { error: 'Tenant not selected. Please log in again.' },
+        { status: 400 }
+      );
+    }
 
-    if (!requireRole(userRole, ['admin', 'supervisor'])) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // Authentication and RBAC
+    const authResult = await requireAuth(request);
+    if (authResult instanceof NextResponse) {
+      return authResult;
+    }
+
+    const roleCheck = await requireRoleAsync(request, ['admin', 'supervisor', 'syra-owner']);
+    if (roleCheck instanceof NextResponse) {
+      return roleCheck;
     }
 
     const body = await request.json();
@@ -48,8 +94,21 @@ export async function POST(request: NextRequest) {
 
     const equipmentCollection = await getCollection('equipment');
 
-    // Check if equipment code already exists
-    const existing = await equipmentCollection.findOne({ code: data.code });
+    // Build tenant filter for duplicate check
+    const tenantFilter = {
+      $or: [
+        { tenantId: activeTenantId },
+        { tenantId: { $exists: false } }, // Backward compatibility
+        { tenantId: null },
+        { tenantId: '' },
+      ],
+    };
+
+    // Check if equipment code already exists (within tenant)
+    const existing = await equipmentCollection.findOne({ 
+      code: data.code,
+      ...tenantFilter
+    });
     if (existing) {
       return NextResponse.json(
         { error: 'Equipment with this code already exists' },
@@ -60,10 +119,11 @@ export async function POST(request: NextRequest) {
     const newEquipment = {
       id: uuidv4(),
       ...data,
+      tenantId: activeTenantId, // Always set tenantId on creation
       createdAt: new Date(),
       updatedAt: new Date(),
-      createdBy: userId,
-      updatedBy: userId,
+      createdBy: authResult.userId,
+      updatedBy: authResult.userId,
     };
 
     await equipmentCollection.insertOne(newEquipment);

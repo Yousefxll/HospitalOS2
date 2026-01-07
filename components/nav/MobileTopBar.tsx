@@ -6,6 +6,7 @@ import { ArrowLeft, MoreVertical, Menu, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslation } from '@/hooks/use-translation';
 import { LanguageToggle } from '@/components/LanguageToggle';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -93,8 +94,10 @@ export function MobileTopBar({
         {title}
       </h1>
 
-      {/* Right: Language Toggle, Logout, and Menu buttons */}
+      {/* Right: Theme Toggle, Language Toggle, Logout, and Menu buttons */}
       <div className="flex items-center min-w-[40px] justify-end gap-2">
+        {/* Theme Toggle Button */}
+        <ThemeToggle />
         {/* Language Toggle Button */}
         <LanguageToggle />
         {/* Logout Button */}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,7 +48,12 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useLang } from '@/hooks/use-lang';
+import { useTranslation } from '@/hooks/use-translation';
 import { LanguageToggle } from '@/components/LanguageToggle';
+import { MobileSearchBar } from '@/components/mobile/MobileSearchBar';
+import { MobileCardList } from '@/components/mobile/MobileCardList';
+import { MobileFilterBar } from '@/components/mobile/MobileFilterBar';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { format, formatDistanceToNow } from 'date-fns';
 
 interface CaseRecord {
@@ -82,11 +88,15 @@ interface CaseRecord {
 }
 
 export default function PatientExperienceCasesPage() {
+  const router = useRouter();
   const { toast } = useToast();
   const { language, dir } = useLang();
+  const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const [refreshKey, setRefreshKey] = useState(0);
   const [isMounted, setIsMounted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
   
   // Handle client-side mounting to prevent hydration errors
   useEffect(() => {
@@ -135,7 +145,7 @@ export default function PatientExperienceCasesPage() {
   async function loadDepartments() {
     try {
       // Load all departments directly from departments collection (all hospital departments)
-      const response = await fetch('/api/patient-experience/data?type=all-departments');
+      const response = await fetch('/api/patient-experience/data?type=all-departments', { cache: 'no-store' });
       if (response.ok) {
         const data = await response.json();
         setDepartments(data.data || []);
@@ -153,8 +163,9 @@ export default function PatientExperienceCasesPage() {
       if (severity) params.append('severity', severity);
       if (overdue) params.append('overdue', overdue);
       if (assignedDeptKey) params.append('assignedDeptKey', assignedDeptKey);
+      if (searchQuery) params.append('search', searchQuery);
 
-      const response = await fetch(`/api/patient-experience/cases?${params.toString()}`);
+      const response = await fetch(`/api/patient-experience/cases?${params.toString()}`, { cache: 'no-store' });
       if (response.ok) {
         const data = await response.json();
         setCases(data.data || []);
@@ -189,7 +200,7 @@ export default function PatientExperienceCasesPage() {
     // Load audit history
     setIsLoadingHistory(true);
     try {
-      const response = await fetch(`/api/patient-experience/cases/${caseItem.id}/audit`);
+      const response = await fetch(`/api/patient-experience/cases/${caseItem.id}/audit`, { cache: 'no-store' });
       if (response.ok) {
         const data = await response.json();
         setAuditHistory(data.data || []);
@@ -207,6 +218,7 @@ export default function PatientExperienceCasesPage() {
     setIsUpdating(true);
     try {
       const response = await fetch(`/api/patient-experience/cases/${selectedCase.id}`, {
+        cache: 'no-store',
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -226,7 +238,7 @@ export default function PatientExperienceCasesPage() {
         if (selectedCase) {
           setIsLoadingHistory(true);
           try {
-            const auditResponse = await fetch(`/api/patient-experience/cases/${selectedCase.id}/audit`);
+            const auditResponse = await fetch(`/api/patient-experience/cases/${selectedCase.id}/audit`, { cache: 'no-store' });
             if (auditResponse.ok) {
               const auditData = await auditResponse.json();
               setAuditHistory(auditData.data || []);
@@ -264,6 +276,7 @@ export default function PatientExperienceCasesPage() {
     setIsDeleting(caseId);
     try {
       const response = await fetch(`/api/patient-experience/cases/${caseId}`, {
+        cache: 'no-store',
         method: 'DELETE',
       });
 
@@ -300,6 +313,7 @@ export default function PatientExperienceCasesPage() {
     setIsClosing(caseItem.id);
     try {
       const response = await fetch(`/api/patient-experience/cases/${caseItem.id}`, {
+        cache: 'no-store',
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -413,9 +427,104 @@ export default function PatientExperienceCasesPage() {
     return `${days}d`;
   }
 
+  // Filter cases by search query (client-side for now)
+  const filteredCases = searchQuery.trim()
+    ? cases.filter(caseItem => {
+        const query = searchQuery.toLowerCase();
+        return (
+          caseItem.visitDetails?.patientName?.toLowerCase().includes(query) ||
+          caseItem.visitDetails?.patientFileNumber?.toLowerCase().includes(query) ||
+          caseItem.visitDetails?.detailsEn?.toLowerCase().includes(query) ||
+          caseItem.id.toLowerCase().includes(query)
+        );
+      })
+    : cases;
+
+  // Convert cases to card format for mobile
+  const cardItems = filteredCases.map((caseItem) => ({
+    id: caseItem.id,
+    title: caseItem.visitDetails?.patientName || '-',
+    subtitle: `${caseItem.visitDetails?.patientFileNumber || ''} • ${format(new Date(caseItem.createdAt), 'MMM dd, yyyy')}`,
+    description: caseItem.visitDetails?.detailsEn || '-',
+    badges: [
+      {
+        label: caseItem.severity,
+        variant: (caseItem.severity === 'CRITICAL' || caseItem.severity === 'HIGH' ? 'destructive' : 'secondary') as 'destructive' | 'secondary',
+      },
+      {
+        label: caseItem.status,
+        variant: (caseItem.status === 'RESOLVED' ? 'default' : caseItem.status === 'CLOSED' ? 'secondary' : 'outline') as 'default' | 'secondary' | 'outline',
+      },
+      ...(caseItem.isOverdue ? [{
+        label: displayLanguage === 'ar' ? 'متأخر' : 'Overdue',
+        variant: 'destructive' as const,
+      }] : []),
+    ],
+    metadata: [
+      { label: displayLanguage === 'ar' ? 'SLA' : 'SLA', value: formatSLA(caseItem.dueAt) },
+      { label: displayLanguage === 'ar' ? 'مكلف' : 'Assigned', value: caseItem.assignedDeptLabel || '-' },
+      { label: displayLanguage === 'ar' ? 'التصعيد' : 'Escalation', value: `Level ${caseItem.escalationLevel}` },
+    ],
+    actions: [
+      {
+        label: displayLanguage === 'ar' ? 'عرض' : 'View',
+        onClick: () => handleOpenDialog(caseItem),
+        icon: <AlertCircle className="h-4 w-4" />,
+        variant: 'outline' as const,
+      },
+    ],
+    onCardClick: () => handleOpenDialog(caseItem),
+  }));
+
+  // Filter groups for MobileFilterBar
+  const filterGroups = [
+    {
+      id: 'status',
+      label: displayLanguage === 'ar' ? 'الحالة' : 'Status',
+      type: 'single' as const,
+      options: [
+        { id: 'all', label: displayLanguage === 'ar' ? 'الكل' : 'All', value: '' },
+        { id: 'open', label: displayLanguage === 'ar' ? 'مفتوح' : 'Open', value: 'OPEN' },
+        { id: 'in_progress', label: displayLanguage === 'ar' ? 'قيد المعالجة' : 'In Progress', value: 'IN_PROGRESS' },
+        { id: 'escalated', label: displayLanguage === 'ar' ? 'متصاعد' : 'Escalated', value: 'ESCALATED' },
+        { id: 'resolved', label: displayLanguage === 'ar' ? 'محلول' : 'Resolved', value: 'RESOLVED' },
+        { id: 'closed', label: displayLanguage === 'ar' ? 'مغلق' : 'Closed', value: 'CLOSED' },
+      ],
+    },
+    {
+      id: 'severity',
+      label: displayLanguage === 'ar' ? 'الشدة' : 'Severity',
+      type: 'single' as const,
+      options: [
+        { id: 'all', label: displayLanguage === 'ar' ? 'الكل' : 'All', value: '' },
+        { id: 'critical', label: displayLanguage === 'ar' ? 'حرج' : 'Critical', value: 'CRITICAL' },
+        { id: 'high', label: displayLanguage === 'ar' ? 'عالي' : 'High', value: 'HIGH' },
+        { id: 'medium', label: displayLanguage === 'ar' ? 'متوسط' : 'Medium', value: 'MEDIUM' },
+        { id: 'low', label: displayLanguage === 'ar' ? 'منخفض' : 'Low', value: 'LOW' },
+      ],
+    },
+    {
+      id: 'overdue',
+      label: displayLanguage === 'ar' ? 'متأخر' : 'Overdue',
+      type: 'single' as const,
+      options: [
+        { id: 'all', label: displayLanguage === 'ar' ? 'الكل' : 'All', value: '' },
+        { id: 'yes', label: displayLanguage === 'ar' ? 'نعم' : 'Yes', value: 'true' },
+        { id: 'no', label: displayLanguage === 'ar' ? 'لا' : 'No', value: 'false' },
+      ],
+    },
+  ];
+
+  const activeFilters = {
+    status,
+    severity,
+    overdue,
+  };
+
   return (
-    <div key={`${displayLanguage}-${refreshKey}`} className="space-y-6" dir={dir}>
-      <div className="flex justify-between items-center">
+    <div key={`${displayLanguage}-${refreshKey}`} className="space-y-4 md:space-y-6" dir={dir}>
+      {/* Header - Hidden on mobile (MobileTopBar shows it) */}
+      <div className="hidden md:flex justify-between items-center">
         <div>
           <h1 suppressHydrationWarning className="text-3xl font-bold">
             {displayLanguage === 'ar' ? 'إدارة الحالات' : 'Case Management'}
@@ -427,8 +536,50 @@ export default function PatientExperienceCasesPage() {
         <LanguageToggle />
       </div>
 
-      {/* Filters */}
-      <Card>
+      {/* Mobile Quick Summary */}
+      <div className="md:hidden">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">{displayLanguage === 'ar' ? 'إدارة الحالات' : 'Case Management'}</CardTitle>
+            <CardDescription>
+              {displayLanguage === 'ar' 
+                ? `إجمالي ${totalCases} حالة` 
+                : `Total ${totalCases} cases`}
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+
+      {/* Mobile Search */}
+      <div className="md:hidden">
+        <MobileSearchBar
+          placeholderKey="common.search"
+          queryParam="q"
+          onSearch={setSearchQuery}
+        />
+      </div>
+
+      {/* Mobile Filter Bar */}
+      <div className="md:hidden">
+        <MobileFilterBar
+          filters={filterGroups}
+          activeFilters={activeFilters}
+          onFilterChange={(id, value) => {
+            const stringValue = Array.isArray(value) ? value[0] || '' : value;
+            if (id === 'status') setStatus(stringValue);
+            else if (id === 'severity') setSeverity(stringValue);
+            else if (id === 'overdue') setOverdue(stringValue);
+          }}
+          onClearAll={() => {
+            setStatus('');
+            setSeverity('');
+            setOverdue('');
+          }}
+        />
+      </div>
+
+      {/* Desktop Filters */}
+      <Card className="hidden md:block">
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle suppressHydrationWarning>{displayLanguage === 'ar' ? 'الفلاتر' : 'Filters'}</CardTitle>
@@ -517,8 +668,17 @@ export default function PatientExperienceCasesPage() {
         )}
       </Card>
 
-      {/* Cases Table */}
-      <Card>
+      {/* Mobile: Cases Card List */}
+      <div className="md:hidden">
+        <MobileCardList
+          items={cardItems}
+          isLoading={isLoading}
+          emptyMessage={displayLanguage === 'ar' ? 'لا توجد حالات' : 'No cases found'}
+        />
+      </div>
+
+      {/* Desktop: Cases Table */}
+      <Card className="hidden md:block">
         <CardHeader>
           <CardTitle suppressHydrationWarning>
             {displayLanguage === 'ar' ? 'الحالات' : 'Cases'}
@@ -539,7 +699,7 @@ export default function PatientExperienceCasesPage() {
             <div className="flex justify-center items-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-          ) : cases.length === 0 ? (
+          ) : filteredCases.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               {displayLanguage === 'ar' ? 'لا توجد حالات' : 'No cases found'}
             </div>
@@ -559,7 +719,7 @@ export default function PatientExperienceCasesPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {cases.map((caseItem) => (
+                  {filteredCases.map((caseItem) => (
                     <TableRow key={caseItem.id}>
                       <TableCell>
                         {format(new Date(caseItem.createdAt), 'MMM dd, yyyy HH:mm')}

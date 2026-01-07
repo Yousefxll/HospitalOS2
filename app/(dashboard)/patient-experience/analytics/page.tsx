@@ -1,6 +1,9 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,8 +40,13 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useLang } from '@/hooks/use-lang';
-import { LanguageToggle } from '@/components/LanguageToggle';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useTranslation } from '@/hooks/use-translation';
+import { MobileFilterBar } from '@/components/mobile/MobileFilterBar';
+import { MobileCardList } from '@/components/mobile/MobileCardList';
 import { format } from 'date-fns';
+import type { FilterGroup } from '@/components/mobile/MobileFilterBar';
+import { KPISkeleton, CardListSkeleton, StatsSkeleton, ChartSkeleton } from '@/components/mobile/SkeletonLoaders';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Legend, ResponsiveContainer } from 'recharts';
 
@@ -70,8 +78,11 @@ interface BreakdownItem {
 }
 
 export default function PatientExperienceAnalyticsPage() {
+  const router = useRouter();
   const { toast } = useToast();
   const { language, dir } = useLang();
+  const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const [refreshKey, setRefreshKey] = useState(0);
   const [isMounted, setIsMounted] = useState(false);
   
@@ -139,7 +150,7 @@ export default function PatientExperienceAnalyticsPage() {
 
   async function loadAllDepartments() {
     try {
-      const response = await fetch('/api/patient-experience/data?type=all-departments');
+      const response = await fetch('/api/patient-experience/data?type=all-departments', { cache: 'no-store' });
       const data = await response.json();
       if (data.success) {
         setAllDepartments(data.data);
@@ -153,6 +164,7 @@ export default function PatientExperienceAnalyticsPage() {
     if (fromDate && toDate) {
       fetchAllData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fromDate, toDate, floorKey, departmentKey, severity]);
 
   useEffect(() => {
@@ -166,7 +178,7 @@ export default function PatientExperienceAnalyticsPage() {
 
   async function loadFloors() {
     try {
-      const response = await fetch('/api/patient-experience/data?type=floors');
+      const response = await fetch('/api/patient-experience/data?type=floors', { cache: 'no-store' });
       if (response.ok) {
         const data = await response.json();
         setFloors(data.data || []);
@@ -178,7 +190,7 @@ export default function PatientExperienceAnalyticsPage() {
 
   async function loadDepartments(floorKey: string) {
     try {
-      const response = await fetch(`/api/patient-experience/data?type=departments&floorKey=${floorKey}`);
+      const response = await fetch(`/api/patient-experience/data?type=departments&floorKey=${floorKey}`, { cache: 'no-store' });
       if (response.ok) {
         const data = await response.json();
         setDepartments(data.data || []);
@@ -201,11 +213,11 @@ export default function PatientExperienceAnalyticsPage() {
 
       // Fetch all analytics data in parallel
       const [summaryRes, trendsRes, deptBreakdownRes, typeBreakdownRes, severityBreakdownRes] = await Promise.all([
-        fetch(`/api/patient-experience/analytics/summary?${params.toString()}`),
-        fetch(`/api/patient-experience/analytics/trends?${params.toString()}&bucket=day`),
-        fetch(`/api/patient-experience/analytics/breakdown?${params.toString()}&groupBy=department`),
-        fetch(`/api/patient-experience/analytics/breakdown?${params.toString()}&groupBy=type`),
-        fetch(`/api/patient-experience/analytics/breakdown?${params.toString()}&groupBy=severity`),
+        fetch(`/api/patient-experience/analytics/summary?${params.toString()}`, { cache: 'no-store' }),
+        fetch(`/api/patient-experience/analytics/trends?${params.toString()}&bucket=day`, { cache: 'no-store' }),
+        fetch(`/api/patient-experience/analytics/breakdown?${params.toString()}&groupBy=department`, { cache: 'no-store' }),
+        fetch(`/api/patient-experience/analytics/breakdown?${params.toString()}&groupBy=type`, { cache: 'no-store' }),
+        fetch(`/api/patient-experience/analytics/breakdown?${params.toString()}&groupBy=severity`, { cache: 'no-store' }),
       ]);
 
       if (summaryRes.ok) {
@@ -255,7 +267,7 @@ export default function PatientExperienceAnalyticsPage() {
       if (severity) params.append('severity', severity);
       params.append('limit', '10000'); // Get all records
 
-      const response = await fetch(`/api/patient-experience/visits?${params.toString()}`);
+      const response = await fetch(`/api/patient-experience/visits?${params.toString()}`, { cache: 'no-store' });
       if (!response.ok) throw new Error('Failed to fetch visits');
 
       const data = await response.json();
@@ -323,7 +335,7 @@ export default function PatientExperienceAnalyticsPage() {
       if (severity) params.append('severity', severity);
       params.append('limit', '10000'); // Get all records
 
-      const response = await fetch(`/api/patient-experience/cases?${params.toString()}`);
+      const response = await fetch(`/api/patient-experience/cases?${params.toString()}`, { cache: 'no-store' });
       if (!response.ok) throw new Error('Failed to fetch cases');
 
       const data = await response.json();
@@ -460,120 +472,318 @@ export default function PatientExperienceAnalyticsPage() {
     }
   }
 
+  // Filter groups for MobileFilterBar
+  const filterGroups: FilterGroup[] = [
+    {
+      id: 'fromDate',
+      label: displayLanguage === 'ar' ? 'من تاريخ' : 'From Date',
+      type: 'single' as const,
+      options: [],
+    },
+    {
+      id: 'toDate',
+      label: displayLanguage === 'ar' ? 'إلى تاريخ' : 'To Date',
+      type: 'single' as const,
+      options: [],
+    },
+    {
+      id: 'floorKey',
+      label: displayLanguage === 'ar' ? 'الطابق' : 'Floor',
+      type: 'single' as const,
+      options: [
+        { id: 'all', label: displayLanguage === 'ar' ? 'الكل' : 'All', value: '' },
+        ...floors.map(floor => ({
+          id: floor.key || floor.id,
+          label: displayLanguage === 'ar' ? (floor.label_ar || floor.labelAr || `طابق ${floor.number}`) : (floor.label_en || floor.labelEn || `Floor ${floor.number}`),
+          value: floor.key || floor.id,
+        })),
+      ],
+    },
+    {
+      id: 'departmentKey',
+      label: displayLanguage === 'ar' ? 'القسم' : 'Department',
+      type: 'single' as const,
+      options: [
+        { id: 'all', label: displayLanguage === 'ar' ? 'الكل' : 'All', value: '' },
+        ...(allDepartments.length > 0 ? allDepartments : departments).map(dept => {
+          const deptType = dept.type || 'BOTH';
+          const deptName = displayLanguage === 'ar' ? (dept.label_ar || dept.labelAr || dept.name || dept.departmentName) : (dept.label_en || dept.labelEn || dept.name || dept.departmentName);
+          const typeLabel = deptType === 'OPD' ? 'OPD' : deptType === 'IPD' ? 'IPD' : 'OPD/IPD';
+          return {
+            id: dept.key || dept.id || dept.code,
+            label: `[${typeLabel}] ${deptName}`,
+            value: dept.key || dept.id || dept.code,
+          };
+        }),
+      ],
+    },
+    {
+      id: 'severity',
+      label: displayLanguage === 'ar' ? 'الشدة' : 'Severity',
+      type: 'single' as const,
+      options: [
+        { id: 'all', label: displayLanguage === 'ar' ? 'الكل' : 'All', value: '' },
+        { id: 'LOW', label: 'LOW', value: 'LOW' },
+        { id: 'MEDIUM', label: 'MEDIUM', value: 'MEDIUM' },
+        { id: 'HIGH', label: 'HIGH', value: 'HIGH' },
+        { id: 'CRITICAL', label: 'CRITICAL', value: 'CRITICAL' },
+      ],
+    },
+  ];
+
+  const activeFilters = {
+    fromDate,
+    toDate,
+    floorKey,
+    departmentKey,
+    severity,
+  };
+
+  // Convert breakdown data to card items for mobile
+  const departmentsCardItems = departmentsBreakdown.slice(0, 10).map(item => ({
+    id: item.key,
+    title: item.label_en,
+    subtitle: `${item.count} ${displayLanguage === 'ar' ? 'حالة' : 'cases'}`,
+    description: '',
+    badges: [
+      {
+        label: `${item.percentage.toFixed(1)}%`,
+        variant: 'secondary' as const,
+      },
+    ],
+    metadata: [],
+    actions: [],
+  }));
+
+  const typesCardItems = typesBreakdown.slice(0, 10).map(item => ({
+    id: item.key,
+    title: item.label_en,
+    subtitle: `${item.count} ${displayLanguage === 'ar' ? 'حالة' : 'cases'}`,
+    description: '',
+    badges: [
+      {
+        label: `${item.percentage.toFixed(1)}%`,
+        variant: 'secondary' as const,
+      },
+    ],
+    metadata: [],
+    actions: [],
+  }));
+
+  const severityCardItems = severityBreakdown.map(item => ({
+    id: item.key,
+    title: item.label_en,
+    subtitle: `${item.count} ${displayLanguage === 'ar' ? 'حالة' : 'cases'}`,
+    description: '',
+    badges: [
+      {
+        label: item.key,
+        variant: (item.key === 'CRITICAL' || item.key === 'HIGH' ? 'destructive' : 'secondary') as 'destructive' | 'secondary',
+      },
+      {
+        label: `${item.percentage.toFixed(1)}%`,
+        variant: 'outline' as const,
+      },
+    ],
+    metadata: [],
+    actions: [],
+  }));
+
   return (
-    <div key={`${displayLanguage}-${refreshKey}`} dir={dir} className="container mx-auto p-6 space-y-6">
-      <div className="flex justify-between items-center">
+    <div dir={dir} className="space-y-4 md:space-y-6">
+      {/* Header - Hidden on mobile (MobileTopBar shows it) */}
+      <div className="hidden md:flex justify-between items-center">
         <div>
-          <h1 suppressHydrationWarning className="text-3xl font-bold">{displayLanguage === 'ar' ? 'تحليلات تجربة المريض' : 'Patient Experience Analytics'}</h1>
+          <h1 suppressHydrationWarning className="text-3xl font-bold">{t.px.analytics.title}</h1>
           <p suppressHydrationWarning className="text-muted-foreground mt-1">
-            {displayLanguage === 'ar' ? 'نظرة شاملة على بيانات تجربة المريض' : 'Comprehensive view of patient experience data'}
+            {t.px.analytics.subtitle}
           </p>
         </div>
-        <LanguageToggle />
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle suppressHydrationWarning className="flex items-center gap-2">
-              <Filter className="h-5 w-5" />
-              {displayLanguage === 'ar' ? 'الفلاتر' : 'Filters'}
-            </CardTitle>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowFilters(!showFilters)}
-            >
-              {showFilters ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            </Button>
-          </div>
-        </CardHeader>
-        {showFilters && (
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div>
-                <Label suppressHydrationWarning>{displayLanguage === 'ar' ? 'من تاريخ' : 'From Date'}</Label>
-                <Input
-                  type="date"
-                  value={fromDate}
-                  onChange={(e) => setFromDate(e.target.value)}
-                />
-              </div>
-              <div>
-                <Label suppressHydrationWarning>{displayLanguage === 'ar' ? 'إلى تاريخ' : 'To Date'}</Label>
-                <Input
-                  type="date"
-                  value={toDate}
-                  onChange={(e) => setToDate(e.target.value)}
-                />
-              </div>
-              <div>
-                <Label suppressHydrationWarning>{displayLanguage === 'ar' ? 'الطابق' : 'Floor'}</Label>
-                <Select value={floorKey || undefined} onValueChange={(value) => setFloorKey(value === 'all' ? '' : value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={displayLanguage === 'ar' ? 'اختر الطابق' : 'Select Floor'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">{displayLanguage === 'ar' ? 'الكل' : 'All'}</SelectItem>
-                    {floors.map((floor) => (
-                      <SelectItem key={floor.key || floor.id} value={floor.key || floor.id}>
-                        {displayLanguage === 'ar' ? (floor.label_ar || floor.labelAr || `طابق ${floor.number}`) : (floor.label_en || floor.labelEn || `Floor ${floor.number}`)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label suppressHydrationWarning>{displayLanguage === 'ar' ? 'القسم' : 'Department'}</Label>
-                <Select value={departmentKey || undefined} onValueChange={(value) => setDepartmentKey(value === 'all' ? '' : value)} disabled={!floorKey}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={displayLanguage === 'ar' ? 'اختر القسم' : 'Select Department'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">{displayLanguage === 'ar' ? 'الكل' : 'All'}</SelectItem>
-                    {/* Use allDepartments to show all hospital departments */}
-                    {(allDepartments.length > 0 ? allDepartments : departments).map((dept) => {
-                      const deptType = dept.type || 'BOTH';
-                      const deptName = displayLanguage === 'ar' ? (dept.label_ar || dept.labelAr || dept.name || dept.departmentName) : (dept.label_en || dept.labelEn || dept.name || dept.departmentName);
-                      const typeLabel = deptType === 'OPD' ? 'OPD' : deptType === 'IPD' ? 'IPD' : 'OPD/IPD';
-                      return (
-                        <SelectItem key={dept.key || dept.id || dept.code} value={dept.key || dept.id || dept.code}>
-                          [{typeLabel}] {deptName}
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label suppressHydrationWarning>{displayLanguage === 'ar' ? 'الشدة' : 'Severity'}</Label>
-                <Select value={severity || undefined} onValueChange={(value) => setSeverity(value === 'all' ? '' : value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={displayLanguage === 'ar' ? 'اختر الشدة' : 'Select Severity'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">{displayLanguage === 'ar' ? 'الكل' : 'All'}</SelectItem>
-                    <SelectItem value="LOW">LOW</SelectItem>
-                    <SelectItem value="MEDIUM">MEDIUM</SelectItem>
-                    <SelectItem value="HIGH">HIGH</SelectItem>
-                    <SelectItem value="CRITICAL">CRITICAL</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+      {/* Mobile Quick Summary */}
+      {isMobile && (
+        <div className="grid grid-cols-2 gap-3">
+          <Card className="text-center">
+            <CardHeader className="p-3 pb-0">
+              <Users className="h-5 w-5 text-muted-foreground mx-auto" />
+              <CardTitle className="text-sm font-medium mt-1" suppressHydrationWarning>{t.px.analytics.totalVisits}</CardTitle>
+            </CardHeader>
+            <CardContent className="p-3 pt-0">
+              <div className="text-xl font-bold">{summary.totalVisits}</div>
+            </CardContent>
+          </Card>
+          <Card className="text-center">
+            <CardHeader className="p-3 pb-0">
+              <Heart className="h-5 w-5 text-muted-foreground mx-auto" />
+              <CardTitle className="text-sm font-medium mt-1" suppressHydrationWarning>{t.px.analytics.avgSatisfaction}</CardTitle>
+            </CardHeader>
+            <CardContent className="p-3 pt-0">
+              <div className="text-xl font-bold">{summary.avgSatisfaction.toFixed(1)}%</div>
+            </CardContent>
+          </Card>
+          <Card className="text-center">
+            <CardHeader className="p-3 pb-0">
+              <AlertCircle className="h-5 w-5 text-muted-foreground mx-auto" />
+              <CardTitle className="text-sm font-medium mt-1" suppressHydrationWarning>{t.px.analytics.openCases}</CardTitle>
+            </CardHeader>
+            <CardContent className="p-3 pt-0">
+              <div className="text-xl font-bold">{summary.openCases}</div>
+            </CardContent>
+          </Card>
+          <Card className="text-center">
+            <CardHeader className="p-3 pb-0">
+              <Clock className="h-5 w-5 text-muted-foreground mx-auto" />
+              <CardTitle className="text-sm font-medium mt-1" suppressHydrationWarning>{t.px.analytics.avgResolution}</CardTitle>
+            </CardHeader>
+            <CardContent className="p-3 pt-0">
+              <div className="text-xl font-bold">{summary.avgResolutionMinutes.toFixed(0)}</div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Mobile Filter Bar */}
+      {isMobile ? (
+        <MobileFilterBar
+          filters={filterGroups}
+          activeFilters={activeFilters}
+          onFilterChange={(id, value) => {
+            if (id === 'fromDate') setFromDate(value as string);
+            else if (id === 'toDate') setToDate(value as string);
+            else if (id === 'floorKey') setFloorKey(value === 'all' ? '' : value as string);
+            else if (id === 'departmentKey') setDepartmentKey(value === 'all' ? '' : value as string);
+            else if (id === 'severity') setSeverity(value === 'all' ? '' : value as string);
+          }}
+          onClearAll={() => {
+            setFromDate('');
+            setToDate('');
+            setFloorKey('');
+            setDepartmentKey('');
+            setSeverity('');
+          }}
+        />
+      ) : (
+        // Desktop Filters
+        <Card>
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <CardTitle suppressHydrationWarning className="flex items-center gap-2">
+                <Filter className="h-5 w-5" />
+                {t.common.filter}
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowFilters(!showFilters)}
+              >
+                {showFilters ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </Button>
             </div>
-          </CardContent>
-        )}
-      </Card>
+          </CardHeader>
+          {showFilters && (
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="from-date-analytics" suppressHydrationWarning>{displayLanguage === 'ar' ? 'من تاريخ' : 'From Date'}</Label>
+                  <Input
+                    id="from-date-analytics"
+                    type="date"
+                    value={fromDate}
+                    onChange={(e) => setFromDate(e.target.value)}
+                    className="h-11"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="to-date-analytics" suppressHydrationWarning>{displayLanguage === 'ar' ? 'إلى تاريخ' : 'To Date'}</Label>
+                  <Input
+                    id="to-date-analytics"
+                    type="date"
+                    value={toDate}
+                    onChange={(e) => setToDate(e.target.value)}
+                    className="h-11"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="floor-analytics" suppressHydrationWarning>{displayLanguage === 'ar' ? 'الطابق' : 'Floor'}</Label>
+                  <Select value={floorKey || 'all'} onValueChange={(value) => setFloorKey(value === 'all' ? '' : value)}>
+                    <SelectTrigger id="floor-analytics" className="h-11">
+                      <SelectValue placeholder={displayLanguage === 'ar' ? 'اختر الطابق' : 'Select Floor'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{displayLanguage === 'ar' ? 'الكل' : 'All'}</SelectItem>
+                      {floors.map((floor) => (
+                        <SelectItem key={floor.id || floor._id || `floor-${floor.number}`} value={floor.key || floor.id}>
+                          {displayLanguage === 'ar' ? (floor.label_ar || floor.labelAr || `طابق ${floor.number}`) : (floor.label_en || floor.labelEn || `Floor ${floor.number}`)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="department-analytics" suppressHydrationWarning>{displayLanguage === 'ar' ? 'القسم' : 'Department'}</Label>
+                  <Select value={departmentKey || 'all'} onValueChange={(value) => setDepartmentKey(value === 'all' ? '' : value)} disabled={!floorKey}>
+                    <SelectTrigger id="department-analytics" className="h-11">
+                      <SelectValue placeholder={displayLanguage === 'ar' ? 'اختر القسم' : 'Select Department'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{displayLanguage === 'ar' ? 'الكل' : 'All'}</SelectItem>
+                      {(allDepartments.length > 0 ? allDepartments : departments).map((dept) => {
+                        const deptType = dept.type || 'BOTH';
+                        const deptName = displayLanguage === 'ar' ? (dept.label_ar || dept.labelAr || dept.name || dept.departmentName) : (dept.label_en || dept.labelEn || dept.name || dept.departmentName);
+                        const typeLabel = deptType === 'OPD' ? 'OPD' : deptType === 'IPD' ? 'IPD' : 'OPD/IPD';
+                        return (
+                          <SelectItem key={dept.key || dept.id || dept.code} value={dept.key || dept.id || dept.code}>
+                            [{typeLabel}] {deptName}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="severity-analytics" suppressHydrationWarning>{displayLanguage === 'ar' ? 'الشدة' : 'Severity'}</Label>
+                  <Select value={severity || 'all'} onValueChange={(value) => setSeverity(value === 'all' ? '' : value)}>
+                    <SelectTrigger id="severity-analytics" className="h-11">
+                      <SelectValue placeholder={displayLanguage === 'ar' ? 'اختر الشدة' : 'Select Severity'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{displayLanguage === 'ar' ? 'الكل' : 'All'}</SelectItem>
+                      <SelectItem value="LOW">LOW</SelectItem>
+                      <SelectItem value="MEDIUM">MEDIUM</SelectItem>
+                      <SelectItem value="HIGH">HIGH</SelectItem>
+                      <SelectItem value="CRITICAL">CRITICAL</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          )}
+        </Card>
+      )}
+
 
       {isLoading ? (
-        <div className="flex justify-center items-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <>
+          {/* Mobile Skeleton */}
+          <div className="md:hidden">
+            <StatsSkeleton count={4} />
         </div>
+          {/* Desktop Skeleton */}
+          <div className="hidden md:block space-y-4">
+            <KPISkeleton count={4} />
+            <ChartSkeleton height={400} />
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <CardListSkeleton count={5} />
+              <CardListSkeleton count={5} />
+              <CardListSkeleton count={5} />
+            </div>
+          </div>
+        </>
       ) : (
         <>
-          {/* KPI Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* KPI Cards - Hidden on mobile (shown in Quick Summary) */}
+          <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-4">
             <Card>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-center gap-2 mb-2">
@@ -640,9 +850,9 @@ export default function PatientExperienceAnalyticsPage() {
             <CardHeader>
               <div className="flex justify-between items-center">
                 <div>
-                  <CardTitle suppressHydrationWarning>{displayLanguage === 'ar' ? 'الاتجاهات الزمنية' : 'Trends'}</CardTitle>
+                  <CardTitle suppressHydrationWarning>{t.px.analytics.trends}</CardTitle>
                   <CardDescription suppressHydrationWarning>
-                    {displayLanguage === 'ar' ? 'تطور الشكاوى والمدائح والحالات بمرور الوقت' : 'Evolution of complaints, praise, and cases over time'}
+                    {t.px.analytics.trendsDescription}
                   </CardDescription>
                 </div>
               </div>
@@ -650,10 +860,10 @@ export default function PatientExperienceAnalyticsPage() {
             <CardContent>
               {trends.length === 0 ? (
                 <div suppressHydrationWarning className="text-center py-8 text-muted-foreground">
-                  {displayLanguage === 'ar' ? 'لا توجد بيانات' : 'No data available'}
+                  {t.px.analytics.noData}
                 </div>
               ) : (
-                <ChartContainer config={chartConfig} className="h-[400px]">
+                <ChartContainer config={chartConfig} className="h-[300px] md:h-[400px]">
                   <LineChart data={trends}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis 
@@ -703,11 +913,12 @@ export default function PatientExperienceAnalyticsPage() {
             <Card>
               <CardHeader>
                 <div className="flex justify-between items-center">
-                  <CardTitle suppressHydrationWarning>{displayLanguage === 'ar' ? 'أفضل الأقسام' : 'Top Departments'}</CardTitle>
+                  <CardTitle suppressHydrationWarning>{t.px.analytics.topDepartments}</CardTitle>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => handleExportBreakdownCSV(departmentsBreakdown, 'departments')}
+                    className="h-11"
                   >
                     <Download className="h-4 w-4" />
                   </Button>
@@ -716,9 +927,18 @@ export default function PatientExperienceAnalyticsPage() {
               <CardContent>
                 {departmentsBreakdown.length === 0 ? (
                   <div suppressHydrationWarning className="text-center py-4 text-muted-foreground text-sm">
-                    {displayLanguage === 'ar' ? 'لا توجد بيانات' : 'No data'}
+                    {t.px.analytics.noData}
                   </div>
                 ) : (
+                  <>
+                    {isMobile ? (
+                      <MobileCardList
+                        items={departmentsCardItems}
+                        isLoading={false}
+                        emptyMessage={t.px.analytics.noData}
+                      />
+                    ) : (
+                      <div className="hidden md:block">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -737,6 +957,9 @@ export default function PatientExperienceAnalyticsPage() {
                       ))}
                     </TableBody>
                   </Table>
+                      </div>
+                    )}
+                  </>
                 )}
               </CardContent>
             </Card>
@@ -745,11 +968,12 @@ export default function PatientExperienceAnalyticsPage() {
             <Card>
               <CardHeader>
                 <div className="flex justify-between items-center">
-                  <CardTitle suppressHydrationWarning>{displayLanguage === 'ar' ? 'أنواع الشكاوى' : 'Complaint Types'}</CardTitle>
+                  <CardTitle suppressHydrationWarning>{t.px.analytics.complaintTypes}</CardTitle>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => handleExportBreakdownCSV(typesBreakdown, 'types')}
+                    className="h-11"
                   >
                     <Download className="h-4 w-4" />
                   </Button>
@@ -758,9 +982,18 @@ export default function PatientExperienceAnalyticsPage() {
               <CardContent>
                 {typesBreakdown.length === 0 ? (
                   <div suppressHydrationWarning className="text-center py-4 text-muted-foreground text-sm">
-                    {displayLanguage === 'ar' ? 'لا توجد بيانات' : 'No data'}
+                    {t.px.analytics.noData}
                   </div>
                 ) : (
+                  <>
+                    {isMobile ? (
+                      <MobileCardList
+                        items={typesCardItems}
+                        isLoading={false}
+                        emptyMessage={t.px.analytics.noData}
+                      />
+                    ) : (
+                      <div className="hidden md:block">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -779,6 +1012,9 @@ export default function PatientExperienceAnalyticsPage() {
                       ))}
                     </TableBody>
                   </Table>
+                      </div>
+                    )}
+                  </>
                 )}
               </CardContent>
             </Card>
@@ -787,11 +1023,12 @@ export default function PatientExperienceAnalyticsPage() {
             <Card>
               <CardHeader>
                 <div className="flex justify-between items-center">
-                  <CardTitle suppressHydrationWarning>{displayLanguage === 'ar' ? 'توزيع الشدة' : 'Severity Mix'}</CardTitle>
+                  <CardTitle suppressHydrationWarning>{t.px.analytics.severityMix}</CardTitle>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => handleExportBreakdownCSV(severityBreakdown, 'severity')}
+                    className="h-11"
                   >
                     <Download className="h-4 w-4" />
                   </Button>
@@ -800,9 +1037,18 @@ export default function PatientExperienceAnalyticsPage() {
               <CardContent>
                 {severityBreakdown.length === 0 ? (
                   <div suppressHydrationWarning className="text-center py-4 text-muted-foreground text-sm">
-                    {displayLanguage === 'ar' ? 'لا توجد بيانات' : 'No data'}
+                    {t.px.analytics.noData}
                   </div>
                 ) : (
+                  <>
+                    {isMobile ? (
+                      <MobileCardList
+                        items={severityCardItems}
+                        isLoading={false}
+                        emptyMessage={t.px.analytics.noData}
+                      />
+                    ) : (
+                      <div className="hidden md:block">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -828,6 +1074,9 @@ export default function PatientExperienceAnalyticsPage() {
                       ))}
                     </TableBody>
                   </Table>
+                      </div>
+                    )}
+                  </>
                 )}
               </CardContent>
             </Card>
@@ -836,20 +1085,20 @@ export default function PatientExperienceAnalyticsPage() {
           {/* Export Buttons */}
           <Card>
             <CardHeader>
-              <CardTitle suppressHydrationWarning>{displayLanguage === 'ar' ? 'تصدير البيانات' : 'Export Data'}</CardTitle>
+              <CardTitle suppressHydrationWarning>{t.px.analytics.exportData}</CardTitle>
               <CardDescription suppressHydrationWarning>
-                {displayLanguage === 'ar' ? 'تصدير البيانات بتنسيق CSV' : 'Export data in CSV format'}
+                {t.px.analytics.exportDataDescription}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-4">
-                <Button onClick={handleExportVisitsCSV} variant="outline">
+                <Button onClick={handleExportVisitsCSV} variant="outline" className="h-11 w-full md:w-auto">
                   <Download className="h-4 w-4 mr-2" />
-                  <span suppressHydrationWarning>{displayLanguage === 'ar' ? 'تصدير الزيارات' : 'Export Visits'}</span>
+                  <span suppressHydrationWarning>{t.px.analytics.exportVisits}</span>
                 </Button>
-                <Button onClick={handleExportCasesCSV} variant="outline">
+                <Button onClick={handleExportCasesCSV} variant="outline" className="h-11 w-full md:w-auto">
                   <Download className="h-4 w-4 mr-2" />
-                  <span suppressHydrationWarning>{displayLanguage === 'ar' ? 'تصدير الحالات' : 'Export Cases'}</span>
+                  <span suppressHydrationWarning>{t.px.analytics.exportCases}</span>
                 </Button>
               </div>
             </CardContent>

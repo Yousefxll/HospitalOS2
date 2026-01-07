@@ -16,7 +16,16 @@ export interface User {
   permissions?: string[]; // Array of permission keys (e.g., ['dashboard.view', 'opd.dashboard.view'])
   isActive: boolean;
   activeSessionId?: string; // Current active session ID (for single session enforcement)
-  tenantId?: string; // Optional in model, but always set from session in API routes
+  tenantId?: string; // Required for all non-syra-owner users. syra-owner users have no tenantId (global access)
+  
+  // Platform access (optional - if not set, falls back to tenant entitlements)
+  platformAccess?: {
+    sam?: boolean;
+    health?: boolean;
+    edrac?: boolean;
+    cvision?: boolean;
+  };
+  
   createdAt: Date;
   updatedAt: Date;
   createdBy?: string;

@@ -15,8 +15,11 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from '@/hooks/use-translation';
-import { Upload, Eye, Trash2, Loader2, X, RefreshCw, UploadCloud } from 'lucide-react';
+import { Upload, Eye, Trash2, Loader2, X, RefreshCw, UploadCloud, Download, AlertCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { MobileSearchBar } from '@/components/mobile/MobileSearchBar';
+import { MobileCardList } from '@/components/mobile/MobileCardList';
+import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Dialog,
   DialogContent,
@@ -24,6 +27,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { PolicyQuickNav } from '@/components/policies/PolicyQuickNav';
+import { useRoutePermission } from '@/lib/hooks/useRoutePermission';
 
 interface Policy {
   policyId: string;
@@ -46,16 +50,24 @@ interface Policy {
 export default function PoliciesLibraryPage() {
   const { t } = useTranslation();
   const router = useRouter();
+  const isMobile = useIsMobile();
+  
+  // Check route permission - redirect to /welcome if user doesn't have permission
+  const { hasPermission, isLoading: permissionLoading } = useRoutePermission('/policies');
+  
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [serviceUnavailable, setServiceUnavailable] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [searchQuery, setSearchQuery] = useState<string>('');
   // activeJobs: map of jobId -> {policyId, status, progress}
   const [activeJobs, setActiveJobs] = useState<Record<string, { policyId?: string; status: string; progress?: any }>>({});
   const [previewPolicyId, setPreviewPolicyId] = useState<string | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewPageNumber, setPreviewPageNumber] = useState<number | null>(null);
+  const [pdfLoadError, setPdfLoadError] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(true);
   const [reprocessingPolicyId, setReprocessingPolicyId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -669,14 +681,94 @@ export default function PoliciesLibraryPage() {
         console.log('Policy not found in list, closing preview:', previewPolicyId);
         setIsPreviewOpen(false);
         setPreviewPolicyId(null);
+        setPdfLoadError(false);
+        setPdfLoading(true);
       }
     }
   }, [policies, previewPolicyId, isPreviewOpen]);
 
+  // Reset PDF loading state when preview opens or policy/page changes
+  useEffect(() => {
+    if (isPreviewOpen && previewPolicyId) {
+      setPdfLoadError(false);
+      setPdfLoading(true);
+      // Set timeout to detect if PDF doesn't load
+      const timeout = setTimeout(() => {
+        if (pdfLoading) {
+          // Check if iframe loaded
+          const iframe = document.querySelector(`iframe[title="PDF Preview"]`) as HTMLIFrameElement;
+          if (iframe && !iframe.contentDocument) {
+            setPdfLoadError(true);
+            setPdfLoading(false);
+          }
+        }
+      }, 5000);
+      return () => clearTimeout(timeout);
+    }
+  }, [isPreviewOpen, previewPolicyId, previewPageNumber]);
+
+  // Show loading while checking permissions
+  if (permissionLoading || !hasPermission) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  // Filter policies by search query
+  const filteredPolicies = searchQuery.trim()
+    ? policies.filter(policy => 
+        policy.filename.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        policy.policyId.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : policies;
+
+  // Convert policies to card format for mobile
+  const cardItems = filteredPolicies.map((policy) => {
+    const displayStatus = policy.status;
+    const displayIndexStatus = policy.indexStatus;
+    const progress = policy.progress;
+    
+    return {
+      id: policy.policyId,
+      title: policy.filename,
+      subtitle: `ID: ${policy.policyId.substring(0, 8)}...`,
+      description: progress && progress.pagesTotal > 0 
+        ? `${t.policies.library.pages}: ${progress.pagesDone}/${progress.pagesTotal}`
+        : '-',
+      badges: [
+        {
+          label: displayStatus,
+          variant: getStatusColor(displayStatus) as any,
+        },
+        ...(displayIndexStatus === 'INDEXED' ? [{
+          label: t.policies.library.indexed,
+          variant: 'default' as const,
+        }] : []),
+      ],
+      metadata: [
+        { label: t.policies.library.status, value: displayStatus },
+        { label: t.policies.library.indexedAt, value: policy.indexedAt ? formatDate(policy.indexedAt) : '-' },
+      ],
+      actions: [
+        {
+          label: t.policies.library.preview || 'Preview',
+          onClick: () => handlePreview(policy.policyId),
+          icon: <Eye className="h-4 w-4" />,
+          variant: 'outline' as const,
+          disabled: policy.status !== 'READY',
+        },
+      ],
+      onCardClick: () => policy.status === 'READY' && handlePreview(policy.policyId),
+    };
+  });
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <PolicyQuickNav />
-      <div className="flex justify-between items-center">
+      {/* Header - Hidden on mobile (MobileTopBar shows it) */}
+      <div className="hidden md:flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">{t.policies.library.title}</h1>
           <p className="text-muted-foreground">{t.policies.library.subtitle}</p>
@@ -719,9 +811,59 @@ export default function PoliciesLibraryPage() {
         </div>
       </div>
 
+      {/* Mobile Quick Summary & Upload */}
+      <div className="md:hidden space-y-3">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">{t.policies.library.title}</CardTitle>
+            <CardDescription>
+              {t.policies.library.subtitle}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf"
+                className="hidden"
+                onChange={(e) => handleUpload(e.target.files)}
+              />
+              <Button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading || isLoading}
+                className="w-full min-h-[44px]"
+              >
+                {isUploading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {t.policies.library.uploading}
+                  </>
+                ) : (
+                  <>
+                    <Upload className="mr-2 h-4 w-4" />
+                    {t.policies.library.uploadPolicy || 'Upload Policy'}
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Mobile Search */}
+      <div className="md:hidden">
+        <MobileSearchBar
+          placeholderKey="common.search"
+          queryParam="q"
+          onSearch={setSearchQuery}
+        />
+      </div>
+
       <Card>
         <CardHeader>
-          <CardTitle>{t.policies.library.policies}</CardTitle>
+          <CardTitle className="hidden md:block">{t.policies.library.policies}</CardTitle>
+          <CardTitle className="md:hidden text-lg">{t.policies.library.policies}</CardTitle>
           <CardDescription>{t.policies.library.listDescription}</CardDescription>
         </CardHeader>
         {serviceUnavailable && (
@@ -855,20 +997,32 @@ export default function PoliciesLibraryPage() {
               )}
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t.policies.library.filename}</TableHead>
-                  <TableHead>{t.policies.library.policyId}</TableHead>
-                  <TableHead>{t.policies.library.status}</TableHead>
-                  <TableHead>{t.policies.library.pages}</TableHead>
-                  <TableHead>{t.policies.library.progress}</TableHead>
-                  <TableHead>{t.policies.library.indexedAt}</TableHead>
-                  <TableHead>{t.policies.library.actions}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {policies.map((policy) => (
+            <>
+              {/* Mobile: Card List */}
+              <div className="md:hidden">
+                <MobileCardList
+                  items={cardItems}
+                  isLoading={isLoading}
+                  emptyMessage={t.policies.library.noPoliciesFound}
+                />
+              </div>
+
+              {/* Desktop: Table */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t.policies.library.filename}</TableHead>
+                      <TableHead>{t.policies.library.policyId}</TableHead>
+                      <TableHead>{t.policies.library.status}</TableHead>
+                      <TableHead>{t.policies.library.pages}</TableHead>
+                      <TableHead>{t.policies.library.progress}</TableHead>
+                      <TableHead>{t.policies.library.indexedAt}</TableHead>
+                      <TableHead>{t.policies.library.actions}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredPolicies.map((policy) => (
                   <TableRow key={policy.policyId}>
                     <TableCell className="font-medium">{policy.filename}</TableCell>
                     <TableCell>
@@ -991,9 +1145,11 @@ export default function PoliciesLibraryPage() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
@@ -1006,6 +1162,8 @@ export default function PoliciesLibraryPage() {
             setIsPreviewOpen(false);
             setPreviewPolicyId(null);
             setPreviewPageNumber(null);
+            setPdfLoadError(false);
+            setPdfLoading(true);
           } else {
             setIsPreviewOpen(true);
           }
@@ -1052,29 +1210,98 @@ export default function PoliciesLibraryPage() {
               const pdfUrl = `/api/policy-engine/policies/${previewPolicyId}/file#page=${currentPage}`;
               return (
                 <div className="w-full h-[calc(90vh-120px)] border rounded overflow-hidden flex flex-col">
-                  <div className="flex items-center gap-2 p-2 border-b bg-muted/50">
-                    <span className="text-sm text-muted-foreground">{t.policies.library.page}</span>
-                    <input
-                      type="number"
-                      min="1"
-                      max={policy.progress?.pagesTotal || 1}
-                      value={currentPage}
-                      onChange={(e) => {
-                        const page = parseInt(e.target.value);
-                        if (page >= 1 && page <= (policy.progress?.pagesTotal || 1)) {
-                          setPreviewPageNumber(page);
-                        }
+                  <div className="flex items-center justify-between gap-2 p-2 border-b bg-muted/50">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">{t.policies.library.page}</span>
+                      <input
+                        type="number"
+                        min="1"
+                        max={policy.progress?.pagesTotal || 1}
+                        value={currentPage}
+                        onChange={(e) => {
+                          const page = parseInt(e.target.value);
+                          if (page >= 1 && page <= (policy.progress?.pagesTotal || 1)) {
+                            setPreviewPageNumber(page);
+                          }
+                        }}
+                        className="w-20 px-2 py-1 text-sm border rounded h-8"
+                      />
+                      <span className="text-sm text-muted-foreground">{t.policies.library.of} {policy.progress?.pagesTotal || '?'}</span>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        window.open(pdfUrl, '_blank');
                       }}
-                      className="w-20 px-2 py-1 text-sm border rounded"
-                    />
-                    <span className="text-sm text-muted-foreground">{t.policies.library.of} {policy.progress?.pagesTotal || '?'}</span>
+                      className="h-8"
+                    >
+                      <Download className="h-4 w-4 mr-1" />
+                      {t.policies.library.viewPdf || 'View PDF'}
+                    </Button>
                   </div>
-                  <iframe
-                    key={`${previewPolicyId}-${currentPage}`} // Force re-render when page changes
-                    src={pdfUrl}
-                    className="w-full flex-1"
-                    title="PDF Preview"
-                  />
+                  <div className="flex-1 relative bg-muted/20">
+                    {pdfLoading && !pdfLoadError && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
+                        <div className="text-center">
+                          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto mb-2" />
+                          <p className="text-sm text-muted-foreground">Loading PDF...</p>
+                        </div>
+                      </div>
+                    )}
+                    {pdfLoadError ? (
+                      <div className="absolute inset-0 flex items-center justify-center bg-background">
+                        <div className="text-center p-6 max-w-md">
+                          <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                          <p className="text-muted-foreground mb-2 font-medium">Unable to display PDF preview</p>
+                          <p className="text-sm text-muted-foreground mb-4">
+                            The PDF may not be available or your browser doesn't support inline PDF viewing.
+                          </p>
+                          <Button
+                            variant="default"
+                            onClick={() => {
+                              window.open(pdfUrl, '_blank');
+                            }}
+                            className="h-11"
+                          >
+                            <Download className="h-4 w-4 mr-2" />
+                            Open PDF in New Tab
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <iframe
+                          key={`${previewPolicyId}-${currentPage}`}
+                          src={`${pdfUrl}?t=${Date.now()}`}
+                          className="w-full h-full border-0"
+                          title="PDF Preview"
+                          allow="fullscreen"
+                          onLoad={(e) => {
+                            setPdfLoading(false);
+                            setPdfLoadError(false);
+                            // Check if iframe actually loaded content
+                            const iframe = e.target as HTMLIFrameElement;
+                            try {
+                              // Try to access iframe content to verify it loaded
+                              if (iframe.contentDocument || iframe.contentWindow) {
+                                // PDF loaded successfully
+                                setPdfLoadError(false);
+                              }
+                            } catch (err) {
+                              // Cross-origin or other error - this is normal for PDFs
+                              // Assume it loaded if no error event fired
+                            }
+                          }}
+                          onError={() => {
+                            setPdfLoading(false);
+                            setPdfLoadError(true);
+                          }}
+                          style={{ minHeight: '400px' }}
+                        />
+                      </>
+                    )}
+                  </div>
                 </div>
               );
             })()}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
+import { appConfig } from '@/lib/config';
 
 interface SplashScreenProps {
   onComplete: () => void;
@@ -15,7 +16,7 @@ interface SplashScreenProps {
  * 
  * Animation sequence:
  * 1. Logo appears with subtle pulse
- * 2. Title "SIRA" fades in
+ * 2. Title "SYRA" fades in
  * 3. Slogan "UNIFIED INTELLIGENCE PLATFORM" fades in
  * 4. After ~2 seconds, content animates upward and fades out
  * 5. onComplete callback is triggered to reveal login page
@@ -58,7 +59,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
 
   return (
     <div
-      className={`fixed inset-0 bg-white dark:bg-[#0f172a] z-50 flex flex-col items-center justify-center transition-all duration-[800ms] ease-in-out ${
+      className={`fixed inset-0 bg-white dark:bg-[#0f172a] z-50 flex flex-col items-center justify-center transition-all duration-700 ease-in-out ${
         isExiting ? 'opacity-0 translate-y-[-50px]' : 'opacity-100 translate-y-0'
       }`}
     >
@@ -72,8 +73,8 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
       >
         <div className="relative">
           <Image
-            src="/brand/sira.png"
-            alt="SIRA Logo"
+            src="/branding/SYRA.PNG"
+            alt="SYRA Logo"
             width={350}
             height={350}
             className="object-contain drop-shadow-2xl animate-pulse"
@@ -97,7 +98,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
         } ${isExiting ? 'opacity-0 translate-y-[-20px]' : ''}`}
         style={{ transitionDelay: showTitle ? '0ms' : '0ms', letterSpacing: '0.05em' }}
       >
-        SIRA
+        {appConfig.name}
       </h1>
 
       {/* Slogan - Clear and readable */}

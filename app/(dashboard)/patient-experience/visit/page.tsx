@@ -33,7 +33,8 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useLang } from '@/hooks/use-lang';
 import { useTranslation } from '@/hooks/use-translation';
-import { LanguageToggle } from '@/components/LanguageToggle';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useMe } from '@/lib/hooks/useMe';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 type Step = 'staff' | 'visit' | 'patient' | 'complaint' | 'details' | 'summary';
@@ -42,6 +43,7 @@ export default function PatientExperienceVisitPage() {
   const { toast } = useToast();
   const { language, dir } = useLang();
   const { t, translate } = useTranslation();
+  const isMobile = useIsMobile();
   const [currentStep, setCurrentStep] = useState<Step>('staff');
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -100,43 +102,26 @@ export default function PatientExperienceVisitPage() {
     { key: 'summary', title: t.px.visit.stepSummary, icon: ClipboardList },
   ];
 
+  const { me } = useMe();
+
   useEffect(() => {
     setMounted(true);
     loadFloors();
     loadComplaintDomains();
     loadComplaintTypes();
     loadNursingComplaintTypes();
-    loadCurrentUser();
   }, []);
 
-  async function loadCurrentUser() {
-    try {
-      const response = await fetch('/api/auth/me', {
-        credentials: 'include', // Ensure cookies are sent
-      });
-      if (!response.ok) {
-        if (response.status === 401) {
-          console.warn('Unauthorized: Please login again');
-          // Redirect to login if session expired
-          if (typeof window !== 'undefined') {
-            window.location.href = '/login?sessionExpired=true';
-          }
-          return;
-        }
-        throw new Error(`Failed to load user: ${response.status}`);
-      }
-        const data = await response.json();
-        const user = data.user;
-        // Auto-fill staff name and ID from current user
-        setFormData(prev => ({
-          ...prev,
-          staffName: `${user.firstName} ${user.lastName}`.trim(),
-          staffId: user.staffId || '',
-        }));
-    } catch (error) {
-      console.error('Error loading current user:', error);
-    }
-  }
+  useEffect(() => {
+    if (!me) return;
+    const user = me.user;
+    // Auto-fill staff name and ID from current user
+    setFormData(prev => ({
+      ...prev,
+      staffName: `${user.firstName} ${user.lastName}`.trim(),
+      staffId: user.staffId || '',
+    }));
+  }, [me]);
 
   // Load all departments for Patient Experience (all hospital departments)
   useEffect(() => {
@@ -154,7 +139,7 @@ export default function PatientExperienceVisitPage() {
 
   async function loadAllDepartments() {
     try {
-      const response = await fetch('/api/patient-experience/data?type=all-departments');
+      const response = await fetch('/api/patient-experience/data?type=all-departments', { cache: 'no-store' });
       if (!response.ok) {
         if (response.status === 401) {
           console.warn('Unauthorized: Please login again');
@@ -183,7 +168,7 @@ export default function PatientExperienceVisitPage() {
 
   async function loadFloors() {
     try {
-      const response = await fetch('/api/patient-experience/data?type=floors');
+      const response = await fetch('/api/patient-experience/data?type=floors', { cache: 'no-store' });
       if (!response.ok) {
         if (response.status === 401) {
           console.warn('Unauthorized: Please login again');
@@ -208,7 +193,7 @@ export default function PatientExperienceVisitPage() {
 
   async function loadDepartmentsByKey(floorKey: string) {
     try {
-      const response = await fetch(`/api/patient-experience/data?type=departments&floorKey=${floorKey}`);
+      const response = await fetch(`/api/patient-experience/data?type=departments&floorKey=${floorKey}`, { cache: 'no-store' });
       if (!response.ok) {
         if (response.status === 401) {
           console.warn('Unauthorized: Please login again');
@@ -230,7 +215,7 @@ export default function PatientExperienceVisitPage() {
 
   async function loadRoomsByKey(floorKey: string, departmentKey: string) {
     try {
-      const response = await fetch(`/api/patient-experience/data?type=rooms&floorKey=${floorKey}&departmentKey=${departmentKey}`);
+      const response = await fetch(`/api/patient-experience/data?type=rooms&floorKey=${floorKey}&departmentKey=${departmentKey}`, { cache: 'no-store' });
       if (!response.ok) {
         if (response.status === 401) {
           console.warn('Unauthorized: Please login again');
@@ -253,7 +238,7 @@ export default function PatientExperienceVisitPage() {
 
   async function loadComplaintDomains() {
     try {
-      const response = await fetch('/api/patient-experience/data?type=complaint-domains');
+      const response = await fetch('/api/patient-experience/data?type=complaint-domains', { cache: 'no-store' });
       if (!response.ok) {
         if (response.status === 401) {
           console.warn('Unauthorized: Please login again');
@@ -273,7 +258,7 @@ export default function PatientExperienceVisitPage() {
 
   async function loadComplaintTypes() {
     try {
-      const response = await fetch('/api/patient-experience/data?type=complaint-types');
+      const response = await fetch('/api/patient-experience/data?type=complaint-types', { cache: 'no-store' });
       if (!response.ok) {
         if (response.status === 401) {
           console.warn('Unauthorized: Please login again');
@@ -293,7 +278,7 @@ export default function PatientExperienceVisitPage() {
 
   async function loadComplaintTypesByDomain(domainKey: string) {
     try {
-      const response = await fetch(`/api/patient-experience/data?type=complaint-types&domainKey=${domainKey}`);
+      const response = await fetch(`/api/patient-experience/data?type=complaint-types&domainKey=${domainKey}`, { cache: 'no-store' });
       if (!response.ok) {
         if (response.status === 401) {
           console.warn('Unauthorized: Please login again');
@@ -313,7 +298,7 @@ export default function PatientExperienceVisitPage() {
 
   async function loadNursingComplaintTypes() {
     try {
-      const response = await fetch('/api/patient-experience/data?type=nursing-complaint-types');
+      const response = await fetch('/api/patient-experience/data?type=nursing-complaint-types', { cache: 'no-store' });
       if (!response.ok) {
         if (response.status === 401) {
           console.warn('Unauthorized: Please login again');
@@ -589,6 +574,7 @@ export default function PatientExperienceVisitPage() {
     setIsClosingCase(true);
     try {
       const response = await fetch(`/api/patient-experience/cases/${createdCaseId}`, {
+        cache: 'no-store',
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -770,7 +756,6 @@ export default function PatientExperienceVisitPage() {
           <h1 className="text-3xl font-bold">{t.px.visit.title}</h1>
           <p className="text-muted-foreground">{t.px.visit.subtitle}</p>
         </div>
-        <LanguageToggle />
       </div>
 
       {/* Progress Steps */}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
-
+import { requireAuth } from '@/lib/auth/requireAuth';
+import { getActiveTenantId } from '@/lib/auth/sessionHelpers';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -141,6 +142,21 @@ function buildDateQuery(params: FilterParams) {
 
 export async function GET(request: NextRequest) {
   try {
+    // SINGLE SOURCE OF TRUTH: Get activeTenantId from session
+    const activeTenantId = await getActiveTenantId(request);
+    if (!activeTenantId) {
+      return NextResponse.json(
+        { error: 'Tenant not selected. Please log in again.' },
+        { status: 400 }
+      );
+    }
+
+    // Authentication
+    const authResult = await requireAuth(request);
+    if (authResult instanceof NextResponse) {
+      return authResult;
+    }
+
     const { searchParams } = new URL(request.url);
     const params: FilterParams = {
       granularity: searchParams.get('granularity') || 'day',
@@ -157,10 +173,28 @@ export async function GET(request: NextRequest) {
     };
 
     const dateQuery = buildDateQuery(params);
-    const censusCollection = await getCollection('opd_census');
     
+    // Build query with tenant isolation (GOLDEN RULE: tenantId from session only)
+    // Backward compatibility: include documents without tenantId until migration is run
+    const tenantFilter = {
+      $or: [
+        { tenantId: activeTenantId },
+        { tenantId: { $exists: false } }, // Backward compatibility
+        { tenantId: null },
+        { tenantId: '' },
+      ],
+    };
+    
+    const finalQuery = Object.keys(dateQuery).length === 0 
+      ? tenantFilter
+      : {
+          ...dateQuery,
+          ...tenantFilter
+        };
+    
+    const censusCollection = await getCollection('opd_census');
     const records = await censusCollection
-      .find(dateQuery)
+      .find(finalQuery)
       .sort({ date: -1 })
       .toArray();
 

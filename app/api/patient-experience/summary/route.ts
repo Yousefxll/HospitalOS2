@@ -1,10 +1,15 @@
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 import { NextRequest, NextResponse } from 'next/server';
-import { getCollection } from '@/lib/db';
+import { requireAuth } from '@/lib/auth/requireAuth';
+import { requireRoleAsync, buildScopeFilter } from '@/lib/auth/requireRole';
+import { getSummaryKPIs, logPXQuery } from '@/lib/services/patientExperienceService';
+import { getActiveTenantId } from '@/lib/auth/sessionHelpers';
+import { addTenantDebugHeader } from '@/lib/utils/addTenantDebugHeader';
 
 /**
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
  * GET /api/patient-experience/summary
  * Get KPI aggregates for patient experience
  * 
@@ -18,92 +23,78 @@ export const revalidate = 0;
  */
 export async function GET(request: NextRequest) {
   try {
-    const userId = request.headers.get('x-user-id');
-    
-    if (!userId) {
+    // SINGLE SOURCE OF TRUTH: Get activeTenantId from session
+    const activeTenantId = await getActiveTenantId(request);
+    if (!activeTenantId) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
+        { error: 'Tenant not selected. Please log in again.' },
+        { status: 400 }
       );
     }
 
-    const { searchParams } = new URL(request.url);
-    const from = searchParams.get('from');
-    const to = searchParams.get('to');
-    const floorKey = searchParams.get('floorKey');
-    const departmentKey = searchParams.get('departmentKey');
-    const roomKey = searchParams.get('roomKey');
-    const staffEmployeeId = searchParams.get('staffEmployeeId');
+    // Authentication
+    const authResult = await requireAuth(request);
+    if (authResult instanceof NextResponse) {
+      return authResult;
+    }
+    const { userId, userRole, userEmail } = authResult;
 
-    const patientExperienceCollection = await getCollection('patient_experience');
-    
-    // Build query (same as visits endpoint)
-    const query: any = {};
-    
-    if (from || to) {
-      query.visitDate = {};
-      if (from) {
-        query.visitDate.$gte = new Date(from);
-      }
-      if (to) {
-        const toDate = new Date(to);
-        toDate.setHours(23, 59, 59, 999);
-        query.visitDate.$lte = toDate;
-      }
+    // Debug logging (if enabled)
+    if (process.env.DEBUG_TENANT === '1') {
+      console.log('[TENANT]', '/api/patient-experience/summary (GET)', 'activeTenantId=', activeTenantId, 'user=', userEmail, 'role=', userRole);
     }
 
-    if (floorKey) query.floorKey = floorKey;
-    if (departmentKey) query.departmentKey = departmentKey;
-    if (roomKey) query.roomKey = roomKey;
-    if (staffEmployeeId) query.staffId = staffEmployeeId;
+    // RBAC: staff, supervisor, admin, syra-owner can view summary (with scope restrictions)
+    // syra-owner has full access when working within tenant context
+    const roleCheck = await requireRoleAsync(request, ['staff', 'supervisor', 'admin', 'syra-owner']);
+    if (roleCheck instanceof NextResponse) {
+      return roleCheck; // Returns 401 or 403
+    }
 
-    // Get all records matching filters
-    const records = await patientExperienceCollection.find(query).toArray();
+    const { searchParams } = new URL(request.url);
+    const from = searchParams.get('from') ? new Date(searchParams.get('from')!) : undefined;
+    const to = searchParams.get('to') ? new Date(searchParams.get('to')!) : undefined;
+    const floorKey = searchParams.get('floorKey') || undefined;
+    const departmentKey = searchParams.get('departmentKey') || undefined;
+    const roomKey = searchParams.get('roomKey') || undefined;
+    const staffEmployeeId = searchParams.get('staffEmployeeId') || undefined;
 
-    // Calculate KPIs
-    const totalVisits = records.length;
-    
-    // Count praises (typeKey might contain "PRAISE" or domainKey might indicate praise)
-    const praises = records.filter(r => {
-      const typeKey = (r.typeKey || '').toUpperCase();
-      const domainKey = (r.domainKey || '').toUpperCase();
-      return typeKey.includes('PRAISE') || domainKey.includes('PRAISE');
-    }).length;
+    // Build query options for service layer
+    const queryOptions: any = {
+      tenantId: activeTenantId, // SINGLE SOURCE OF TRUTH
+      from,
+      to,
+      floorKey,
+      departmentKey,
+      roomKey,
+      staffId: staffEmployeeId,
+    };
 
-    // Count complaints (everything else, excluding praises and satisfaction visits)
-    const complaints = records.filter(r => {
-      const typeKey = (r.typeKey || '').toUpperCase();
-      const domainKey = (r.domainKey || '').toUpperCase();
-      const isPraise = typeKey.includes('PRAISE') || domainKey.includes('PRAISE');
-      const isSatisfaction = domainKey === 'SATISFACTION' || typeKey === 'PATIENT_SATISFACTION';
-      return !isPraise && !isSatisfaction;
-    }).length;
+    // Apply role-based filtering (service layer will handle tenant filter)
+    // Staff and Admin: see all visits within tenant (same organization)
+    if (userRole === 'supervisor') {
+      // Supervisor: department scope
+      const scopeFilter = buildScopeFilter(roleCheck, 'departmentKey');
+      if (scopeFilter.departmentKey) {
+        queryOptions.departmentKey = scopeFilter.departmentKey;
+      }
+    }
+    // Staff, Admin and syra-owner: no additional filter (sees all within tenant)
 
-    // Average satisfaction (if satisfactionScore exists in records)
-    // For now, we'll calculate a simple ratio: praises / total visits
-    const avgSatisfaction = totalVisits > 0 ? (praises / totalVisits) * 100 : 0;
+    // Use service layer for consistent queries
+    const kpis = await getSummaryKPIs(queryOptions);
 
-    // Unresolved complaints (status is PENDING or IN_PROGRESS)
-    const unresolvedComplaints = records.filter(r => {
-      const typeKey = (r.typeKey || '').toUpperCase();
-      const domainKey = (r.domainKey || '').toUpperCase();
-      const isPraise = typeKey.includes('PRAISE') || domainKey.includes('PRAISE');
-      const isSatisfaction = domainKey === 'SATISFACTION' || typeKey === 'PATIENT_SATISFACTION';
-      const isComplaint = !isPraise && !isSatisfaction;
-      const status = r.status || 'PENDING';
-      return isComplaint && (status === 'PENDING' || status === 'IN_PROGRESS');
-    }).length;
+    // Debug log query details
+    logPXQuery('/api/patient-experience/summary', activeTenantId, queryOptions, 'patient_experience,px_cases');
 
-    return NextResponse.json({
+    // Add debug header (X-Active-Tenant)
+    const response = NextResponse.json({
       success: true,
-      summary: {
-        totalVisits,
-        praises,
-        complaints,
-        avgSatisfaction: Math.round(avgSatisfaction * 100) / 100, // Round to 2 decimals
-        unresolvedComplaints,
-      },
+      data: kpis,
     });
+    addTenantDebugHeader(response, activeTenantId);
+
+    return response;
   } catch (error: any) {
     console.error('Patient experience summary error:', error);
     return NextResponse.json(

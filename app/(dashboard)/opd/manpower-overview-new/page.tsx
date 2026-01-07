@@ -5,6 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useTranslation } from '@/hooks/use-translation';
 import {
   Calculator,
   Users,
@@ -35,6 +37,8 @@ import { InlineEditField } from '@/components/InlineEditField';
 import { InlineToggle } from '@/components/InlineToggle';
 
 export default function ManpowerManagementPage() {
+  const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const [selectedDepartment, setSelectedDepartment] = useState('dept-1');
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -79,8 +83,9 @@ export default function ManpowerManagementPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-4 md:space-y-6">
+      {/* Header - Hidden on mobile (MobileTopBar shows it) */}
+      <div className="hidden md:flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">OPD Manpower Management</h1>
           <p className="text-muted-foreground">Add, edit, and manage all staffing data</p>
@@ -92,6 +97,14 @@ export default function ManpowerManagementPage() {
           </Button>
         </div>
       </div>
+      
+      {/* Mobile Workforce Calculator Button */}
+      {isMobile && (
+        <Button variant="outline" onClick={openWorkforceCalculator} className="w-full h-11">
+          <Calculator className="mr-2 h-4 w-4" />
+          Workforce Calculator
+        </Button>
+      )}
 
       {/* Demo content - will be replaced with full implementation */}
       <Card>
@@ -108,7 +121,7 @@ export default function ManpowerManagementPage() {
 
       {/* Side Panel for Complex Edits */}
       <Sheet open={isPanelOpen} onOpenChange={setIsPanelOpen}>
-        <SheetContent className="w-[600px] sm:max-w-[600px] overflow-y-auto">
+        <SheetContent className="w-full sm:w-[600px] sm:max-w-[600px] overflow-y-auto">
           <SheetHeader>
             <SheetTitle>
               {panelContent === 'doctor-schedule' && 'Edit Doctor Schedule'}

@@ -6,6 +6,9 @@ import { Notification } from '@/lib/models/Notification';
 import { PXCaseAudit, AuditAction } from '@/lib/models/PXCaseAudit';
 import { v4 as uuidv4 } from 'uuid';
 import { requireRoleAsync, requireScope } from '@/lib/auth/requireRole';
+import { getTenantContextOrThrow } from '@/lib/auth/getTenantIdOrThrow';
+import type { PXCase } from '@/lib/models/PXCase';
+import type { User } from '@/lib/models/User';
 
 /**
 
@@ -27,9 +30,18 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Tenant isolation: get tenantId from session
+    const tenantContext = await getTenantContextOrThrow(request);
+    const { tenantId, userId, userEmail, userRole } = tenantContext;
+
+    // Debug logging (if enabled)
+    if (process.env.DEBUG_TENANT === '1') {
+      console.log('[TENANT]', '/api/patient-experience/cases/[id] (PATCH)', 'tenant=', tenantId, 'user=', userEmail, 'role=', userRole, 'collection=px_cases');
+    }
+
     // RBAC: Allow staff, supervisor, admin to update cases
     // Staff can close cases immediately after creating them
-    const authResult = await requireRoleAsync(request, ['staff', 'supervisor', 'admin']);
+    const authResult = await requireRoleAsync(request, ['staff', 'supervisor', 'admin', 'syra-owner']);
     if (authResult instanceof NextResponse) {
       return authResult; // Returns 401 or 403
     }
@@ -47,7 +59,17 @@ export async function PATCH(
     } = body;
 
     const casesCollection = await getCollection('px_cases');
-    const caseItem = await casesCollection.findOne({ id });
+    
+    // TENANT ISOLATION: Filter by tenantId when finding case
+    const caseItem = await casesCollection.findOne<PXCase>({ 
+      id,
+      $or: [
+        { tenantId: tenantId },
+        { tenantId: { $exists: false } }, // Backward compatibility
+        { tenantId: null },
+        { tenantId: '' },
+      ],
+    });
 
     if (!caseItem) {
       return NextResponse.json(
@@ -162,8 +184,17 @@ export async function PATCH(
       ...(beforeState.escalationLevel !== undefined && { escalationLevel: updateData.escalationLevel }),
     };
 
+    // TENANT ISOLATION: Include tenantId in filter to prevent cross-tenant updates
     await casesCollection.updateOne(
-      { id },
+      { 
+        id,
+        $or: [
+          { tenantId: tenantId },
+          { tenantId: { $exists: false } }, // Backward compatibility
+          { tenantId: null },
+          { tenantId: '' },
+        ],
+      },
       { $set: updateData }
     );
 
@@ -173,8 +204,8 @@ export async function PATCH(
 
     // Get user info for actor
     const usersCollection = await getCollection('users');
-    const user = await usersCollection.findOne({ id: authResult.userId });
-    const actorEmployeeId = user?.employeeId;
+    const user = await usersCollection.findOne<User>({ id: authResult.userId });
+    const actorEmployeeId = user?.staffId; // Use staffId instead of employeeId
 
     // Determine action type and create audit
     if (wasEscalated) {
@@ -257,7 +288,7 @@ export async function PATCH(
 
     // Insert audit records
     if (audits.length > 0) {
-      await auditCollection.insertMany(audits);
+      await auditCollection.insertMany(audits as any);
     }
 
     // Create notifications for updates
@@ -324,7 +355,7 @@ export async function PATCH(
 
     // Insert all notifications
     if (notifications.length > 0) {
-      await notificationsCollection.insertMany(notifications);
+      await notificationsCollection.insertMany(notifications as any);
     }
 
     return NextResponse.json({ success: true });
@@ -346,6 +377,15 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Tenant isolation: get tenantId from session
+    const tenantContext = await getTenantContextOrThrow(request);
+    const { tenantId, userId, userEmail, userRole } = tenantContext;
+
+    // Debug logging (if enabled)
+    if (process.env.DEBUG_TENANT === '1') {
+      console.log('[TENANT]', '/api/patient-experience/cases/[id] (DELETE)', 'tenant=', tenantId, 'user=', userEmail, 'role=', userRole, 'collection=px_cases');
+    }
+
     // RBAC: supervisor, admin can delete cases (staff forbidden)
     const authResult = await requireRoleAsync(request, ['supervisor', 'admin']);
     if (authResult instanceof NextResponse) {
@@ -354,7 +394,17 @@ export async function DELETE(
 
     const { id } = params;
     const casesCollection = await getCollection('px_cases');
-    const caseItem = await casesCollection.findOne({ id });
+    
+    // TENANT ISOLATION: Filter by tenantId when finding case
+    const caseItem = await casesCollection.findOne<PXCase>({ 
+      id,
+      $or: [
+        { tenantId: tenantId },
+        { tenantId: { $exists: false } }, // Backward compatibility
+        { tenantId: null },
+        { tenantId: '' },
+      ],
+    });
 
     if (!caseItem) {
       return NextResponse.json(
@@ -373,9 +423,17 @@ export async function DELETE(
       }
     }
 
-    // Soft delete: set active=false
+    // Soft delete: set active=false (with tenant isolation)
     await casesCollection.updateOne(
-      { id },
+      { 
+        id,
+        $or: [
+          { tenantId: tenantId },
+          { tenantId: { $exists: false } }, // Backward compatibility
+          { tenantId: null },
+          { tenantId: '' },
+        ],
+      },
       {
         $set: {
           active: false,
@@ -388,8 +446,8 @@ export async function DELETE(
     // Create audit record for deletion
     const auditCollection = await getCollection('px_case_audits');
     const usersCollection = await getCollection('users');
-    const user = await usersCollection.findOne({ id: authResult.userId });
-    const actorEmployeeId = user?.employeeId;
+    const user = await usersCollection.findOne<User>({ id: authResult.userId });
+    const actorEmployeeId = user?.staffId; // Use staffId instead of employeeId
 
     await auditCollection.insertOne({
       id: uuidv4(),
@@ -406,7 +464,7 @@ export async function DELETE(
         active: false,
       },
       createdAt: new Date(),
-    });
+    } as any);
 
     return NextResponse.json({ 
       success: true,

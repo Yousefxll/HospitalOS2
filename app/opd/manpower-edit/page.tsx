@@ -44,6 +44,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
+import { useTranslation } from '@/hooks/use-translation';
+import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Calculator,
   Users,
@@ -124,6 +126,8 @@ interface Clinic {
 }
 
 export default function ManpowerEditPage() {
+  const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const [selectedDepartment, setSelectedDepartment] = useState('dept-1');
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [nurses, setNurses] = useState<Nurse[]>([]);
@@ -497,7 +501,7 @@ export default function ManpowerEditPage() {
             <div className="flex-1 space-y-2">
               <Label>Department</Label>
               <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
-                <SelectTrigger>
+                <SelectTrigger className="h-11">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -932,7 +936,7 @@ export default function ManpowerEditPage() {
 
       {/* Side Panel for Complex Edits */}
       <Sheet open={isPanelOpen} onOpenChange={setIsPanelOpen}>
-        <SheetContent className="w-[600px] sm:max-w-[600px] overflow-y-auto">
+        <SheetContent className="w-full sm:w-[600px] sm:max-w-[600px] overflow-y-auto">
           <SheetHeader>
             <SheetTitle>
               {panelType === 'doctor-schedule' && 'Edit Weekly Schedule'}

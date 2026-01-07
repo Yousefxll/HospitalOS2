@@ -21,6 +21,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { ChevronDown, ChevronUp, Calendar, X, Edit, Save, Lock } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useTranslation } from '@/hooks/use-translation';
 
 interface Department {
   id: string;
@@ -67,6 +69,8 @@ function generateTimeSlots(startHour: number, endHour: number): string[] {
 }
 
 export default function ClinicUtilizationPage() {
+  const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>('');
   const [showFilter, setShowFilter] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -767,8 +771,9 @@ export default function ClinicUtilizationPage() {
   const departmentClinics = clinics.filter(c => c.departmentId === selectedDepartmentId);
 
   return (
-    <div className="space-y-6 p-6 w-full max-w-full overflow-hidden">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6 p-4 md:p-6 w-full max-w-full overflow-hidden">
+      {/* Header - Hidden on mobile (MobileTopBar shows it) */}
+      <div className="hidden md:flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Clinic Utilization</h1>
           <p className="text-muted-foreground">View and manage clinic room schedules by department</p>
@@ -778,6 +783,14 @@ export default function ClinicUtilizationPage() {
           {showFilter ? 'Hide Filter' : 'Show Filter'}
         </Button>
       </div>
+      
+      {/* Mobile Filter Button */}
+      {isMobile && (
+        <Button variant="outline" onClick={() => setShowFilter(!showFilter)} className="w-full h-11">
+          {showFilter ? <ChevronUp className="mr-2 h-4 w-4" /> : <ChevronDown className="mr-2 h-4 w-4" />}
+          {showFilter ? 'Hide Filter' : 'Show Filter'}
+        </Button>
+      )}
 
       {/* Filter Section */}
       {showFilter && (
@@ -787,7 +800,7 @@ export default function ClinicUtilizationPage() {
               <div className="space-y-2">
                 <Label htmlFor="department">Select Department</Label>
                 <Select value={selectedDepartmentId} onValueChange={setSelectedDepartmentId}>
-                  <SelectTrigger id="department">
+                  <SelectTrigger id="department" className="h-11">
                     <SelectValue placeholder="Select a department" />
                   </SelectTrigger>
                   <SelectContent>
@@ -799,7 +812,7 @@ export default function ClinicUtilizationPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="startHour">Start Time (Hour)</Label>
                   <Input
@@ -814,6 +827,7 @@ export default function ClinicUtilizationPage() {
                         setStartHour(value);
                       }
                     }}
+                    className="h-11"
                   />
                 </div>
                 <div className="space-y-2">
@@ -830,6 +844,7 @@ export default function ClinicUtilizationPage() {
                         setEndHour(value);
                       }
                     }}
+                    className="h-11"
                   />
                 </div>
               </div>

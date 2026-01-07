@@ -10,6 +10,7 @@ import { requireCSRF } from '@/lib/security/csrf';
 import { addSecurityHeaders, handleCORSPreflight } from '@/lib/security/headers';
 import { validateRequestBody, handleError } from '@/lib/security/validation';
 import { logAuditEvent, createAuditContext } from '@/lib/security/audit';
+import { Tenant } from '@/lib/models/Tenant';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -19,12 +20,18 @@ const createUserSchema = z.object({
   password: z.string().min(6).max(100),
   firstName: z.string().min(1).max(100).trim(),
   lastName: z.string().min(1).max(100).trim(),
-  role: z.enum(['admin', 'supervisor', 'staff', 'viewer', 'group-admin', 'hospital-admin']),
+  role: z.enum(['admin', 'supervisor', 'staff', 'viewer']),
   groupId: z.string().trim().optional(), // Optional - can be custom text or UUID
   hospitalId: z.string().trim().optional().nullable(), // Optional - can be custom text or UUID
   department: z.string().max(100).trim().optional().nullable(), // Optional - free text
   staffId: z.string().max(50).optional().nullable(), // Employee/Staff ID number
   permissions: z.array(z.string()).optional(), // Array of permission keys
+  platformAccess: z.object({
+    sam: z.boolean().optional(),
+    health: z.boolean().optional(),
+    edrac: z.boolean().optional(),
+    cvision: z.boolean().optional(),
+  }).optional(), // Platform access settings
 });
 
 export async function OPTIONS(request: NextRequest) {
@@ -59,9 +66,14 @@ export async function GET(request: NextRequest) {
       return addSecurityHeaders(auth);
     }
 
-    // Authorization - only admin, group-admin, and hospital-admin can list users
-    const authorized = await requireRole(request, ['admin', 'group-admin', 'hospital-admin']);
+    // Authorization - only admin can list users (removed group-admin and hospital-admin)
+    // Pass auth result to avoid double authentication
+    const authorized = await requireRole(request, ['admin'], auth);
     if (authorized instanceof NextResponse) {
+      // Log authorization failure for debugging
+      const errorBody = await authorized.clone().json().catch(() => ({ error: 'Unknown error' }));
+      console.error(`[GET /api/admin/users] Authorization failed - status: ${authorized.status}, body:`, errorBody);
+      console.error(`[GET /api/admin/users] User role: ${auth.userRole}, allowed roles: ['admin']`);
       await logAuditEvent(
         createAuditContext(auth, {
           ip,
@@ -85,7 +97,7 @@ export async function GET(request: NextRequest) {
 
     // Build query based on user role with strict access control
     // For backward compatibility: if tenantId is 'default', also include users without tenantId
-    // Otherwise, only show users with matching tenantId
+    // Otherwise, show users with matching tenantId OR without tenantId (for backward compatibility)
     let query: any = tenantId === 'default'
       ? {
           $or: [
@@ -96,7 +108,14 @@ export async function GET(request: NextRequest) {
             { tenantId: 'default' }
           ]
         }
-      : { tenantId: tenantId };
+      : {
+          $or: [
+            { tenantId: tenantId },
+            { tenantId: { $exists: false } }, // Backward compatibility: include users without tenantId
+            { tenantId: null },
+            { tenantId: '' },
+          ]
+        };
 
     if (userRole === 'hospital-admin' && user.hospitalId) {
       // Hospital Admin can only see users in their hospital
@@ -162,6 +181,10 @@ export async function GET(request: NextRequest) {
       return addSecurityHeaders(NextResponse.json({ error: 'Forbidden' }, { status: 403 }));
     }
 
+    // IMPORTANT: Exclude syra-owner role from admin UI
+    // syra-owner is platform owner and should not be managed by tenant admins
+    query.role = { $ne: 'syra-owner' };
+
     const users = await usersCollection
       .find(query, { projection: { password: 0 } })
       .sort({ firstName: 1, lastName: 1 })
@@ -208,12 +231,24 @@ export async function POST(request: NextRequest) {
     // Authentication
     const auth = await requireAuth(request);
     if (auth instanceof NextResponse) {
+      if (process.env.DEBUG_AUTH === '1') {
+        const errorBody = await auth.clone().json().catch(() => ({ error: 'Unknown error' }));
+        console.error(`[POST /api/admin/users] Auth failed - status: ${auth.status}, body:`, errorBody);
+      }
       return addSecurityHeaders(auth);
+    }
+    
+    if (process.env.DEBUG_AUTH === '1') {
+      console.log(`[POST /api/admin/users] Auth successful - userId: ${auth.userId}, role: ${auth.userRole}, tenantId: ${auth.tenantId}`);
     }
 
     // Authorization - only admin and group-admin can create users
-    const authorized = await requireRole(request, ['admin', 'group-admin']);
+    // Pass auth result to avoid double authentication
+    const authorized = await requireRole(request, ['admin', 'group-admin'], auth);
     if (authorized instanceof NextResponse) {
+      if (process.env.DEBUG_AUTH === '1') {
+        console.error(`[POST /api/admin/users] Role check failed - userRole: ${auth.userRole}, allowed: ['admin', 'group-admin']`);
+      }
       await logAuditEvent(
         createAuditContext(auth, {
           ip,
@@ -227,8 +262,32 @@ export async function POST(request: NextRequest) {
       );
       return addSecurityHeaders(authorized);
     }
+    
+    // Role check passed - proceeding with user creation
+    // (removed verbose logging to reduce console noise)
 
     const { tenantId, userId, user } = authorized;
+
+    // Get collections
+    const usersCollection = await getCollection('users');
+    const tenantsCollection = await getCollection('tenants');
+
+    // Check user limit (enforce maxUsers)
+    const tenant = await tenantsCollection.findOne<Tenant>({ tenantId });
+    if (tenant) {
+      const currentUserCount = await usersCollection.countDocuments({ tenantId });
+      if (currentUserCount >= tenant.maxUsers) {
+        return addSecurityHeaders(
+          NextResponse.json(
+            { 
+              error: 'User limit exceeded',
+              message: `Maximum ${tenant.maxUsers} users allowed for this tenant. Current: ${currentUserCount}` 
+            },
+            { status: 403 }
+          )
+        );
+      }
+    }
 
     // Input validation with sanitization
     const validation = await validateRequestBody(request, createUserSchema);
@@ -253,8 +312,6 @@ export async function POST(request: NextRequest) {
     // groupId and hospitalId are now optional free text fields (custom text)
     // Users can enter any text - no validation against database
     // If empty, will be stored as empty string or null
-    
-    const usersCollection = await getCollection('users');
 
     // Check if user already exists (email must be unique per tenant)
     const existingUser = await usersCollection.findOne({
@@ -294,8 +351,26 @@ export async function POST(request: NextRequest) {
       ? data.permissions
       : getDefaultPermissionsForRole(data.role);
 
+    // Get platformAccess from request body (if provided)
+    // If not provided, user will inherit from tenant entitlements
+    // Format: { sam: true/false, health: true/false, edrac: false, cvision: false }
+    // Only set explicitly enabled platforms (true), others default to false or undefined
+    const platformAccess = (data as any).platformAccess;
+    
+    // Normalize platformAccess: only include explicitly set values
+    // If sam: true and health: false, save as { sam: true, health: false }
+    // If not provided, don't include platformAccess (user inherits from tenant)
+    const normalizedPlatformAccess = platformAccess ? {
+      sam: platformAccess.sam === true ? true : (platformAccess.sam === false ? false : undefined),
+      health: platformAccess.health === true ? true : (platformAccess.health === false ? false : undefined),
+      edrac: platformAccess.edrac === true ? true : (platformAccess.edrac === false ? false : undefined),
+      cvision: platformAccess.cvision === true ? true : (platformAccess.cvision === false ? false : undefined),
+    } : undefined;
+
+    // IMPORTANT: All non-syra-owner users MUST have a tenantId
+    // tenantId comes from session (tenant-admin's tenant)
     // Create user
-    const newUser = {
+    const newUser: any = {
       id: uuidv4(),
       email: data.email,
       password: hashedPassword,
@@ -308,12 +383,27 @@ export async function POST(request: NextRequest) {
       staffId: data.staffId || null,
       permissions: permissions,
       isActive: true,
-      tenantId, // ALWAYS from session
+      tenantId, // ALWAYS from session - required for all non-syra-owner users
       createdAt: new Date(),
       updatedAt: new Date(),
       createdBy: userId,
       updatedBy: userId,
     };
+
+    // Add platformAccess if provided (normalized)
+    if (normalizedPlatformAccess) {
+      // Only include properties that are explicitly set (true or false)
+      const filteredPlatformAccess: any = {};
+      if (normalizedPlatformAccess.sam !== undefined) filteredPlatformAccess.sam = normalizedPlatformAccess.sam;
+      if (normalizedPlatformAccess.health !== undefined) filteredPlatformAccess.health = normalizedPlatformAccess.health;
+      if (normalizedPlatformAccess.edrac !== undefined) filteredPlatformAccess.edrac = normalizedPlatformAccess.edrac;
+      if (normalizedPlatformAccess.cvision !== undefined) filteredPlatformAccess.cvision = normalizedPlatformAccess.cvision;
+      
+      // Only add platformAccess if at least one property is set
+      if (Object.keys(filteredPlatformAccess).length > 0) {
+        newUser.platformAccess = filteredPlatformAccess;
+      }
+    }
 
     await usersCollection.insertOne(newUser);
 
@@ -389,7 +479,8 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Authorization - only admin and group-admin can delete users
-    const authorized = await requireRole(request, ['admin', 'group-admin']);
+    // Pass auth result to avoid double authentication
+    const authorized = await requireRole(request, ['admin', 'group-admin'], auth);
     if (authorized instanceof NextResponse) {
       await logAuditEvent(
         createAuditContext(auth, {

@@ -1,20 +1,81 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, AlertTriangle, CheckCircle2, Database } from 'lucide-react';
+import { Loader2, AlertTriangle, CheckCircle2, Database, ShieldOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useLang } from '@/hooks/use-lang';
 import { LanguageToggle } from '@/components/LanguageToggle';
 
+// WHH Tenant ID - seeding allowed ONLY for this tenant
+const WHH_TENANT_ID = '6957fb92784a84e764b3a750';
+
 export default function SeedDataPage() {
+  const router = useRouter();
   const { toast } = useToast();
   const { language, dir } = useLang();
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingStatus, setIsLoadingStatus] = useState(true);
+  const [currentTenantId, setCurrentTenantId] = useState<string | null>(null);
+  const [hasAccess, setHasAccess] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [currentCounts, setCurrentCounts] = useState({
+    floors: 0,
+    departments: 0,
+    rooms: 0,
+    visits: 0,
+    cases: 0,
+  });
+
+  // Load current data counts and check tenant access on mount
+  useEffect(() => {
+    async function loadStatus() {
+      try {
+        // Fetch current data counts (tenant-isolated)
+        const statusResponse = await fetch('/api/patient-experience/seed-data/status', {
+        cache: 'no-store',
+          credentials: 'include',
+        });
+
+        if (statusResponse.ok) {
+          const statusData = await statusResponse.json();
+          setCurrentCounts({
+            floors: statusData.counts?.floors || 0,
+            departments: statusData.counts?.departments || 0,
+            rooms: statusData.counts?.rooms || 0,
+            visits: statusData.counts?.visits || 0,
+            cases: statusData.counts?.cases || 0,
+          });
+          setCurrentTenantId(statusData.tenantId || null);
+
+          // Check if current tenant is WHH (for seeding permission)
+          if (statusData.tenantId === WHH_TENANT_ID) {
+            setHasAccess(true);
+          } else {
+            setHasAccess(false);
+          }
+        } else if (statusResponse.status === 401) {
+          // Not authenticated - redirect to login
+          router.push('/login?redirect=/patient-experience/seed-data');
+          return;
+        } else {
+          // Error loading status - still show page but disable seed
+          setHasAccess(false);
+        }
+      } catch (error) {
+        console.error('Failed to load seed data status:', error);
+        setHasAccess(false);
+      } finally {
+        setIsLoadingStatus(false);
+      }
+    }
+
+    loadStatus();
+  }, [router]);
 
   async function handleSeedData() {
     if (!confirm(
@@ -31,6 +92,7 @@ export default function SeedDataPage() {
 
     try {
       const response = await fetch('/api/patient-experience/seed-data', {
+        cache: 'no-store',
         method: 'POST',
       });
 
@@ -42,6 +104,23 @@ export default function SeedDataPage() {
       }
 
       setResult(data);
+      
+      // Reload status after successful seeding
+      const statusResponse = await fetch('/api/patient-experience/seed-data/status', {
+        cache: 'no-store',
+        credentials: 'include',
+      });
+      if (statusResponse.ok) {
+        const statusData = await statusResponse.json();
+        setCurrentCounts({
+          floors: statusData.counts?.floors || 0,
+          departments: statusData.counts?.departments || 0,
+          rooms: statusData.counts?.rooms || 0,
+          visits: statusData.counts?.visits || 0,
+          cases: statusData.counts?.cases || 0,
+        });
+      }
+      
       toast({
         title: language === 'ar' ? 'نجح' : 'Success',
         description: language === 'ar' ? 'تم إضافة البيانات بنجاح' : 'Data seeded successfully',
@@ -57,6 +136,17 @@ export default function SeedDataPage() {
     } finally {
       setIsLoading(false);
     }
+  }
+
+  // Show loading state while loading status
+  if (isLoadingStatus) {
+    return (
+      <div dir={dir} className="container mx-auto p-6 max-w-2xl">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -91,39 +181,42 @@ export default function SeedDataPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Database className="h-5 w-5" />
-            {language === 'ar' ? 'البيانات التي سيتم إضافتها' : 'Data to be Added'}
+            {language === 'ar' ? 'البيانات الحالية' : 'Current Data'}
           </CardTitle>
           <CardDescription>
             {language === 'ar'
-              ? 'البيانات الوهمية من 6 ديسمبر إلى 19 ديسمبر 2025'
-              : 'Dummy data from December 6-19, 2025'}
+              ? 'عدد البيانات الموجودة حالياً'
+              : 'Current data counts'}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <strong>{language === 'ar' ? 'الطوابق:' : 'Floors:'}</strong> 3
-            </div>
-            <div>
-              <strong>{language === 'ar' ? 'الأقسام:' : 'Departments:'}</strong> 6
-            </div>
-            <div>
-              <strong>{language === 'ar' ? 'الغرف:' : 'Rooms:'}</strong> 6
-            </div>
-            <div>
-              <strong>{language === 'ar' ? 'الزيارات:' : 'Visits:'}</strong> ~150
-            </div>
-            <div>
-              <strong>{language === 'ar' ? 'الحالات:' : 'Cases:'}</strong> ~40
-            </div>
-            <div>
-              <strong>{language === 'ar' ? 'الفترة:' : 'Date Range:'}</strong> Dec 6-19, 2025
+          {/* Current Data Counts (tenant-isolated) */}
+          <div>
+            <h3 className="text-sm font-semibold mb-3">
+              {language === 'ar' ? 'البيانات الحالية' : 'Current Data'}
+            </h3>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <strong>{language === 'ar' ? 'الطوابق:' : 'Floors:'}</strong> {currentCounts.floors}
+              </div>
+              <div>
+                <strong>{language === 'ar' ? 'الأقسام:' : 'Departments:'}</strong> {currentCounts.departments}
+              </div>
+              <div>
+                <strong>{language === 'ar' ? 'الغرف:' : 'Rooms:'}</strong> {currentCounts.rooms}
+              </div>
+              <div>
+                <strong>{language === 'ar' ? 'الزيارات:' : 'Visits:'}</strong> {currentCounts.visits}
+              </div>
+              <div>
+                <strong>{language === 'ar' ? 'الحالات:' : 'Cases:'}</strong> {currentCounts.cases}
+              </div>
             </div>
           </div>
 
           <Button
             onClick={handleSeedData}
-            disabled={isLoading}
+            disabled={isLoading || !hasAccess}
             className="w-full"
             variant="destructive"
           >

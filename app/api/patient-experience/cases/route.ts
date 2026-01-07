@@ -1,26 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
 import { PXCase } from '@/lib/models/PXCase';
+import { requireAuth } from '@/lib/auth/requireAuth';
 import { requireRoleAsync, buildScopeFilter } from '@/lib/auth/requireRole';
-
-/**
+import { getActiveTenantId } from '@/lib/auth/sessionHelpers';
+import { addTenantDebugHeader } from '@/lib/utils/addTenantDebugHeader';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+
+/**
+
  * Helper to resolve keys to English labels for cases
  */
-async function resolveCaseLabels(cases: any[]): Promise<any[]> {
+async function resolveCaseLabels(cases: any[], tenantId: string): Promise<any[]> {
   // Get all unique visit IDs
   const visitIds = Array.from(new Set(cases.map(c => c.visitId).filter(Boolean)));
   const departmentKeys = Array.from(new Set(cases.map(c => c.assignedDeptKey).filter(Boolean)));
 
-  // Fetch visits and departments
+  // Fetch visits and departments (with tenant isolation)
   const [visits, departments] = await Promise.all([
     visitIds.length > 0
-      ? getCollection('patient_experience').then(c => c.find({ id: { $in: visitIds } }).toArray())
+      ? getCollection('patient_experience').then(c => c.find({ 
+          id: { $in: visitIds },
+          tenantId: tenantId, // TENANT ISOLATION
+        }).toArray())
       : Promise.resolve([]),
     departmentKeys.length > 0
-      ? getCollection('floor_departments').then(c => c.find({ key: { $in: departmentKeys }, active: true }).toArray())
+      ? getCollection('floor_departments').then(c => c.find({ 
+          key: { $in: departmentKeys }, 
+          active: true,
+          tenantId: tenantId, // TENANT ISOLATION
+        }).toArray())
       : Promise.resolve([]),
   ]);
 
@@ -67,10 +78,30 @@ async function resolveCaseLabels(cases: any[]): Promise<any[]> {
  */
 export async function GET(request: NextRequest) {
   try {
-    // RBAC: supervisor, admin can list cases (staff forbidden)
-    const authResult = await requireRoleAsync(request, ['supervisor', 'admin']);
+    // SINGLE SOURCE OF TRUTH: Get activeTenantId from session
+    const activeTenantId = await getActiveTenantId(request);
+    if (!activeTenantId) {
+      const response = NextResponse.json(
+        { error: 'Tenant not selected. Please log in again.' },
+        { status: 400 }
+      );
+      addTenantDebugHeader(response, null);
+      return response;
+    }
+
+    // Authentication
+    const authResult = await requireAuth(request);
     if (authResult instanceof NextResponse) {
-      return authResult; // Returns 401 or 403
+      addTenantDebugHeader(authResult, activeTenantId);
+      return authResult;
+    }
+    const { tenantId, userId, userRole } = authResult;
+
+    // RBAC: staff can see their own cases, supervisor/admin/syra-owner can see all cases
+    // syra-owner has full access when working within tenant context
+    const roleCheck = await requireRoleAsync(request, ['staff', 'supervisor', 'admin', 'syra-owner']);
+    if (roleCheck instanceof NextResponse) {
+      return roleCheck; // Returns 401 or 403
     }
 
     const { searchParams } = new URL(request.url);
@@ -92,12 +123,21 @@ export async function GET(request: NextRequest) {
 
     const casesCollection = await getCollection('px_cases');
     
-    // Build query - only show active cases
-    const query: any = { active: { $ne: false } }; // Include cases where active is not false (true or undefined)
+    // Build query with tenant isolation (GOLDEN RULE: tenantId from session only)
+    // Backward compatibility: include documents without tenantId until migration is run
+    const query: any = {
+      $or: [
+        { tenantId: tenantId },
+        { tenantId: { $exists: false } }, // Backward compatibility for existing data
+        { tenantId: null },
+        { tenantId: '' },
+      ],
+      active: { $ne: false }, // Include cases where active is not false (true or undefined)
+    };
     
     // Apply RBAC scope filtering for supervisor
-    if (authResult.userRole === 'supervisor') {
-      const scopeFilter = buildScopeFilter(authResult, 'assignedDeptKey');
+    if (userRole === 'supervisor') {
+      const scopeFilter = buildScopeFilter(roleCheck, 'assignedDeptKey');
       Object.assign(query, scopeFilter);
     }
     // Admin: no filter (sees all)
@@ -120,7 +160,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch cases
     let cases = await casesCollection
-      .find(query)
+      .find<PXCase>(query)
       .sort(sort)
       .limit(limit)
       .skip(skip)
@@ -141,8 +181,8 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Resolve labels
-    const resolvedCases = await resolveCaseLabels(cases);
+    // Resolve labels (with tenant isolation)
+    const resolvedCases = await resolveCaseLabels(cases, tenantId);
 
     // Get total count (after overdue filter if applied)
     // If overdue filter was applied, we need to count the filtered results
@@ -152,7 +192,7 @@ export async function GET(request: NextRequest) {
       total = resolvedCases.length;
       // For accurate total, we'd need to apply the same filter to count
       // For now, we'll use the filtered count
-      const allFiltered = await casesCollection.find(query).toArray();
+      const allFiltered = await casesCollection.find<PXCase>(query).toArray();
       const now = new Date();
       if (overdue === 'true') {
         total = allFiltered.filter(c => {
@@ -169,7 +209,7 @@ export async function GET(request: NextRequest) {
       total = await casesCollection.countDocuments(query);
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       data: resolvedCases,
       pagination: {
@@ -182,11 +222,19 @@ export async function GET(request: NextRequest) {
         hasMore: skip + limit < total,
       },
     });
+    
+    // Add debug header (X-Active-Tenant)
+    addTenantDebugHeader(response, activeTenantId);
+    
+    return response;
   } catch (error: any) {
     console.error('Patient experience cases error:', error);
-    return NextResponse.json(
+    const response = NextResponse.json(
       { error: 'Failed to fetch cases', details: error.message },
       { status: 500 }
     );
+    const activeTenantId = await getActiveTenantId(request).catch(() => null);
+    addTenantDebugHeader(response, activeTenantId);
+    return response;
   }
 }

@@ -69,18 +69,34 @@ function calculateUtilization(dailyData: OPDDailyData): number {
 
 /**
  * Get aggregated OPD data from both opd_daily_data and opd_census
+ * WITH tenant isolation
  */
-export async function getAggregatedOPDData(dateQuery: DateQuery, departmentId?: string) {
+export async function getAggregatedOPDData(
+  dateQuery: DateQuery, 
+  departmentId?: string,
+  tenantId?: string // REQUIRED: tenantId for isolation
+) {
   const censusCollection = await getCollection('opd_census');
   const dailyDataCollection = await getCollection('opd_daily_data');
 
-  // Fetch from both collections
-  const censusQuery: any = { ...dateQuery };
+  // Build tenant filter (GOLDEN RULE: tenantId from session only)
+  // Backward compatibility: include documents without tenantId until migration is run
+  const tenantFilter = tenantId ? {
+    $or: [
+      { tenantId: tenantId },
+      { tenantId: { $exists: false } }, // Backward compatibility
+      { tenantId: null },
+      { tenantId: '' },
+    ],
+  } : {};
+
+  // Fetch from both collections with tenant isolation
+  const censusQuery: any = { ...dateQuery, ...tenantFilter };
   if (departmentId) {
     censusQuery.departmentId = departmentId;
   }
   
-  const dailyDataQuery: any = { ...dateQuery };
+  const dailyDataQuery: any = { ...dateQuery, ...tenantFilter };
   if (departmentId) {
     dailyDataQuery.departmentId = departmentId;
   }

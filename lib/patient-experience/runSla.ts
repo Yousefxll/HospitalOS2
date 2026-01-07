@@ -10,6 +10,8 @@
 import { getCollection } from '@/lib/db';
 import { PXCaseAudit } from '@/lib/models/PXCaseAudit';
 import { Notification } from '@/lib/models/Notification';
+import { PXCase } from '@/lib/models/PXCase';
+import { User } from '@/lib/models/User';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface RunPxSlaResult {
@@ -34,7 +36,7 @@ export async function runPxSla(actorUserId?: string): Promise<RunPxSlaResult> {
   
   // Find overdue cases: status in (OPEN, IN_PROGRESS) and dueAt < now (only active cases)
   const overdueCases = await casesCollection
-    .find({
+    .find<PXCase>({
       status: { $in: ['OPEN', 'IN_PROGRESS'] },
       dueAt: { $lt: now },
       active: { $ne: false },
@@ -48,8 +50,8 @@ export async function runPxSla(actorUserId?: string): Promise<RunPxSlaResult> {
   let actorEmployeeId: string | undefined;
   if (actorUserId) {
     const usersCollection = await getCollection('users');
-    const user = await usersCollection.findOne({ id: actorUserId });
-    actorEmployeeId = user?.employeeId;
+    const user = await usersCollection.findOne<User>({ id: actorUserId });
+    actorEmployeeId = user?.staffId; // Use staffId instead of employeeId
   }
 
   for (const caseItem of overdueCases) {

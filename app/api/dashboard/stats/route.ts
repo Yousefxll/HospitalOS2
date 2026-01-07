@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
+import { requireAuth } from '@/lib/auth/requireAuth';
+import { getActiveTenantId } from '@/lib/auth/sessionHelpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -140,6 +142,21 @@ function buildDateQuery(params: FilterParams) {
 
 export async function GET(request: NextRequest) {
   try {
+    // SINGLE SOURCE OF TRUTH: Get activeTenantId from session
+    const activeTenantId = await getActiveTenantId(request);
+    if (!activeTenantId) {
+      return NextResponse.json(
+        { error: 'Tenant not selected. Please log in again.' },
+        { status: 400 }
+      );
+    }
+
+    // Authentication
+    const authResult = await requireAuth(request);
+    if (authResult instanceof NextResponse) {
+      return authResult;
+    }
+
     const { searchParams } = new URL(request.url);
     const params: FilterParams = {
       granularity: searchParams.get('granularity') || 'day',
@@ -157,11 +174,21 @@ export async function GET(request: NextRequest) {
 
     const dateQuery = buildDateQuery(params);
 
-    // Fetch OPD visits - exclude sample data (createdBy='system' or no createdBy field)
+    // Fetch OPD visits - with tenant isolation
     const opdCollection = await getCollection('opd_census');
     
-    // Build query that excludes sample data
-    // Only include records where createdBy exists, is not null, and is not 'system'
+    // Build query with tenant isolation (GOLDEN RULE: tenantId from session only)
+    // Backward compatibility: include documents without tenantId until migration is run
+    const tenantFilter = {
+      $or: [
+        { tenantId: activeTenantId },
+        { tenantId: { $exists: false } }, // Backward compatibility
+        { tenantId: null },
+        { tenantId: '' },
+      ],
+    };
+    
+    // Combine date query with tenant filter and sample data exclusion
     const excludeSampleData = {
       createdBy: { 
         $exists: true,
@@ -170,20 +197,20 @@ export async function GET(request: NextRequest) {
       }
     };
     
-    // Combine date query with sample data exclusion
     const finalQuery = Object.keys(dateQuery).length === 0 
-      ? excludeSampleData
+      ? { ...tenantFilter, ...excludeSampleData }
       : {
           ...dateQuery,
+          ...tenantFilter,
           ...excludeSampleData
         };
     
     const opdRecords = await opdCollection.find(finalQuery).toArray();
     const totalVisits = opdRecords.reduce((sum, r: any) => sum + (r.patientCount || 0), 0);
 
-    // Fetch equipment count
+    // Fetch equipment count - with tenant isolation
     const equipmentCollection = await getCollection('equipment');
-    const allEquipment = await equipmentCollection.find({}).toArray();
+    const allEquipment = await equipmentCollection.find(tenantFilter).toArray();
     const equipmentCount = allEquipment.length;
     const operationalCount = allEquipment.filter((e: any) => e.status === 'active').length;
     const equipmentOperational = equipmentCount > 0 

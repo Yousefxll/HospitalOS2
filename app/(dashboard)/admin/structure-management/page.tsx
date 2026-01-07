@@ -166,13 +166,17 @@ export default function StructureManagementPage() {
       });
 
       if (response.ok) {
+        const result = await response.json();
         toast({
           title: language === 'ar' ? 'نجح' : 'Success',
           description: language === 'ar' ? 'تم إضافة الطابق بنجاح' : 'Floor added successfully',
         });
         setIsFloorDialogOpen(false);
         setFloorForm({ number: '', name: '', label_en: '', label_ar: '' });
-        fetchData();
+        // Refresh data after a short delay to ensure DB consistency
+        setTimeout(() => {
+          fetchData();
+        }, 100);
       } else {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || 'Failed to create floor');

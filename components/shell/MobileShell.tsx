@@ -8,6 +8,7 @@ import { useTranslation } from '@/hooks/use-translation';
 import { useApiError } from '@/lib/hooks/useApiError';
 import { useEffect, useState } from 'react';
 import Sidebar from '@/components/Sidebar';
+import { appConfig } from '@/lib/config';
 
 interface MobileShellProps {
   children: React.ReactNode;
@@ -16,7 +17,7 @@ interface MobileShellProps {
 // Map routes to page titles
 function getPageTitle(pathname: string, t: any): string {
   const routeTitleMap: Record<string, string> = {
-    '/dashboard': t.header.hospitalOS || 'SIRA',
+    '/dashboard': t.header.hospitalOS || appConfig.name,
     '/notifications': t.nav.notifications || 'Notifications',
     '/account': t.nav.account || 'Account',
     '/opd/dashboard': t.nav.opdDashboard || 'OPD Dashboard',
@@ -36,7 +37,7 @@ function getPageTitle(pathname: string, t: any): string {
   }
 
   // Default: use pathname
-  return pathname.split('/').pop()?.replace(/-/g, ' ') || 'SIRA';
+  return pathname.split('/').pop()?.replace(/-/g, ' ') || appConfig.name;
 }
 
 export function MobileShell({ children }: MobileShellProps) {

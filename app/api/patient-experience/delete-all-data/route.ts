@@ -19,15 +19,19 @@ export const revalidate = 0;
  */
 export async function DELETE(request: NextRequest) {
   try {
-    const userId = request.headers.get('x-user-id');
-    const userRole = request.headers.get('x-user-role');
+    // Authenticate and check permissions
+    const { requireAuth } = await import('@/lib/security/auth');
+    const { requirePermission } = await import('@/lib/security/permissions');
     
-    // Only allow admin/supervisor
-    if (!userId || (userRole !== 'admin' && userRole !== 'supervisor')) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Admin or Supervisor role required' },
-        { status: 403 }
-      );
+    const auth = await requireAuth(request);
+    if (auth instanceof NextResponse) {
+      return auth;
+    }
+    
+    // Check permission for delete data operation
+    const permissionCheck = await requirePermission(request, 'px.delete-data.view', auth);
+    if (permissionCheck instanceof NextResponse) {
+      return permissionCheck;
     }
 
     // Parse request body to get selected types

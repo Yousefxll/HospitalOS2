@@ -1,11 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
-
+import { requireAuth } from '@/lib/auth/requireAuth';
+import type { ClinicDetail } from '@/lib/models/ClinicDetail';
+import type { Doctor } from '@/lib/models/Doctor';
+import { getActiveTenantId } from '@/lib/auth/sessionHelpers';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export async function GET(request: NextRequest) {
   try {
+    // SINGLE SOURCE OF TRUTH: Get activeTenantId from session
+    const activeTenantId = await getActiveTenantId(request);
+    if (!activeTenantId) {
+      return NextResponse.json(
+        { error: 'Tenant not selected. Please log in again.' },
+        { status: 400 }
+      );
+    }
+
+    // Authentication
+    const authResult = await requireAuth(request);
+    if (authResult instanceof NextResponse) {
+      return authResult;
+    }
+
     const { searchParams } = new URL(request.url);
     const departmentId = searchParams.get('departmentId');
 
@@ -16,24 +34,38 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Fetch clinics for the department
-    const clinicsCollection = await getCollection('clinic_details');
-    const clinics = await clinicsCollection.find({ departmentId }).toArray();
+    // Build tenant filter (GOLDEN RULE: tenantId from session only)
+    const tenantFilter = {
+      $or: [
+        { tenantId: activeTenantId },
+        { tenantId: { $exists: false } }, // Backward compatibility
+        { tenantId: null },
+        { tenantId: '' },
+      ],
+    };
 
-    // Fetch doctors for the department
+    // Fetch clinics for the department - WITH tenant isolation
+    const clinicsCollection = await getCollection('clinic_details');
+    const clinics = await clinicsCollection.find({ 
+      ...tenantFilter,
+      departmentId 
+    }).toArray();
+
+    // Fetch doctors for the department - WITH tenant isolation
     const doctorsCollection = await getCollection('doctors');
-    const doctors = await doctorsCollection.find({ 
+    const doctors = await doctorsCollection.find<Doctor>({ 
+      ...tenantFilter,
       primaryDepartmentId: departmentId,
       isActive: true 
     }).toArray();
 
-    // Get aggregated data from both opd_daily_data and opd_census
+    // Get aggregated data from both opd_daily_data and opd_census WITH tenant isolation
     const { getAggregatedOPDData } = await import('@/lib/opd/data-aggregator');
     const lastWeek = new Date();
     lastWeek.setDate(lastWeek.getDate() - 7);
     const censusData = await getAggregatedOPDData({
       date: { $gte: lastWeek },
-    }, departmentId);
+    }, departmentId, activeTenantId);
 
     // Calculate utilization per doctor
     const doctorUtilization: Record<string, number> = {};
@@ -66,12 +98,12 @@ export async function GET(request: NextRequest) {
           const clinicNumber = slot.clinicId || doctor.primaryClinicId;
           
           // Extract room number from clinic
-          const clinic = clinics.find((c: any) => 
+          const clinic = clinics.find((c: ClinicDetail | any) => 
             c.clinicId === clinicNumber || 
             c.clinicNumbers?.includes(clinicNumber)
           );
           
-          const roomNumber = clinic?.clinicNumbers?.[0] || clinicNumber;
+          const roomNumber = (clinic as ClinicDetail)?.clinicNumbers?.[0] || clinicNumber;
 
           if (!roomSchedules[roomNumber]) {
             roomSchedules[roomNumber] = {
@@ -130,7 +162,7 @@ export async function POST(request: NextRequest) {
 
     // Update doctor's weekly schedule
     const doctorsCollection = await getCollection('doctors');
-    const doctor = await doctorsCollection.findOne({ id: schedule.doctorId });
+    const doctor = await doctorsCollection.findOne<Doctor>({ id: schedule.doctorId });
 
     if (!doctor) {
       return NextResponse.json(
@@ -140,7 +172,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update the specific schedule slot
-    const weeklySchedule = doctor.weeklySchedule || [];
+    const weeklySchedule = (doctor as any).weeklySchedule || [];
     
     // If originalDay and originalStartTime are provided, this is an update/move operation
     if (schedule.originalDay && schedule.originalStartTime) {
@@ -224,7 +256,7 @@ export async function DELETE(request: NextRequest) {
     // If body contains schedule details, delete a single schedule
     if (body.doctorId && body.day && body.startTime && body.endTime) {
       const doctorsCollection = await getCollection('doctors');
-      const doctor = await doctorsCollection.findOne({ id: body.doctorId });
+      const doctor = await doctorsCollection.findOne<Doctor>({ id: body.doctorId });
 
       if (!doctor) {
         return NextResponse.json(
@@ -234,7 +266,7 @@ export async function DELETE(request: NextRequest) {
       }
 
       // Remove the specific schedule slot
-      const weeklySchedule = doctor.weeklySchedule || [];
+      const weeklySchedule = (doctor as any).weeklySchedule || [];
       const filteredSchedule = weeklySchedule.filter(
         (s: any) => !(s.day === body.day && s.startTime === body.startTime && s.endTime === body.endTime)
       );
@@ -289,7 +321,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Find all doctors in this department
-    const doctors = await doctorsCollection.find({
+    const doctors = await doctorsCollection.find<Doctor>({
       primaryDepartmentId: department.id,
       isActive: true,
     }).toArray();

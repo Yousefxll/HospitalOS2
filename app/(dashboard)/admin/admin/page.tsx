@@ -94,9 +94,8 @@ export default function AdminUsersPage() {
       const response = await fetch('/api/admin/users');
       if (response.ok) {
         const data = await response.json();
-        // Filter users without groupId or hospitalId
-        const orphanedUsers = (data.users || []).filter((u: User) => !u.groupId && !u.hospitalId);
-        setUsers(orphanedUsers);
+        // Show all users (removed filter to show all users in tenant)
+        setUsers(data.users || []);
       }
     } catch (error) {
       console.error('Failed to fetch users:', error);

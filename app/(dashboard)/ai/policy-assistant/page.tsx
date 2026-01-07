@@ -13,6 +13,7 @@ import { useTranslation } from '@/hooks/use-translation';
 import { useRouter } from 'next/navigation';
 import { Checkbox } from '@/components/ui/checkbox';
 import { PolicyQuickNav } from '@/components/policies/PolicyQuickNav';
+import { useRoutePermission } from '@/lib/hooks/useRoutePermission';
 
 interface PolicySearchMatch {
   pageNumber: number;
@@ -56,13 +57,15 @@ export default function PolicyAssistantPage() {
   const router = useRouter();
   const { toast } = useToast();
   const { t } = useTranslation();
+  
+  // Check route permission - redirect to /welcome if user doesn't have permission
+  const { hasPermission, isLoading: permissionLoading } = useRoutePermission('/ai/policy-assistant');
+  
   const [question, setQuestion] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [isAsking, setIsAsking] = useState(false);
   const [searchResults, setSearchResults] = useState<PolicySearchResult[]>([]);
   const [aiResponse, setAiResponse] = useState<PolicyAIResponse | null>(null);
-  const [selectedHospital, setSelectedHospital] = useState<string>('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [topK, setTopK] = useState(5);
   const [previewDocumentId, setPreviewDocumentId] = useState<string | null>(null);
   const [includeSupporting, setIncludeSupporting] = useState(false);
@@ -166,6 +169,121 @@ export default function PolicyAssistantPage() {
     return supportingKeywords.some(keyword => lowerFilename.includes(keyword)) ? 'supporting' : 'core';
   }
 
+  // Format markdown text to HTML with proper styling
+  function formatMarkdownText(text: string): string {
+    if (!text) return '';
+    
+    let formatted = text;
+    
+    // First, format source references (before escaping HTML)
+    formatted = formatted.replace(
+      /\*\[DOC: ([^\]]+)\]\*/g, 
+      '<div class="mt-3 mb-2 text-xs text-muted-foreground italic border-l-2 border-muted pl-3 py-1.5 bg-muted/30">📄 Source: $1</div>'
+    );
+    
+    // Escape HTML to prevent XSS (but preserve our formatted divs)
+    const sourceDivs: string[] = [];
+    formatted = formatted.replace(/<div class="mt-3[^>]*>.*?<\/div>/g, (match) => {
+      sourceDivs.push(match);
+      return `__SOURCE_DIV_${sourceDivs.length - 1}__`;
+    });
+    
+    formatted = formatted
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    
+    // Restore source divs
+    sourceDivs.forEach((div, idx) => {
+      formatted = formatted.replace(`__SOURCE_DIV_${idx}__`, div);
+    });
+    
+    // Convert markdown headers (### Header -> <h3>Header</h3>)
+    formatted = formatted.replace(/^###\s+(.+)$/gm, '<h3 class="text-xl font-bold mt-6 mb-3 text-foreground">$1</h3>');
+    formatted = formatted.replace(/^##\s+(.+)$/gm, '<h2 class="text-2xl font-bold mt-8 mb-4 text-foreground">$1</h2>');
+    formatted = formatted.replace(/^#\s+(.+)$/gm, '<h1 class="text-3xl font-bold mt-8 mb-4 text-foreground">$1</h1>');
+    
+    // Convert bold (**text** -> <strong>text</strong>) - but not inside source divs
+    formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<strong class="font-semibold text-foreground">$1</strong>');
+    
+    // Convert italic (*text* -> <em>text</em>) - but not bold markers
+    formatted = formatted.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em class="italic">$1</em>');
+    
+    // Split into lines for processing
+    const lines = formatted.split('\n');
+    const processedLines: string[] = [];
+    let inList = false;
+    let listType: 'ul' | 'ol' | null = null;
+    let listItems: string[] = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const trimmed = line.trim();
+      
+      // Check for numbered list (1. Item)
+      const numberedMatch = trimmed.match(/^(\d+)\.\s+(.+)$/);
+      if (numberedMatch) {
+        if (!inList || listType !== 'ol') {
+          if (inList && listItems.length > 0) {
+            // Close previous list
+            processedLines.push(`</${listType}>`);
+          }
+          inList = true;
+          listType = 'ol';
+          listItems = [];
+        }
+        listItems.push(`<li class="mb-1.5 ml-1">${numberedMatch[2]}</li>`);
+        continue;
+      }
+      
+      // Check for bullet list (- Item or * Item)
+      const bulletMatch = trimmed.match(/^[-*]\s+(.+)$/);
+      if (bulletMatch) {
+        if (!inList || listType !== 'ul') {
+          if (inList && listItems.length > 0) {
+            // Close previous list
+            processedLines.push(`</${listType}>`);
+          }
+          inList = true;
+          listType = 'ul';
+          listItems = [];
+        }
+        listItems.push(`<li class="mb-1.5 ml-1">${bulletMatch[1]}</li>`);
+        continue;
+      }
+      
+      // Not a list item - close any open list
+      if (inList && listItems.length > 0) {
+        const listClass = listType === 'ol' 
+          ? 'list-decimal list-inside space-y-1 my-3 ml-6' 
+          : 'list-disc list-inside space-y-1 my-3 ml-6';
+        processedLines.push(`<${listType} class="${listClass}">${listItems.join('')}</${listType}>`);
+        listItems = [];
+        inList = false;
+        listType = null;
+      }
+      
+      // Regular line - convert to paragraph if not empty and not already HTML
+      if (trimmed && !trimmed.startsWith('<') && !trimmed.match(/^&lt;/)) {
+        processedLines.push(`<p class="mb-4 leading-7 text-foreground">${trimmed}</p>`);
+      } else if (trimmed) {
+        processedLines.push(line);
+      }
+    }
+    
+    // Close any remaining open list
+    if (inList && listItems.length > 0) {
+      const listClass = listType === 'ol' 
+        ? 'list-decimal list-inside space-y-1 my-3 ml-6' 
+        : 'list-disc list-inside space-y-1 my-3 ml-6';
+      processedLines.push(`<${listType} class="${listClass}">${listItems.join('')}</${listType}>`);
+    }
+    
+    formatted = processedLines.join('\n');
+    
+    return formatted;
+  }
+
   // Get minScore threshold based on strictness
   function getMinScore(strictness: 'Strict' | 'Balanced'): number {
     return strictness === 'Strict' ? 0.78 : 0.70;
@@ -254,8 +372,6 @@ export default function PolicyAssistantPage() {
         body: JSON.stringify({
           q: question,
           limit: 20,
-          hospital: selectedHospital || undefined,
-          category: selectedCategory || undefined,
         }),
       });
 
@@ -358,6 +474,15 @@ export default function PolicyAssistantPage() {
     setPreviewDocumentId(documentId);
   }
 
+  // Show loading while checking permissions
+  if (permissionLoading || !hasPermission) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <PolicyQuickNav />
@@ -409,28 +534,7 @@ export default function PolicyAssistantPage() {
             </div>
 
             {/* Filters */}
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <Label>Hospital</Label>
-                <Select value={selectedHospital || undefined} onValueChange={(value) => setSelectedHospital(value || '')}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Hospitals" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="TAK">TAK</SelectItem>
-                    <SelectItem value="WHH">WHH</SelectItem>
-                    <SelectItem value="HMG">HMG</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Category</Label>
-                <Input
-                  placeholder="Category filter"
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                />
-              </div>
+            <div className="grid grid-cols-1 gap-4">
               <div>
                 <Label>Top K Results</Label>
                 <Input
@@ -497,8 +601,13 @@ export default function PolicyAssistantPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="prose max-w-none whitespace-pre-wrap mb-4">
-                {aiResponse.answer}
+              <div className="prose prose-slate dark:prose-invert max-w-none mb-4">
+                <div 
+                  className="text-base leading-7 space-y-4"
+                  dangerouslySetInnerHTML={{ 
+                    __html: formatMarkdownText(aiResponse.answer) 
+                  }}
+                />
               </div>
 
               {/* Primary Policy */}

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
 import { translateToEnglish } from '@/lib/translate/translateToEnglish';
 import { detectLang } from '@/lib/translate/detectLang';
+import { getTenantContextOrThrow } from '@/lib/auth/getTenantIdOrThrow';
+import type { PatientExperience } from '@/lib/models/PatientExperience';
 
 /**
 
@@ -16,13 +18,13 @@ export const revalidate = 0;
  */
 export async function POST(request: NextRequest) {
   try {
-    const userId = request.headers.get('x-user-id');
-    
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    // Tenant isolation: get tenantId from session
+    const tenantContext = await getTenantContextOrThrow(request);
+    const { tenantId, userId, userEmail, userRole } = tenantContext;
+
+    // Debug logging (if enabled)
+    if (process.env.DEBUG_TENANT === '1') {
+      console.log('[TENANT]', '/api/patient-experience/backfill-translation (POST)', 'tenant=', tenantId, 'user=', userEmail, 'role=', userRole, 'collection=patient_experience');
     }
 
     const { searchParams } = new URL(request.url);
@@ -31,17 +33,27 @@ export async function POST(request: NextRequest) {
 
     const patientExperienceCollection = await getCollection('patient_experience');
 
-    // Find records missing detailsEn or detailsOriginal
+    // Find records missing detailsEn or detailsOriginal (with tenant isolation)
     const query: any = {
       $or: [
-        { detailsEn: { $exists: false } },
-        { detailsEn: '' },
-        { detailsOriginal: { $exists: false } },
+        { tenantId: tenantId },
+        { tenantId: { $exists: false } }, // Backward compatibility
+        { tenantId: null },
+        { tenantId: '' },
+      ],
+      $and: [
+        {
+          $or: [
+            { detailsEn: { $exists: false } },
+            { detailsEn: '' },
+            { detailsOriginal: { $exists: false } },
+          ],
+        },
       ],
     };
 
     const records = await patientExperienceCollection
-      .find(query)
+      .find<PatientExperience>(query)
       .limit(limit)
       .toArray();
 
@@ -57,10 +69,8 @@ export async function POST(request: NextRequest) {
         let originalText: string | undefined;
         if (record.detailsOriginal) {
           originalText = record.detailsOriginal;
-        } else if (record.details) {
-          originalText = record.details;
-        } else if (record.complaintText) {
-          originalText = record.complaintText;
+        } else if (record.detailsEn) {
+          originalText = record.detailsEn;
         }
 
         if (!originalText || !originalText.trim()) {
@@ -82,21 +92,19 @@ export async function POST(request: NextRequest) {
         let resolutionLang: 'ar' | 'en' | undefined;
         let resolutionEn: string | undefined;
 
-        if (record.resolution || record.resolutionText) {
-          const inputResolution = record.resolutionOriginal || record.resolution || record.resolutionText;
-          if (inputResolution && inputResolution.trim()) {
-            resolutionOriginal = inputResolution.trim();
-            resolutionLang = record.resolutionLang || detectLang(resolutionOriginal);
-            // Only translate if text is long enough (>= 6 chars) and is Arabic
-            resolutionEn = record.resolutionEn || (
-              resolutionLang === 'ar' && resolutionOriginal.length >= 6
-                ? await translateToEnglish(resolutionOriginal, resolutionLang)
-                : (resolutionLang === 'en' ? resolutionOriginal : resolutionOriginal)
-            );
-          }
+        if (record.resolutionOriginal) {
+          resolutionOriginal = record.resolutionOriginal.trim();
+          resolutionLang = record.resolutionLang || detectLang(resolutionOriginal);
+          // Only translate if text is long enough (>= 6 chars) and is Arabic
+          resolutionEn = record.resolutionEn || (
+            resolutionLang === 'ar' && resolutionOriginal.length >= 6
+              ? await translateToEnglish(resolutionOriginal, resolutionLang)
+              : (resolutionLang === 'en' ? resolutionOriginal : resolutionOriginal)
+          );
         }
 
         if (!dryRun) {
+          // TENANT ISOLATION: Include tenantId in filter when updating
           const updateData: any = {
             detailsOriginal,
             detailsLang,
@@ -111,8 +119,17 @@ export async function POST(request: NextRequest) {
             updateData.resolutionEn = resolutionEn;
           }
 
+          // TENANT ISOLATION: Include tenantId in filter to prevent cross-tenant updates
           await patientExperienceCollection.updateOne(
-            { id: record.id },
+            { 
+              id: record.id,
+              $or: [
+                { tenantId: tenantId },
+                { tenantId: { $exists: false } }, // Backward compatibility
+                { tenantId: null },
+                { tenantId: '' },
+              ],
+            },
             { $set: updateData }
           );
         }

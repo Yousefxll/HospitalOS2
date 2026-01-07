@@ -67,6 +67,7 @@ export async function createSecureSession(
 /**
  * Validate session with idle timeout and absolute lifetime checks
  * Backward compatible with old session format
+ * Searches in platform DB first, then legacy DB as fallback
  */
 export async function validateSecureSession(
   userId: string,
@@ -79,27 +80,88 @@ export async function validateSecureSession(
   message?: string;
   shouldRotate?: boolean;
 }> {
-  const sessionsCollection = await getCollection('sessions');
-  const session = await sessionsCollection.findOne<Session & {
+  // Search in platform DB first (where sessions are stored now)
+  let session: (Session & {
     idleExpiresAt?: Date;
     absoluteExpiresAt?: Date;
     lastActivityAt?: Date;
-  }>({
-    userId,
-    sessionId,
-  });
+  }) | null = null;
+  
+  try {
+    const { getPlatformCollection } = await import('@/lib/db/platformDb');
+    const platformSessionsCollection = await getPlatformCollection('sessions');
+    session = await platformSessionsCollection.findOne<Session & {
+      idleExpiresAt?: Date;
+      absoluteExpiresAt?: Date;
+      lastActivityAt?: Date;
+    }>({
+      userId,
+      sessionId,
+    });
+    
+    if (process.env.DEBUG_AUTH === '1' && session) {
+      console.log(`[validateSecureSession] Found session in platform DB - userId: ${userId}, sessionId: ${sessionId}`);
+    }
+  } catch (error) {
+    if (process.env.DEBUG_AUTH === '1') {
+      console.error(`[validateSecureSession] Error searching platform DB:`, error);
+    }
+  }
+  
+  // Fallback to legacy DB if not found in platform DB
+  if (!session) {
+    try {
+      const sessionsCollection = await getCollection('sessions');
+      session = await sessionsCollection.findOne<Session & {
+        idleExpiresAt?: Date;
+        absoluteExpiresAt?: Date;
+        lastActivityAt?: Date;
+      }>({
+        userId,
+        sessionId,
+      });
+      
+      if (process.env.DEBUG_AUTH === '1' && session) {
+        console.log(`[validateSecureSession] Found session in legacy DB - userId: ${userId}, sessionId: ${sessionId}`);
+      }
+    } catch (error) {
+      if (process.env.DEBUG_AUTH === '1') {
+        console.error(`[validateSecureSession] Error searching legacy DB:`, error);
+      }
+    }
+  }
   
   if (!session) {
+    if (process.env.DEBUG_AUTH === '1') {
+      console.error(`[validateSecureSession] Session not found in any DB - userId: ${userId}, sessionId: ${sessionId}`);
+    }
     return { valid: false, message: 'Session not found' };
   }
   
   const now = new Date();
   
+  // Determine which collection to use for updates (same one where we found the session)
+  // Try to determine by checking if we found it in platform DB
+  let updateCollection: any = null;
+  try {
+    const { getPlatformCollection } = await import('@/lib/db/platformDb');
+    const platformSessionsCollection = await getPlatformCollection('sessions');
+    const checkSession = await platformSessionsCollection.findOne({ sessionId });
+    if (checkSession) {
+      updateCollection = platformSessionsCollection;
+    } else {
+      updateCollection = await getCollection('sessions');
+    }
+  } catch (error) {
+    // Fallback to legacy collection
+    updateCollection = await getCollection('sessions');
+  }
+  
   // Backward compatibility: if session has expiresAt, check it first (old format)
   if (!(session as any).idleExpiresAt && !(session as any).absoluteExpiresAt) {
     // Old session format - use expiresAt
     if (now > session.expiresAt) {
-      await sessionsCollection.deleteOne({ sessionId });
+      await updateCollection.deleteOne({ sessionId });
       return { valid: false, expired: true, message: 'Session expired' };
     }
   } else {
@@ -109,7 +171,7 @@ export async function validateSecureSession(
       new Date(session.createdAt.getTime() + SESSION_CONFIG.ABSOLUTE_MAX_AGE_MS);
     
     if (now > absoluteExpiresAt) {
-      await sessionsCollection.deleteOne({ sessionId });
+      await updateCollection.deleteOne({ sessionId });
       return { 
         valid: false, 
         expired: true,
@@ -124,7 +186,7 @@ export async function validateSecureSession(
       new Date(lastActivityAt.getTime() + SESSION_CONFIG.IDLE_TIMEOUT_MS);
     
     if (now > idleExpiresAt) {
-      await sessionsCollection.deleteOne({ sessionId });
+      await updateCollection.deleteOne({ sessionId });
       return { 
         valid: false, 
         expired: true,
@@ -134,15 +196,65 @@ export async function validateSecureSession(
     }
   }
   
-  // Check if this is the active session
-  const usersCollection = await getCollection('users');
-  const user = await usersCollection.findOne({ id: userId });
+  // Check if this is the active session - search in multiple DBs
+  let user: any = null;
+  
+  // Try platform DB first
+  try {
+    const { getPlatformCollection } = await import('@/lib/db/platformDb');
+    const platformUsersCollection = await getPlatformCollection('users');
+    user = await platformUsersCollection.findOne({ id: userId });
+  } catch (error) {
+    // Continue to tenant DBs
+  }
+  
+  // Try tenant DBs if not found
+  if (!user) {
+    try {
+      const { getPlatformCollection } = await import('@/lib/db/platformDb');
+      const { getTenantDbByKey } = await import('@/lib/db/tenantDb');
+      const tenantsCollection = await getPlatformCollection('tenants');
+      const allTenants = await tenantsCollection.find({ status: 'active' }).toArray();
+      
+      for (const tenant of allTenants) {
+        const tId = tenant.tenantId || (tenant as any).id || (tenant as any)._id?.toString();
+        if (!tId) continue;
+        
+        try {
+          const tenantDb = await getTenantDbByKey(tId);
+          const tenantUsersCollection = tenantDb.collection('users');
+          user = await tenantUsersCollection.findOne({ id: userId });
+          if (user) break;
+        } catch (error) {
+          // Continue searching
+        }
+      }
+    } catch (error) {
+      // Continue to legacy DB
+    }
+  }
+  
+  // Fallback to legacy DB
+  if (!user) {
+    try {
+      const usersCollection = await getCollection('users');
+      user = await usersCollection.findOne({ id: userId });
+    } catch (error) {
+      // User not found
+    }
+  }
   
   if (!user) {
+    if (process.env.DEBUG_AUTH === '1') {
+      console.error(`[validateSecureSession] User not found - userId: ${userId}`);
+    }
     return { valid: false, message: 'User not found' };
   }
   
   if (user.activeSessionId !== sessionId) {
+    if (process.env.DEBUG_AUTH === '1') {
+      console.warn(`[validateSecureSession] Session mismatch - user.activeSessionId: ${user.activeSessionId}, sessionId: ${sessionId}`);
+    }
     return { 
       valid: false, 
       message: 'Session expired (logged in elsewhere)' 
@@ -155,7 +267,7 @@ export async function validateSecureSession(
     const absoluteExpiresAt = (session as any).absoluteExpiresAt || 
       new Date(session.createdAt.getTime() + SESSION_CONFIG.ABSOLUTE_MAX_AGE_MS);
     const newIdleExpiresAt = new Date(now.getTime() + SESSION_CONFIG.IDLE_TIMEOUT_MS);
-    await sessionsCollection.updateOne(
+    await updateCollection.updateOne(
       { sessionId },
       { 
         $set: { 
@@ -168,7 +280,7 @@ export async function validateSecureSession(
     );
   } else {
     // Old format - just update lastSeenAt
-    await sessionsCollection.updateOne(
+    await updateCollection.updateOne(
       { sessionId },
       { $set: { lastSeenAt: now } }
     );

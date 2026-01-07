@@ -1,6 +1,9 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,8 +38,12 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useLang } from '@/hooks/use-lang';
-import { LanguageToggle } from '@/components/LanguageToggle';
 import { format } from 'date-fns';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { MobileSearchBar } from '@/components/mobile/MobileSearchBar';
+import { MobileCardList } from '@/components/mobile/MobileCardList';
+import { MobileFilterBar } from '@/components/mobile/MobileFilterBar';
+import { useTranslation } from '@/hooks/use-translation';
 
 interface KPISummary {
   totalVisits: number;
@@ -80,10 +87,14 @@ interface VisitRecord {
 }
 
 export default function PatientExperienceDashboardPage() {
+  const router = useRouter();
   const { toast } = useToast();
   const { language, dir } = useLang();
+  const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const [refreshKey, setRefreshKey] = useState(0);
   const [isMounted, setIsMounted] = useState(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
   
   // Set mounted flag to prevent hydration mismatch
   useEffect(() => {
@@ -147,7 +158,7 @@ export default function PatientExperienceDashboardPage() {
 
   async function loadAllDepartments() {
     try {
-      const response = await fetch('/api/patient-experience/data?type=all-departments');
+      const response = await fetch('/api/patient-experience/data?type=all-departments', { cache: 'no-store' });
       const data = await response.json();
       if (data.success) {
         setAllDepartments(data.data);
@@ -161,6 +172,29 @@ export default function PatientExperienceDashboardPage() {
     if (fromDate && toDate) {
       fetchData();
     }
+  }, [fromDate, toDate, floorKey, departmentKey, roomKey, staffEmployeeId]);
+
+  // Refresh data when page becomes visible (user returns to tab/window)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && fromDate && toDate) {
+        fetchData();
+      }
+    };
+
+    const handleFocus = () => {
+      if (fromDate && toDate) {
+        fetchData();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [fromDate, toDate, floorKey, departmentKey, roomKey, staffEmployeeId]);
 
   useEffect(() => {
@@ -183,7 +217,7 @@ export default function PatientExperienceDashboardPage() {
 
   async function loadFloors() {
     try {
-      const response = await fetch('/api/patient-experience/data?type=floors');
+      const response = await fetch('/api/patient-experience/data?type=floors', { cache: 'no-store' });
       if (response.ok) {
         const data = await response.json();
         setFloors(data.data || []);
@@ -195,7 +229,7 @@ export default function PatientExperienceDashboardPage() {
 
   async function loadDepartments(floorKey: string) {
     try {
-      const response = await fetch(`/api/patient-experience/data?type=departments&floorKey=${floorKey}`);
+      const response = await fetch(`/api/patient-experience/data?type=departments&floorKey=${floorKey}`, { cache: 'no-store' });
       if (response.ok) {
         const data = await response.json();
         setDepartments(data.data || []);
@@ -207,7 +241,7 @@ export default function PatientExperienceDashboardPage() {
 
   async function loadRooms(floorKey: string, departmentKey: string) {
     try {
-      const response = await fetch(`/api/patient-experience/data?type=rooms&floorKey=${floorKey}&departmentKey=${departmentKey}`);
+      const response = await fetch(`/api/patient-experience/data?type=rooms&floorKey=${floorKey}&departmentKey=${departmentKey}`, { cache: 'no-store' });
       if (response.ok) {
         const data = await response.json();
         setRooms(data.data || []);
@@ -231,13 +265,22 @@ export default function PatientExperienceDashboardPage() {
 
       // Fetch KPIs and visits in parallel
       const [summaryRes, visitsRes] = await Promise.all([
-        fetch(`/api/patient-experience/summary?${params.toString()}`),
-        fetch(`/api/patient-experience/visits?${params.toString()}&limit=50`),
+        fetch(`/api/patient-experience/summary?${params.toString()}`, { cache: 'no-store' }),
+        fetch(`/api/patient-experience/visits?${params.toString()}&limit=50`, { cache: 'no-store' }),
       ]);
 
       if (summaryRes.ok) {
         const summaryData = await summaryRes.json();
-        setKpis(summaryData.summary || kpis);
+        // API returns data in summaryData.data
+        if (summaryData.data) {
+          setKpis({
+            totalVisits: summaryData.data.totalVisits || 0,
+            praises: summaryData.data.totalPraise || 0,
+            complaints: summaryData.data.totalComplaints || 0,
+            avgSatisfaction: summaryData.data.avgSatisfaction || 0,
+            unresolvedComplaints: summaryData.data.overdueCases || 0,
+          });
+        }
       }
 
       if (visitsRes.ok) {
@@ -357,9 +400,142 @@ export default function PatientExperienceDashboardPage() {
     }
   }
 
+  // Filter visits by search query
+  const filteredVisits = searchQuery.trim()
+    ? visits.filter(visit =>
+        visit.patientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        visit.patientFileNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        visit.detailsEn.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : visits;
+
+  // Convert visits to card format for mobile
+  const visitCardItems = filteredVisits.map((visit) => {
+    const classifications = visit.classifications && visit.classifications.length > 0
+      ? visit.classifications
+      : [{
+          domainKey: visit.domainKey,
+          typeKey: visit.typeKey,
+          severity: visit.severity,
+          shift: 'DAY' as const,
+          domainLabel: visit.domainLabel,
+          typeLabel: visit.typeLabel,
+        }];
+
+    return {
+      id: visit.id,
+      title: visit.patientName || '-',
+      subtitle: `${visit.patientFileNumber || ''} • ${format(new Date(visit.createdAt), 'MMM dd, yyyy')}`,
+      description: visit.detailsEn || '',
+      badges: [
+        ...classifications.map(c => ({
+          label: c.severity,
+          variant: (c.severity === 'CRITICAL' || c.severity === 'HIGH' ? 'destructive' : 'secondary') as 'destructive' | 'secondary',
+        })),
+        {
+          label: visit.status,
+          variant: (visit.status === 'RESOLVED' ? 'default' : visit.status === 'CLOSED' ? 'secondary' : 'outline') as 'default' | 'secondary' | 'outline',
+        },
+      ],
+      metadata: [
+        { label: displayLanguage === 'ar' ? 'الموظف' : 'Staff', value: visit.staffName || '-' },
+        { label: displayLanguage === 'ar' ? 'الموقع' : 'Location', value: visit.floorLabel && visit.departmentLabel && visit.roomLabel
+          ? `${visit.floorLabel} / ${visit.departmentLabel} / ${visit.roomLabel}`
+          : visit.floorKey || '-' },
+      ],
+      actions: visit.status === 'PENDING' ? [
+        {
+          label: displayLanguage === 'ar' ? 'إغلاق' : 'Close',
+          onClick: () => handleCloseVisit(visit.id),
+          icon: <X className="h-4 w-4" />,
+          variant: 'outline' as const,
+          disabled: isClosingVisit === visit.id,
+        },
+      ] : [],
+      onCardClick: () => router.push(`/patient-experience/visit/${visit.id}`),
+    };
+  });
+
+  const activeFiltersCount = (fromDate ? 1 : 0) + (toDate ? 1 : 0) + (floorKey ? 1 : 0) + (departmentKey ? 1 : 0) + (roomKey ? 1 : 0) + (staffEmployeeId ? 1 : 0);
+
+  const filterGroups = [
+    {
+      id: 'fromDate',
+      label: displayLanguage === 'ar' ? 'من تاريخ' : 'From Date',
+      type: 'single' as const,
+      options: [], // Date input will be handled separately
+    },
+    {
+      id: 'toDate',
+      label: displayLanguage === 'ar' ? 'إلى تاريخ' : 'To Date',
+      type: 'single' as const,
+      options: [], // Date input will be handled separately
+    },
+    {
+      id: 'floorKey',
+      label: displayLanguage === 'ar' ? 'الطابق' : 'Floor',
+      type: 'single' as const,
+      options: [
+        { id: 'all', label: displayLanguage === 'ar' ? 'الكل' : 'All', value: '' },
+        ...floors.map(floor => ({
+          id: floor.key || floor.id,
+          label: displayLanguage === 'ar' ? (floor.label_ar || floor.labelAr || floor.name) : (floor.label_en || floor.labelEn || floor.name),
+          value: floor.key || floor.id,
+        })),
+      ],
+    },
+    {
+      id: 'departmentKey',
+      label: displayLanguage === 'ar' ? 'القسم' : 'Department',
+      type: 'single' as const,
+      options: [
+        { id: 'all', label: displayLanguage === 'ar' ? 'الكل' : 'All', value: '' },
+        ...(allDepartments.length > 0 ? allDepartments : departments).map(dept => {
+          const deptType = dept.type || 'BOTH';
+          const deptName = displayLanguage === 'ar' ? (dept.label_ar || dept.labelAr || dept.name || dept.departmentName) : (dept.label_en || dept.labelEn || dept.name || dept.departmentName);
+          const typeLabel = deptType === 'OPD' ? 'OPD' : deptType === 'IPD' ? 'IPD' : 'OPD/IPD';
+          return {
+            id: dept.key || dept.id || dept.code,
+            label: `[${typeLabel}] ${deptName}`,
+            value: dept.key || dept.id || dept.code,
+          };
+        }),
+      ],
+    },
+    {
+      id: 'roomKey',
+      label: displayLanguage === 'ar' ? 'الغرفة' : 'Room',
+      type: 'single' as const,
+      options: [
+        { id: 'all', label: displayLanguage === 'ar' ? 'الكل' : 'All', value: '' },
+        ...rooms.map(room => ({
+          id: room.key || room.id,
+          label: displayLanguage === 'ar' ? (room.label_ar || room.labelAr || `غرفة ${room.roomNumber}`) : (room.label_en || room.labelEn || `Room ${room.roomNumber}`),
+          value: room.key || room.id,
+        })),
+      ],
+    },
+    {
+      id: 'staffEmployeeId',
+      label: displayLanguage === 'ar' ? 'رقم الموظف' : 'Staff Employee ID',
+      type: 'single' as const,
+      options: [], // Text input will be handled separately
+    },
+  ];
+
+  const activeFilters = {
+    fromDate,
+    toDate,
+    floorKey,
+    departmentKey,
+    roomKey,
+    staffEmployeeId,
+  };
+
   return (
-    <div key={`${language}-${refreshKey}`} className="space-y-6" dir={dir}>
-      <div className="flex justify-between items-center">
+    <div className="space-y-4 md:space-y-6" dir={dir}>
+      {/* Header - Hidden on mobile (MobileTopBar shows it) */}
+      <div className="hidden md:flex justify-between items-center">
         <div suppressHydrationWarning>
           <h1 className="text-3xl font-bold" suppressHydrationWarning>
             {displayLanguage === 'ar' ? 'لوحة تحكم تجربة المريض' : 'Patient Experience Dashboard'}
@@ -368,30 +544,112 @@ export default function PatientExperienceDashboardPage() {
             {displayLanguage === 'ar' ? 'نظرة عامة على الزيارات والشكاوى' : 'Overview of visits and feedback'}
           </p>
         </div>
-        <LanguageToggle />
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle suppressHydrationWarning>
-              {displayLanguage === 'ar' ? 'الفلاتر' : 'Filters'}
-            </CardTitle>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowFilters(!showFilters)}
-            >
-              <Filter className="h-4 w-4 mr-2" />
-              {showFilters ? (displayLanguage === 'ar' ? 'إخفاء' : 'Hide') : (displayLanguage === 'ar' ? 'إظهار' : 'Show')}
-              {showFilters ? <ChevronUp className="h-4 w-4 ml-2" /> : <ChevronDown className="h-4 w-4 ml-2" />}
-            </Button>
-          </div>
-        </CardHeader>
-        {showFilters && (
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {/* Mobile Quick Summary */}
+      {isMobile && (
+        <div className="grid grid-cols-2 gap-3">
+          <Card className="text-center">
+            <CardHeader className="p-3 pb-0">
+              <Users className="h-5 w-5 text-muted-foreground mx-auto" />
+              <CardTitle className="text-sm font-medium mt-1" suppressHydrationWarning>
+                {displayLanguage === 'ar' ? 'إجمالي الزيارات' : 'Total Visits'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-3 pt-0">
+              <div className="text-xl font-bold">{isLoading ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : kpis.totalVisits}</div>
+            </CardContent>
+          </Card>
+          <Card className="text-center">
+            <CardHeader className="p-3 pb-0">
+              <Heart className="h-5 w-5 text-green-500 mx-auto" />
+              <CardTitle className="text-sm font-medium mt-1" suppressHydrationWarning>
+                {displayLanguage === 'ar' ? 'الشكر' : 'Praises'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-3 pt-0">
+              <div className="text-xl font-bold">{isLoading ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : kpis.praises}</div>
+            </CardContent>
+          </Card>
+          <Card className="text-center">
+            <CardHeader className="p-3 pb-0">
+              <AlertCircle className="h-5 w-5 text-red-500 mx-auto" />
+              <CardTitle className="text-sm font-medium mt-1" suppressHydrationWarning>
+                {displayLanguage === 'ar' ? 'الشكاوى' : 'Complaints'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-3 pt-0">
+              <div className="text-xl font-bold">{isLoading ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : kpis.complaints}</div>
+            </CardContent>
+          </Card>
+          <Card className="text-center">
+            <CardHeader className="p-3 pb-0">
+              <Clock className="h-5 w-5 text-orange-500 mx-auto" />
+              <CardTitle className="text-sm font-medium mt-1" suppressHydrationWarning>
+                {displayLanguage === 'ar' ? 'غير محلولة' : 'Unresolved'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-3 pt-0">
+              <div className="text-xl font-bold">{isLoading ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : kpis.unresolvedComplaints}</div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Mobile Search */}
+      {isMobile && (
+        <MobileSearchBar
+          placeholder={displayLanguage === 'ar' ? 'ابحث عن الزيارات...' : 'Search visits...'}
+          queryParam="q"
+          onSearch={setSearchQuery}
+        />
+      )}
+
+      {/* Mobile Filter Bar */}
+      {isMobile ? (
+        <MobileFilterBar
+          filters={filterGroups}
+          activeFilters={activeFilters}
+          onFilterChange={(id, value) => {
+            if (id === 'fromDate') setFromDate(value as string);
+            else if (id === 'toDate') setToDate(value as string);
+            else if (id === 'floorKey') setFloorKey(value as string);
+            else if (id === 'departmentKey') setDepartmentKey(value as string);
+            else if (id === 'roomKey') setRoomKey(value as string);
+            else if (id === 'staffEmployeeId') setStaffEmployeeId(value as string);
+          }}
+          onClearAll={() => {
+            setFromDate('');
+            setToDate('');
+            setFloorKey('');
+            setDepartmentKey('');
+            setRoomKey('');
+            setStaffEmployeeId('');
+          }}
+        />
+      ) : (
+        <>
+          {/* Desktop Filters */}
+          <Card>
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <CardTitle suppressHydrationWarning>
+                {displayLanguage === 'ar' ? 'الفلاتر' : 'Filters'}
+              </CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowFilters(!showFilters)}
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                {showFilters ? (displayLanguage === 'ar' ? 'إخفاء' : 'Hide') : (displayLanguage === 'ar' ? 'إظهار' : 'Show')}
+                {showFilters ? <ChevronUp className="h-4 w-4 ml-2" /> : <ChevronDown className="h-4 w-4 ml-2" />}
+              </Button>
+            </div>
+          </CardHeader>
+          {showFilters && (
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
                 <Label suppressHydrationWarning>{displayLanguage === 'ar' ? 'من تاريخ' : 'From Date'}</Label>
                 <Input
@@ -417,7 +675,7 @@ export default function PatientExperienceDashboardPage() {
                   <SelectContent>
                     <SelectItem value="all">{displayLanguage === 'ar' ? 'الكل' : 'All'}</SelectItem>
                     {floors.map((floor) => (
-                      <SelectItem key={floor.key || floor.id} value={floor.key || floor.id}>
+                      <SelectItem key={floor.id || floor._id || `floor-${floor.number}`} value={floor.key || floor.id}>
                         {displayLanguage === 'ar' ? (floor.label_ar || floor.labelAr || floor.name) : (floor.label_en || floor.labelEn || floor.name)}
                       </SelectItem>
                     ))}
@@ -474,6 +732,8 @@ export default function PatientExperienceDashboardPage() {
           </CardContent>
         )}
       </Card>
+        </>
+      )}
 
       {/* KPI Cards */}
       {isLoading ? (
@@ -483,8 +743,8 @@ export default function PatientExperienceDashboardPage() {
       ) : (
         <>
           <div className="space-y-4">
-            {/* Row 1 - 4 cards */}
-            <div className="flex flex-row gap-4">
+            {/* Row 1 - 4 cards (responsive grid) */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <Card className="flex-1">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-center gap-2 mb-2">
@@ -554,8 +814,8 @@ export default function PatientExperienceDashboardPage() {
               </Card>
             </div>
 
-            {/* Row 2 - 1 card (centered or can add more later) */}
-            <div className="flex flex-row gap-4">
+            {/* Row 2 - 1 card (centered or can add more later) - Hidden on mobile (shown in Quick Summary) */}
+            <div className="hidden md:flex flex-row gap-4">
               <Card className="flex-1">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-center gap-2 mb-2">
@@ -575,7 +835,7 @@ export default function PatientExperienceDashboardPage() {
             </div>
           </div>
 
-          {/* Visits Table */}
+          {/* Visits List (Mobile: MobileCardList, Desktop: Table) */}
           <Card>
             <CardHeader>
               <CardTitle suppressHydrationWarning>
@@ -586,13 +846,25 @@ export default function PatientExperienceDashboardPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {visits.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground" suppressHydrationWarning>
+              {isLoading ? (
+                <div className="flex justify-center items-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : filteredVisits.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground" suppressHydrationWarning>
                   {displayLanguage === 'ar' ? 'لا توجد زيارات' : 'No visits found'}
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <Table>
+                <>
+                  {isMobile ? (
+                    <MobileCardList
+                      items={visitCardItems}
+                      isLoading={isLoading}
+                      emptyMessage={displayLanguage === 'ar' ? 'لا توجد زيارات' : 'No visits found'}
+                    />
+                  ) : (
+                    <div className="hidden md:block overflow-x-auto">
+                      <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead suppressHydrationWarning>{displayLanguage === 'ar' ? 'التاريخ' : 'Date'}</TableHead>
@@ -606,7 +878,7 @@ export default function PatientExperienceDashboardPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {visits.map((visit) => (
+                      {filteredVisits.map((visit) => (
                         <TableRow key={visit.id}>
                           <TableCell>
                             {format(new Date(visit.createdAt), 'MMM dd, yyyy HH:mm')}
@@ -703,6 +975,8 @@ export default function PatientExperienceDashboardPage() {
                     </TableBody>
                   </Table>
                 </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>

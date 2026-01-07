@@ -21,6 +21,10 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Download, Filter, ChevronDown, ChevronUp, Users, Calendar, Activity, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { MobileSearchBar } from '@/components/mobile/MobileSearchBar';
+import { MobileCardList } from '@/components/mobile/MobileCardList';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useTranslation } from '@/hooks/use-translation';
 
 interface Department {
   id: string;
@@ -57,10 +61,13 @@ interface DepartmentStats {
 }
 
 export default function PerformanceComparisonPage() {
+  const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>('');
   const [showFilter, setShowFilter] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [searchQuery, setSearchQuery] = useState<string>('');
   
   // Period 1 filters
   const [period1FromDate, setPeriod1FromDate] = useState<string>('');
@@ -160,9 +167,70 @@ export default function PerformanceComparisonPage() {
   const stats = period1Stats || period2Stats;
   const departmentName = stats?.departmentName || '';
 
+  // Filter doctors by search query
+  const allDoctors = period1Stats && period2Stats ? (() => {
+    const doctorMap = new Map<string, { period1?: DoctorStats; period2?: DoctorStats }>();
+    period1Stats.doctors.forEach((doctor) => {
+      if (!doctorMap.has(doctor.doctorId)) {
+        doctorMap.set(doctor.doctorId, {});
+      }
+      doctorMap.get(doctor.doctorId)!.period1 = doctor;
+    });
+    period2Stats.doctors.forEach((doctor) => {
+      if (!doctorMap.has(doctor.doctorId)) {
+        doctorMap.set(doctor.doctorId, {});
+      }
+      doctorMap.get(doctor.doctorId)!.period2 = doctor;
+    });
+    return Array.from(doctorMap.entries()).map(([id, data]) => ({
+      doctorId: id,
+      period1: data.period1,
+      period2: data.period2,
+      doctor: data.period2 || data.period1,
+    }));
+  })() : [];
+
+  const filteredDoctors = searchQuery.trim()
+    ? allDoctors.filter(({ doctor }) =>
+        doctor?.doctorName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        doctor?.employeeId.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : allDoctors;
+
+  // Convert doctors to card format for mobile
+  const doctorCardItems = filteredDoctors.map(({ doctor, period1, period2 }) => {
+    const p1 = period1 || { totalPatients: 0, booked: 0, waiting: 0, procedures: 0, hours: 0, sessions: 0, utilization: 0 };
+    const p2 = period2 || { totalPatients: 0, booked: 0, waiting: 0, procedures: 0, hours: 0, sessions: 0, utilization: 0 };
+    const change = calculateChange(p2.totalPatients, p1.totalPatients);
+    
+    return {
+      id: doctor?.doctorId || 'unknown',
+      title: doctor?.doctorName || 'N/A',
+      subtitle: `${doctor?.employeeId || 'N/A'} • ${doctor?.employmentType === 'Full-Time' ? 'FT' : 'PT'}`,
+      description: `P1: ${p1.totalPatients} → P2: ${p2.totalPatients}`,
+      badges: [
+        {
+          label: doctor?.employmentType === 'Full-Time' ? 'FT' : 'PT',
+          variant: (doctor?.employmentType === 'Full-Time' ? 'default' : 'outline') as 'default' | 'outline',
+        },
+        {
+          label: change.isPositive ? `+${change.value}` : `${change.value}`,
+          variant: (change.isPositive ? 'default' : 'destructive') as 'default' | 'destructive',
+        },
+      ],
+      metadata: [
+        { label: 'P1 Hours', value: `${p1.hours}h` },
+        { label: 'P2 Hours', value: `${p2.hours}h` },
+        { label: 'P1 Utilization', value: `${p1.utilization}%` },
+        { label: 'P2 Utilization', value: `${p2.utilization}%` },
+      ],
+    };
+  });
+
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6 p-4 md:p-6">
+      {/* Header - Hidden on mobile (MobileTopBar shows it) */}
+      <div className="hidden md:flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Performance Comparison</h1>
           <p className="text-muted-foreground">Compare department performance between two time periods</p>
@@ -171,6 +239,26 @@ export default function PerformanceComparisonPage() {
           {showFilter ? <ChevronUp className="mr-2 h-4 w-4" /> : <ChevronDown className="mr-2 h-4 w-4" />}
           {showFilter ? 'Hide Filter' : 'Show Filter'}
         </Button>
+      </div>
+
+      {/* Mobile Quick Summary */}
+      <div className="md:hidden">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Performance Comparison</CardTitle>
+            <CardDescription>Compare department performance</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="outline"
+              onClick={() => setShowFilter(!showFilter)}
+              className="w-full min-h-[44px]"
+            >
+              {showFilter ? <ChevronUp className="mr-2 h-4 w-4" /> : <ChevronDown className="mr-2 h-4 w-4" />}
+              {showFilter ? 'Hide Filter' : 'Show Filter'}
+            </Button>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Filter Section */}
@@ -290,11 +378,136 @@ export default function PerformanceComparisonPage() {
         <div className="text-center text-muted-foreground">Loading comparison data...</div>
       )}
 
+      {/* Mobile Search */}
+      {selectedDepartmentId && period1Stats && period2Stats && allDoctors.length > 0 && (
+        <div className="md:hidden">
+          <MobileSearchBar
+            placeholderKey="common.search"
+            queryParam="q"
+            onSearch={setSearchQuery}
+          />
+        </div>
+      )}
+
       {/* Comparison Results */}
       {selectedDepartmentId && period1Stats && period2Stats && (
         <>
-          {/* KPI Cards Comparison */}
-          <div className="flex flex-row gap-4 w-full">
+          {/* Mobile KPI Cards - 2 columns */}
+          <div className="md:hidden grid grid-cols-2 gap-3">
+            <Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-xs font-medium">Total Patients</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="text-xl font-bold">{period2Stats.totalPatients}</div>
+                <p className="text-xs text-muted-foreground">
+                  {period1Stats.totalPatients} → {period2Stats.totalPatients}
+                </p>
+                {(() => {
+                  const change = calculateChange(period2Stats.totalPatients, period1Stats.totalPatients);
+                  return (
+                    <p className={`text-xs mt-1 ${change.isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                      {formatChange(change)}
+                    </p>
+                  );
+                })()}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-xs font-medium">Booked</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="text-xl font-bold">{period2Stats.booked}</div>
+                <p className="text-xs text-muted-foreground">
+                  {period1Stats.booked} → {period2Stats.booked}
+                </p>
+                {(() => {
+                  const change = calculateChange(period2Stats.booked, period1Stats.booked);
+                  return (
+                    <p className={`text-xs mt-1 ${change.isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                      {formatChange(change)}
+                    </p>
+                  );
+                })()}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-xs font-medium">Waiting</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="text-xl font-bold">{period2Stats.waiting}</div>
+                <p className="text-xs text-muted-foreground">
+                  {period1Stats.waiting} → {period2Stats.waiting}
+                </p>
+                {(() => {
+                  const change = calculateChange(period2Stats.waiting, period1Stats.waiting);
+                  return (
+                    <p className={`text-xs mt-1 ${change.isPositive ? 'text-red-600' : 'text-green-600'}`}>
+                      {formatChange(change)}
+                    </p>
+                  );
+                })()}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-xs font-medium">Procedures</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="text-xl font-bold">{period2Stats.procedures}</div>
+                <p className="text-xs text-muted-foreground">
+                  {period1Stats.procedures} → {period2Stats.procedures}
+                </p>
+                {(() => {
+                  const change = calculateChange(period2Stats.procedures, period1Stats.procedures);
+                  return (
+                    <p className={`text-xs mt-1 ${change.isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                      {formatChange(change)}
+                    </p>
+                  );
+                })()}
+              </CardContent>
+            </Card>
+            <Card className="col-span-2">
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-xs font-medium">Utilization</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="text-xl font-bold">{period2Stats.utilization || 0}%</div>
+                <p className="text-xs text-muted-foreground">
+                  {period1Stats.utilization || 0}% → {period2Stats.utilization || 0}%
+                </p>
+                {(() => {
+                  const change = calculateChange(period2Stats.utilization || 0, period1Stats.utilization || 0);
+                  return (
+                    <p className={`text-xs mt-1 ${change.isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                      {formatChange(change)}
+                    </p>
+                  );
+                })()}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Desktop KPI Cards Comparison */}
+          <div className="hidden md:flex flex-row gap-4 w-full">
             <Card className="flex-1 min-w-0">
               <CardHeader className="flex flex-row items-center justify-center space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-center">Total Patients</CardTitle>
@@ -401,9 +614,42 @@ export default function PerformanceComparisonPage() {
             </Card>
           </div>
 
-          {/* Doctors Performance Comparison */}
-          {period1Stats.doctors && period2Stats.doctors && (
-            <Card>
+          {/* Mobile: Doctors Card List */}
+          {filteredDoctors.length > 0 && (
+            <div className="md:hidden">
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">Doctors Comparison</CardTitle>
+                    <Select value={sortBy} onValueChange={setSortBy}>
+                      <SelectTrigger className="w-[140px] h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="totalPatients">Total</SelectItem>
+                        <SelectItem value="booked">Booked</SelectItem>
+                        <SelectItem value="waiting">Waiting</SelectItem>
+                        <SelectItem value="procedures">Procedures</SelectItem>
+                        <SelectItem value="utilization">Utilization</SelectItem>
+                        <SelectItem value="name">Name</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <MobileCardList
+                    items={doctorCardItems}
+                    isLoading={isLoading}
+                    emptyMessage="No doctors found"
+                  />
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Desktop: Doctors Table */}
+          {filteredDoctors.length > 0 && (
+            <Card className="hidden md:block">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
@@ -479,7 +725,7 @@ export default function PerformanceComparisonPage() {
                       }));
                       
                       // Sort doctors
-                      const sortedDoctors = allDoctors.sort((a, b) => {
+                      const sortedDoctors = filteredDoctors.sort((a, b) => {
                         const aValue = a.period2 || a.period1;
                         const bValue = b.period2 || b.period1;
                         

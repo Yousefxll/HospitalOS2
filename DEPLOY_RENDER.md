@@ -1,6 +1,6 @@
 # Render Deployment Guide
 
-Complete guide for deploying SIRA to Render.com
+Complete guide for deploying SYRA to Render.com
 
 ## Service Configuration
 

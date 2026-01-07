@@ -27,12 +27,16 @@ import {
   Building2,
   Upload,
   X,
+  RefreshCw,
 } from 'lucide-react';
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { hasRoutePermission, ROUTE_PERMISSIONS } from '@/lib/permissions';
 import { useLang } from '@/hooks/use-lang';
+import { useMe } from '@/lib/hooks/useMe';
+import { usePlatform } from '@/lib/hooks/usePlatform';
 import { useTranslation } from '@/hooks/use-translation';
 import { translations } from '@/lib/i18n';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -315,13 +319,19 @@ interface SidebarProps {
 export default function Sidebar({ onLinkClick, sidebarOpen, setSidebarOpen }: SidebarProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [userRole, setUserRole] = useState<string | null>(null);
-  const [userPermissions, setUserPermissions] = useState<string[]>([]);
   const [mounted, setMounted] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const { isRTL, language } = useLang();
   const { t } = useTranslation();
   const isMobile = useIsMobile();
+  const router = useRouter();
+  const { me } = useMe();
+  const { platform: platformData } = usePlatform();
+
+  // Extract user data from me
+  const userRole = me?.user?.role || null;
+  const userPermissions = me?.user?.permissions || [];
+  const platform = platformData?.platform === 'sam' || platformData?.platform === 'health' ? platformData.platform : null;
   
   // Use default 'ar' translations until mounted to prevent hydration mismatch
   const safeT = mounted ? t : translations.ar;
@@ -346,33 +356,6 @@ export default function Sidebar({ onLinkClick, sidebarOpen, setSidebarOpen }: Si
     setMounted(true);
   }, []);
 
-  useEffect(() => {
-    if (!mounted) return;
-    
-    // Fetch user role and permissions
-    async function fetchUser() {
-      try {
-        const response = await fetch('/api/auth/me', {
-          credentials: 'include', // Ensure cookies are sent
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setUserRole(data.user?.role || null);
-          setUserPermissions(data.user?.permissions || []);
-        } else if (response.status === 401) {
-          // Not authenticated, silently fail (user will be redirected by middleware)
-          setUserRole(null);
-          setUserPermissions([]);
-        }
-      } catch (error) {
-        console.error('Failed to fetch user:', error);
-      }
-    }
-
-    if (mounted) {
-      fetchUser();
-    }
-  }, [mounted]);
 
   useEffect(() => {
     if (!mounted) return;
@@ -436,10 +419,8 @@ export default function Sidebar({ onLinkClick, sidebarOpen, setSidebarOpen }: Si
     };
   }, [mounted, isExpanded]);
 
-  // Filter nav items based on permissions
+  // Filter nav items based on permissions and platform
   const getFilteredNavItems = (): NavItem[] => {
-    if (!mounted) return [];
-    
     // Use nav translations with fallback - ensure we use the correct language
     // Always use current language translations directly, but override nav with navTranslations
     const currentLangTranslations = translations[language] || translations.ar;
@@ -450,20 +431,87 @@ export default function Sidebar({ onLinkClick, sidebarOpen, setSidebarOpen }: Si
     };
     
     const navItems = getNavItems(tWithNav);
-    return navItems.map(item => {
-      // Filter single items (no children)
-      if (item.href && !item.children) {
-        const hasPermission = hasRoutePermission(userPermissions, item.href);
-        if (!hasPermission) {
-          return null; // Hide this item
-        }
-        return item;
+    
+    // If not mounted yet, return all items (no filtering) - show menu immediately
+    if (!mounted) {
+      return navItems;
+    }
+    
+    // Define platform-specific route prefixes
+    const SAM_ROUTES = ['/policies', '/demo-limit', '/ai', '/sam'];
+    const HEALTH_ROUTES = ['/dashboard', '/opd', '/nursing', '/scheduling', '/er', '/patient-experience', '/ipd', '/equipment', '/ipd-equipment', '/notifications'];
+    const COMMON_ROUTES = ['/account'];
+    
+    // Helper to check if route belongs to a platform
+    const isRouteForPlatform = (href: string | undefined, targetPlatform: 'sam' | 'health'): boolean => {
+      if (!href) return true; // Keep items without href
+      
+      // Common routes are accessible to both platforms
+      if (COMMON_ROUTES.some(route => href.startsWith(route))) {
+        return true;
       }
       
-      // Filter items with children
-      if (item.children) {
-        const filteredChildren = item.children.filter(child => {
+      if (targetPlatform === 'sam') {
+        return SAM_ROUTES.some(route => href.startsWith(route));
+      } else {
+        return HEALTH_ROUTES.some(route => href.startsWith(route));
+      }
+    };
+    
+    return navItems.map(item => {
+      let filteredItem: NavItem | null = item;
+      
+      // Filter by platform if platform is set
+      // If platform is null, show all items (fallback for initial load)
+      if (platform) {
+        // Check if item or any child belongs to current platform
+        if (item.href) {
+          if (!isRouteForPlatform(item.href, platform)) {
+            return null; // Hide items not for current platform
+          }
+        } else if (item.children) {
+          // Check children
+          const platformChildren = item.children.filter(child => {
+            if (!child.href) return true;
+            return isRouteForPlatform(child.href, platform);
+          });
+          
+          if (platformChildren.length === 0) {
+            return null; // Hide parent if no children for platform
+          }
+          
+          filteredItem = { ...item, children: platformChildren };
+        } else {
+          // Item without href or children - keep admin/account items for both platforms
+          const isCommonItem = item.title === (navTranslations?.account || 'Account') || 
+                               item.title === (navTranslations?.admin || 'Admin');
+          if (!isCommonItem) {
+            return null; // Hide other items without href
+          }
+        }
+      }
+      // If platform is null, show all items (no filtering)
+      
+      if (!filteredItem) return null;
+      
+      // Filter single items (no children) by permissions
+      // For syra-owner, skip permission checks (owner has access to everything)
+      if (filteredItem.href && !filteredItem.children) {
+        if (userRole !== 'syra-owner') {
+          const hasPermission = hasRoutePermission(userPermissions, filteredItem.href);
+          if (!hasPermission) {
+            return null; // Hide this item
+          }
+        }
+        return filteredItem;
+      }
+      
+      // Filter items with children by permissions
+      // For syra-owner, skip permission checks (owner has access to everything)
+      if (filteredItem.children) {
+        const filteredChildren = filteredItem.children.filter(child => {
           if (!child.href) return true; // Keep items without href
+          if (userRole === 'syra-owner') return true; // Owner has access to everything
           return hasRoutePermission(userPermissions, child.href);
         });
         
@@ -472,11 +520,16 @@ export default function Sidebar({ onLinkClick, sidebarOpen, setSidebarOpen }: Si
           return null;
         }
         
-        return { ...item, children: filteredChildren };
+        return { ...filteredItem, children: filteredChildren };
       }
       
-      return item;
+      return filteredItem;
     }).filter((item): item is NavItem => item !== null);
+  };
+  
+  // Handle switch platform
+  const handleSwitchPlatform = () => {
+    router.push('/platforms');
   };
 
   // Sidebar content component (used in both desktop and mobile)
@@ -528,26 +581,60 @@ export default function Sidebar({ onLinkClick, sidebarOpen, setSidebarOpen }: Si
           WebkitOverflowScrolling: 'touch'
         }}
       >
-        {getFilteredNavItems().map((item, index) => (
-          <NavItemComponent 
-            key={item.href || `${item.title}-${index}`} 
-            item={item} 
-            isExpanded={isExpanded || isMobileView}
-            onIconClick={() => {
-              if (isMobileView) return;
-              setIsExpanded(true);
-            }}
-            onLinkClick={() => {
-              if (isMobileView && onLinkClick) {
-                onLinkClick();
-              } else {
-                setIsExpanded(false);
-              }
-            }}
-            unreadCount={unreadCount}
-          />
-        ))}
+        {(() => {
+          const filteredItems = getFilteredNavItems();
+          // Debug: Log if items are empty
+          if (filteredItems.length === 0 && mounted) {
+            console.warn('[Sidebar] No nav items found.', {
+              platform,
+              mounted,
+              userRole,
+              userPermissions: userPermissions.length,
+              navTranslations: !!navTranslations,
+            });
+          }
+          return filteredItems.length > 0 ? (
+            filteredItems.map((item, index) => (
+              <NavItemComponent 
+                key={item.href || `${item.title}-${index}`} 
+                item={item} 
+                isExpanded={isExpanded || isMobileView}
+                onIconClick={() => {
+                  if (isMobileView) return;
+                  setIsExpanded(true);
+                }}
+                onLinkClick={() => {
+                  if (isMobileView && onLinkClick) {
+                    onLinkClick();
+                  } else {
+                    setIsExpanded(false);
+                  }
+                }}
+                unreadCount={unreadCount}
+              />
+            ))
+          ) : (
+            <div className="text-center text-muted-foreground text-sm py-8">
+              {safeIsRTL ? 'جاري التحميل...' : 'Loading menu...'}
+            </div>
+          );
+        })()}
       </nav>
+      
+      {/* Switch Platform Button */}
+      {platform && (
+        <div className="p-4 border-t flex-shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full gap-2"
+            onClick={handleSwitchPlatform}
+          >
+            <RefreshCw className="h-4 w-4" />
+            {isExpanded || isMobileView ? (safeIsRTL ? 'تبديل المنصة' : 'Switch Platform') : ''}
+          </Button>
+        </div>
+      )}
     </>
   );
 

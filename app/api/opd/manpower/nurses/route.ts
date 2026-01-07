@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCollection } from '@/lib/db';
-import { requireRole } from '@/lib/rbac';
+import { requireAuth } from '@/lib/security/auth';
+import { requireRole } from '@/lib/security/auth';
 import { v4 as uuidv4 } from 'uuid';
 
 
@@ -59,11 +60,16 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const userRole = request.headers.get('x-user-role') as any;
-    const userId = request.headers.get('x-user-id');
+    // Authenticate
+    const auth = await requireAuth(request);
+    if (auth instanceof NextResponse) {
+      return auth;
+    }
 
-    if (!requireRole(userRole, ['admin', 'supervisor'])) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // Check role: admin or supervisor
+    const roleCheck = await requireRole(request, ['admin', 'supervisor'], auth);
+    if (roleCheck instanceof NextResponse) {
+      return roleCheck;
     }
 
     const body = await request.json();
@@ -88,8 +94,8 @@ export async function POST(request: NextRequest) {
       transferHistory: [],
       createdAt: new Date(),
       updatedAt: new Date(),
-      createdBy: userId,
-      updatedBy: userId,
+      createdBy: auth.userId,
+      updatedBy: auth.userId,
     };
 
     await nursesCollection.insertOne(newNurse);

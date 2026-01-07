@@ -8,6 +8,7 @@ import { requireAuth } from '@/lib/auth/requireAuth';
 import { getCollection } from '@/lib/db';
 import { getISOTimestamp, createAuditLog } from '@/lib/ehr/utils/audit';
 import { validateRequired, formatValidationErrors } from '@/lib/ehr/utils/validation';
+import { Privilege } from '@/lib/ehr/models/Privilege';
 
 
 export const dynamic = 'force-dynamic';
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
 
     // Find and revoke privilege
     const privilegesCollection = await getCollection('ehr_privileges');
-    const privilege = await privilegesCollection.findOne({ id: body.privilegeId });
+    const privilege = await privilegesCollection.findOne<Privilege>({ id: body.privilegeId });
 
     if (!privilege) {
       return NextResponse.json(
@@ -80,7 +81,7 @@ export async function POST(request: NextRequest) {
       userAgent: request.headers.get('user-agent') || undefined,
     });
 
-    const updatedPrivilege = await privilegesCollection.findOne({ id: body.privilegeId });
+    const updatedPrivilege = await privilegesCollection.findOne<Privilege>({ id: body.privilegeId });
 
     return NextResponse.json({
       success: true,

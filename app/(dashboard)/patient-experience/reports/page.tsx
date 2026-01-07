@@ -24,14 +24,21 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useLang } from '@/hooks/use-lang';
-import { LanguageToggle } from '@/components/LanguageToggle';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useTranslation } from '@/hooks/use-translation';
+import { MobileFilterBar } from '@/components/mobile/MobileFilterBar';
 import { format } from 'date-fns';
+import { useRouter } from 'next/navigation';
+import type { FilterGroup } from '@/components/mobile/MobileFilterBar';
 
 type ReportType = 'executive-summary' | 'sla-breach' | 'top-complaints' | 'visits-log';
 
 export default function PatientExperienceReportsPage() {
+  const router = useRouter();
   const { toast } = useToast();
   const { language, dir } = useLang();
+  const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const [refreshKey, setRefreshKey] = useState(0);
   const [isExporting, setIsExporting] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
@@ -40,6 +47,28 @@ export default function PatientExperienceReportsPage() {
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  // Refresh data when page becomes visible (user returns to tab/window)
+  // Note: Reports page doesn't have a fetch function, but we can trigger router.refresh()
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        router.refresh();
+      }
+    };
+
+    const handleFocus = () => {
+      router.refresh();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [router]);
   
   // Listen for language changes
   useEffect(() => {
@@ -86,7 +115,7 @@ export default function PatientExperienceReportsPage() {
 
   async function loadAllDepartments() {
     try {
-      const response = await fetch('/api/patient-experience/data?type=all-departments');
+      const response = await fetch('/api/patient-experience/data?type=all-departments', { cache: 'no-store' });
       const data = await response.json();
       if (data.success) {
         setAllDepartments(data.data);
@@ -107,7 +136,7 @@ export default function PatientExperienceReportsPage() {
 
   async function loadFloors() {
     try {
-      const response = await fetch('/api/patient-experience/data?type=floors');
+      const response = await fetch('/api/patient-experience/data?type=floors', { cache: 'no-store' });
       if (response.ok) {
         const data = await response.json();
         setFloors(data.data || []);
@@ -119,7 +148,7 @@ export default function PatientExperienceReportsPage() {
 
   async function loadDepartments(floorKey: string) {
     try {
-      const response = await fetch(`/api/patient-experience/data?type=departments&floorKey=${floorKey}`);
+      const response = await fetch(`/api/patient-experience/data?type=departments&floorKey=${floorKey}`, { cache: 'no-store' });
       if (response.ok) {
         const data = await response.json();
         setDepartments(data.data || []);
@@ -154,7 +183,7 @@ export default function PatientExperienceReportsPage() {
     setIsExporting(true);
     try {
       const params = buildQueryParams();
-      const response = await fetch(`/api/patient-experience/reports/${exportFormat}?${params.toString()}`);
+      const response = await fetch(`/api/patient-experience/reports/${exportFormat}?${params.toString()}`, { cache: 'no-store' });
       
       if (!response.ok) {
         // Try to get error message from response
@@ -196,14 +225,14 @@ export default function PatientExperienceReportsPage() {
       document.body.removeChild(a);
 
       toast({
-        title: 'Success',
-        description: displayLanguage === 'ar' ? 'تم التصدير بنجاح' : 'Export successful',
+        title: t.common.success,
+        description: t.px.reports.exportSuccessful,
       });
     } catch (error) {
       console.error('Export error:', error);
-      const errorMessage = error instanceof Error ? error.message : (displayLanguage === 'ar' ? 'فشل التصدير' : 'Export failed');
+      const errorMessage = error instanceof Error ? error.message : t.px.reports.exportFailed;
       toast({
-        title: 'Error',
+        title: t.common.error,
         description: errorMessage,
         variant: 'destructive',
       });
@@ -212,167 +241,270 @@ export default function PatientExperienceReportsPage() {
     }
   }
 
+  // Filter groups for MobileFilterBar
+  const filterGroups: FilterGroup[] = [
+    {
+      id: 'fromDate',
+      label: displayLanguage === 'ar' ? 'من تاريخ' : 'From Date',
+      type: 'single' as const,
+      options: [],
+    },
+    {
+      id: 'toDate',
+      label: displayLanguage === 'ar' ? 'إلى تاريخ' : 'To Date',
+      type: 'single' as const,
+      options: [],
+    },
+    {
+      id: 'floorKey',
+      label: displayLanguage === 'ar' ? 'الطابق' : 'Floor',
+      type: 'single' as const,
+      options: [
+        { id: 'all', label: displayLanguage === 'ar' ? 'الكل' : 'All', value: 'all' },
+        ...floors.map(floor => ({
+          id: floor.key || floor.id,
+          label: displayLanguage === 'ar' ? (floor.label_ar || floor.labelAr || `طابق ${floor.number}`) : (floor.label_en || floor.labelEn || `Floor ${floor.number}`),
+          value: floor.key || floor.id,
+        })),
+      ],
+    },
+    {
+      id: 'departmentKey',
+      label: displayLanguage === 'ar' ? 'القسم' : 'Department',
+      type: 'single' as const,
+      options: [
+        { id: 'all', label: displayLanguage === 'ar' ? 'الكل' : 'All', value: 'all' },
+        ...(allDepartments.length > 0 ? allDepartments : departments).map(dept => {
+          const deptType = dept.type || 'BOTH';
+          const deptName = displayLanguage === 'ar' ? (dept.label_ar || dept.labelAr || dept.name || dept.departmentName) : (dept.label_en || dept.labelEn || dept.name || dept.departmentName);
+          const typeLabel = deptType === 'OPD' ? 'OPD' : deptType === 'IPD' ? 'IPD' : 'OPD/IPD';
+          return {
+            id: dept.key || dept.id || dept.code,
+            label: `[${typeLabel}] ${deptName}`,
+            value: dept.key || dept.id || dept.code,
+          };
+        }),
+      ],
+    },
+    {
+      id: 'severity',
+      label: displayLanguage === 'ar' ? 'الشدة' : 'Severity',
+      type: 'single' as const,
+      options: [
+        { id: 'all', label: displayLanguage === 'ar' ? 'الكل' : 'All', value: 'all' },
+        { id: 'LOW', label: 'LOW', value: 'LOW' },
+        { id: 'MEDIUM', label: 'MEDIUM', value: 'MEDIUM' },
+        { id: 'HIGH', label: 'HIGH', value: 'HIGH' },
+        { id: 'CRITICAL', label: 'CRITICAL', value: 'CRITICAL' },
+      ],
+    },
+    {
+      id: 'status',
+      label: displayLanguage === 'ar' ? 'الحالة' : 'Status',
+      type: 'single' as const,
+      options: [
+        { id: 'all', label: displayLanguage === 'ar' ? 'الكل' : 'All', value: 'all' },
+        { id: 'OPEN', label: 'OPEN', value: 'OPEN' },
+        { id: 'IN_PROGRESS', label: 'IN_PROGRESS', value: 'IN_PROGRESS' },
+        { id: 'ESCALATED', label: 'ESCALATED', value: 'ESCALATED' },
+        { id: 'RESOLVED', label: 'RESOLVED', value: 'RESOLVED' },
+        { id: 'CLOSED', label: 'CLOSED', value: 'CLOSED' },
+      ],
+    },
+  ];
+
+  const activeFilters = {
+    fromDate,
+    toDate,
+    floorKey: floorKey || 'all',
+    departmentKey: departmentKey || 'all',
+    severity: severity || 'all',
+    status: status || 'all',
+  };
+
   return (
     <div key={`${displayLanguage}-${refreshKey}`} dir={dir} className="container mx-auto p-6 space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="hidden md:flex justify-between items-center">
         <div>
           <h1 suppressHydrationWarning className="text-3xl font-bold">{displayLanguage === 'ar' ? 'تقارير تجربة المريض' : 'Patient Experience Reports'}</h1>
           <p suppressHydrationWarning className="text-muted-foreground mt-1">
             {displayLanguage === 'ar' ? 'تصدير التقارير بتنسيقات مختلفة' : 'Export reports in various formats'}
           </p>
         </div>
-        <LanguageToggle />
       </div>
 
       {/* Report Type Selector */}
       <Card>
         <CardHeader>
-          <CardTitle suppressHydrationWarning>{displayLanguage === 'ar' ? 'نوع التقرير' : 'Report Type'}</CardTitle>
+          <CardTitle suppressHydrationWarning>{t.px.reports.reportType}</CardTitle>
           <CardDescription suppressHydrationWarning>
-            {displayLanguage === 'ar' ? 'اختر نوع التقرير المراد تصديره' : 'Select the type of report to export'}
+            {t.px.reports.reportTypeDescription}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Select value={reportType} onValueChange={(value) => setReportType(value as ReportType)}>
-            <SelectTrigger className="w-full md:w-[400px]">
+            <SelectTrigger className="w-full md:w-[400px] h-11">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="executive-summary">
-                {displayLanguage === 'ar' ? 'ملخص تنفيذي' : 'Executive Summary'}
+                {t.px.reports.executiveSummary}
               </SelectItem>
               <SelectItem value="sla-breach">
-                {displayLanguage === 'ar' ? 'تقرير انتهاك SLA' : 'SLA Breach Report (Cases)'}
+                {t.px.reports.slaBreachReport}
               </SelectItem>
               <SelectItem value="top-complaints">
-                {displayLanguage === 'ar' ? 'أهم أنواع الشكاوى (Pareto)' : 'Top Complaint Types (Pareto)'}
+                {t.px.reports.topComplaints}
               </SelectItem>
               <SelectItem value="visits-log">
-                {displayLanguage === 'ar' ? 'سجل الزيارات' : 'Visits Log'}
+                {t.px.reports.visitsLog}
               </SelectItem>
             </SelectContent>
           </Select>
         </CardContent>
       </Card>
 
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle suppressHydrationWarning className="flex items-center gap-2">
-              <Filter className="h-5 w-5" />
-              {displayLanguage === 'ar' ? 'الفلاتر' : 'Filters'}
-            </CardTitle>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowFilters(!showFilters)}
-            >
-              {showFilters ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            </Button>
-          </div>
-        </CardHeader>
-        {showFilters && (
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div>
-                <Label suppressHydrationWarning>{displayLanguage === 'ar' ? 'من تاريخ' : 'From Date'}</Label>
-                <Input
-                  type="date"
-                  value={fromDate}
-                  onChange={(e) => setFromDate(e.target.value)}
-                  required
-                />
-              </div>
-              <div>
-                <Label suppressHydrationWarning>{displayLanguage === 'ar' ? 'إلى تاريخ' : 'To Date'}</Label>
-                <Input
-                  type="date"
-                  value={toDate}
-                  onChange={(e) => setToDate(e.target.value)}
-                  required
-                />
-              </div>
-              <div>
-                <Label suppressHydrationWarning>{displayLanguage === 'ar' ? 'الطابق' : 'Floor'}</Label>
-                <Select value={floorKey || undefined} onValueChange={(value) => setFloorKey(value === 'all' ? '' : value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={displayLanguage === 'ar' ? 'اختر الطابق' : 'Select Floor'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">{displayLanguage === 'ar' ? 'الكل' : 'All'}</SelectItem>
-                    {floors.map((floor) => (
-                      <SelectItem key={floor.key || floor.id} value={floor.key || floor.id}>
-                        {displayLanguage === 'ar' ? (floor.label_ar || floor.labelAr || `طابق ${floor.number}`) : (floor.label_en || floor.labelEn || `Floor ${floor.number}`)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label suppressHydrationWarning>{displayLanguage === 'ar' ? 'القسم' : 'Department'}</Label>
-                <Select value={departmentKey || undefined} onValueChange={(value) => setDepartmentKey(value === 'all' ? '' : value)} disabled={!floorKey}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={displayLanguage === 'ar' ? 'اختر القسم' : 'Select Department'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">{displayLanguage === 'ar' ? 'الكل' : 'All'}</SelectItem>
-                    {/* Use allDepartments to show all hospital departments */}
-                    {(allDepartments.length > 0 ? allDepartments : departments).map((dept) => {
-                      const deptType = dept.type || 'BOTH';
-                      const deptName = displayLanguage === 'ar' ? (dept.label_ar || dept.labelAr || dept.name || dept.departmentName) : (dept.label_en || dept.labelEn || dept.name || dept.departmentName);
-                      const typeLabel = deptType === 'OPD' ? 'OPD' : deptType === 'IPD' ? 'IPD' : 'OPD/IPD';
-                      return (
-                        <SelectItem key={dept.key || dept.id || dept.code} value={dept.key || dept.id || dept.code}>
-                          [{typeLabel}] {deptName}
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label suppressHydrationWarning>{displayLanguage === 'ar' ? 'الشدة' : 'Severity'}</Label>
-                <Select value={severity || undefined} onValueChange={(value) => setSeverity(value === 'all' ? '' : value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={displayLanguage === 'ar' ? 'اختر الشدة' : 'Select Severity'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">{displayLanguage === 'ar' ? 'الكل' : 'All'}</SelectItem>
-                    <SelectItem value="LOW">LOW</SelectItem>
-                    <SelectItem value="MEDIUM">MEDIUM</SelectItem>
-                    <SelectItem value="HIGH">HIGH</SelectItem>
-                    <SelectItem value="CRITICAL">CRITICAL</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label suppressHydrationWarning>{displayLanguage === 'ar' ? 'الحالة' : 'Status'}</Label>
-                <Select value={status || undefined} onValueChange={(value) => setStatus(value === 'all' ? '' : value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={displayLanguage === 'ar' ? 'اختر الحالة' : 'Select Status'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">{displayLanguage === 'ar' ? 'الكل' : 'All'}</SelectItem>
-                    <SelectItem value="OPEN">OPEN</SelectItem>
-                    <SelectItem value="IN_PROGRESS">IN_PROGRESS</SelectItem>
-                    <SelectItem value="ESCALATED">ESCALATED</SelectItem>
-                    <SelectItem value="RESOLVED">RESOLVED</SelectItem>
-                    <SelectItem value="CLOSED">CLOSED</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+      {/* Mobile Filter Bar */}
+      {isMobile ? (
+        <MobileFilterBar
+          filters={filterGroups}
+          activeFilters={activeFilters}
+          onFilterChange={(id, value) => {
+            if (id === 'fromDate') setFromDate(value as string);
+            else if (id === 'toDate') setToDate(value as string);
+            else if (id === 'floorKey') setFloorKey(value === 'all' ? '' : value as string);
+            else if (id === 'departmentKey') setDepartmentKey(value === 'all' ? '' : value as string);
+            else if (id === 'severity') setSeverity(value === 'all' ? '' : value as string);
+            else if (id === 'status') setStatus(value === 'all' ? '' : value as string);
+          }}
+          onClearAll={() => {
+            setFromDate('');
+            setToDate('');
+            setFloorKey('');
+            setDepartmentKey('');
+            setSeverity('');
+            setStatus('');
+          }}
+        />
+      ) : (
+        // Desktop Filters
+        <Card>
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <CardTitle suppressHydrationWarning className="flex items-center gap-2">
+                <Filter className="h-5 w-5" />
+                {t.common.filter}
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowFilters(!showFilters)}
+              >
+                {showFilters ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </Button>
             </div>
-          </CardContent>
-        )}
-      </Card>
+          </CardHeader>
+          {showFilters && (
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                  <Label suppressHydrationWarning>{displayLanguage === 'ar' ? 'من تاريخ' : 'From Date'}</Label>
+                  <Input
+                    type="date"
+                    value={fromDate}
+                    onChange={(e) => setFromDate(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label suppressHydrationWarning>{displayLanguage === 'ar' ? 'إلى تاريخ' : 'To Date'}</Label>
+                  <Input
+                    type="date"
+                    value={toDate}
+                    onChange={(e) => setToDate(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label suppressHydrationWarning>{displayLanguage === 'ar' ? 'الطابق' : 'Floor'}</Label>
+                  <Select value={floorKey || undefined} onValueChange={(value) => setFloorKey(value === 'all' ? '' : value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={displayLanguage === 'ar' ? 'اختر الطابق' : 'Select Floor'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{displayLanguage === 'ar' ? 'الكل' : 'All'}</SelectItem>
+                      {floors.map((floor) => (
+                        <SelectItem key={floor.key || floor.id} value={floor.key || floor.id}>
+                          {displayLanguage === 'ar' ? (floor.label_ar || floor.labelAr || `طابق ${floor.number}`) : (floor.label_en || floor.labelEn || `Floor ${floor.number}`)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label suppressHydrationWarning>{displayLanguage === 'ar' ? 'القسم' : 'Department'}</Label>
+                  <Select value={departmentKey || undefined} onValueChange={(value) => setDepartmentKey(value === 'all' ? '' : value)} disabled={!floorKey}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={displayLanguage === 'ar' ? 'اختر القسم' : 'Select Department'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{displayLanguage === 'ar' ? 'الكل' : 'All'}</SelectItem>
+                      {(allDepartments.length > 0 ? allDepartments : departments).map((dept) => {
+                        const deptType = dept.type || 'BOTH';
+                        const deptName = displayLanguage === 'ar' ? (dept.label_ar || dept.labelAr || dept.name || dept.departmentName) : (dept.label_en || dept.labelEn || dept.name || dept.departmentName);
+                        const typeLabel = deptType === 'OPD' ? 'OPD' : deptType === 'IPD' ? 'IPD' : 'OPD/IPD';
+                        return (
+                          <SelectItem key={dept.key || dept.id || dept.code} value={dept.key || dept.id || dept.code}>
+                            [{typeLabel}] {deptName}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label suppressHydrationWarning>{displayLanguage === 'ar' ? 'الشدة' : 'Severity'}</Label>
+                  <Select value={severity || undefined} onValueChange={(value) => setSeverity(value === 'all' ? '' : value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={displayLanguage === 'ar' ? 'اختر الشدة' : 'Select Severity'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{displayLanguage === 'ar' ? 'الكل' : 'All'}</SelectItem>
+                      <SelectItem value="LOW">LOW</SelectItem>
+                      <SelectItem value="MEDIUM">MEDIUM</SelectItem>
+                      <SelectItem value="HIGH">HIGH</SelectItem>
+                      <SelectItem value="CRITICAL">CRITICAL</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label suppressHydrationWarning>{displayLanguage === 'ar' ? 'الحالة' : 'Status'}</Label>
+                  <Select value={status || undefined} onValueChange={(value) => setStatus(value === 'all' ? '' : value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={displayLanguage === 'ar' ? 'اختر الحالة' : 'Select Status'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{displayLanguage === 'ar' ? 'الكل' : 'All'}</SelectItem>
+                      <SelectItem value="OPEN">OPEN</SelectItem>
+                      <SelectItem value="IN_PROGRESS">IN_PROGRESS</SelectItem>
+                      <SelectItem value="ESCALATED">ESCALATED</SelectItem>
+                      <SelectItem value="RESOLVED">RESOLVED</SelectItem>
+                      <SelectItem value="CLOSED">CLOSED</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          )}
+        </Card>
+      )}
 
       {/* Export Buttons */}
       <Card>
         <CardHeader>
-          <CardTitle suppressHydrationWarning>{displayLanguage === 'ar' ? 'تصدير التقرير' : 'Export Report'}</CardTitle>
+          <CardTitle suppressHydrationWarning>{t.px.reports.exportReport}</CardTitle>
           <CardDescription suppressHydrationWarning>
-            {displayLanguage === 'ar' ? 'اختر تنسيق التصدير' : 'Choose export format'}
+            {t.px.reports.exportReportDescription}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -381,40 +513,40 @@ export default function PatientExperienceReportsPage() {
               onClick={() => handleExport('csv')}
               disabled={isExporting}
               variant="outline"
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 h-11 w-full md:w-auto"
             >
               {isExporting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <FileText className="h-4 w-4" />
               )}
-              <span suppressHydrationWarning>{displayLanguage === 'ar' ? 'تصدير CSV' : 'Export CSV'}</span>
+              <span suppressHydrationWarning>{t.px.reports.exportCsv}</span>
             </Button>
             <Button
               onClick={() => handleExport('xlsx')}
               disabled={isExporting}
               variant="outline"
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 h-11 w-full md:w-auto"
             >
               {isExporting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <FileSpreadsheet className="h-4 w-4" />
               )}
-              <span suppressHydrationWarning>{displayLanguage === 'ar' ? 'تصدير Excel' : 'Export Excel'}</span>
+              <span suppressHydrationWarning>{t.px.reports.exportExcel}</span>
             </Button>
             <Button
               onClick={() => handleExport('pdf')}
               disabled={isExporting}
               variant="outline"
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 h-11 w-full md:w-auto"
             >
               {isExporting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <File className="h-4 w-4" />
               )}
-              <span suppressHydrationWarning>{displayLanguage === 'ar' ? 'تصدير PDF' : 'Export PDF'}</span>
+              <span suppressHydrationWarning>{t.px.reports.exportPdf}</span>
             </Button>
           </div>
         </CardContent>

@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
-import { requireRole } from '@/lib/rbac';
+import { requireAuth } from '@/lib/security/auth';
+import { requireRole } from '@/lib/security/auth';
 import { v4 as uuidv4 } from 'uuid';
 import ExcelJS from 'exceljs';
 import { z } from 'zod';
+import type { Department } from '@/lib/models/Department';
+import type { Doctor } from '@/lib/models/Doctor';
+import type { FloorRoom } from '@/lib/models/Floor';
+import type { OPDDailyData } from '@/lib/models/OPDDailyData';
 
 // Schema matching the daily data entry form - with more lenient validation
 
@@ -46,11 +51,16 @@ const dailyDataRowSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    const userRole = request.headers.get('x-user-role') as any;
-    const userId = request.headers.get('x-user-id');
+    // Authenticate
+    const auth = await requireAuth(request);
+    if (auth instanceof NextResponse) {
+      return auth;
+    }
 
-    if (!requireRole(userRole, ['admin', 'supervisor', 'staff'])) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // Check role: admin, supervisor, or staff
+    const roleCheck = await requireRole(request, ['admin', 'supervisor', 'staff'], auth);
+    if (roleCheck instanceof NextResponse) {
+      return roleCheck;
     }
 
     const formData = await request.formData();
@@ -248,14 +258,14 @@ export async function POST(request: NextRequest) {
         }
 
         // Verify department exists
-        const department = await departmentsCollection.findOne({ id: validatedData.departmentId });
+        const department = await departmentsCollection.findOne<Department>({ id: validatedData.departmentId });
         if (!department) {
           errors.push(`Row ${rowNumber}: Department ID "${validatedData.departmentId}" not found`);
           continue;
         }
 
         // Verify doctor exists
-        const doctor = await doctorsCollection.findOne({ id: validatedData.doctorId });
+        const doctor = await doctorsCollection.findOne<Doctor>({ id: validatedData.doctorId });
         if (!doctor) {
           errors.push(`Row ${rowNumber}: Doctor ID "${validatedData.doctorId}" not found`);
           continue;
@@ -266,12 +276,12 @@ export async function POST(request: NextRequest) {
         if (validatedData.roomIds) {
           const roomIdArray = validatedData.roomIds.split(',').map(id => id.trim()).filter(id => id);
           for (const roomId of roomIdArray) {
-            const room = await roomsCollection.findOne({ id: roomId });
+            const room = await roomsCollection.findOne<FloorRoom>({ id: roomId });
             if (room) {
               rooms.push({
                 roomId: room.id,
-                roomName: room.roomName || room.name || '',
-                roomNumber: room.roomNumber || room.number || '',
+                roomName: room.roomName || room.label_en || '',
+                roomNumber: room.roomNumber || '',
                 departmentId: room.departmentId || validatedData.departmentId,
               });
             }
@@ -282,7 +292,7 @@ export async function POST(request: NextRequest) {
         const dateObj = new Date(validatedData.date);
         dateObj.setHours(0, 0, 0, 0);
         
-        const existing = await dailyDataCollection.findOne({
+        const existing = await dailyDataCollection.findOne<OPDDailyData>({
           doctorId: validatedData.doctorId,
           date: dateObj,
         });
@@ -325,8 +335,8 @@ export async function POST(request: NextRequest) {
           ivf: validatedData.ivf,
           createdAt: existing?.createdAt || new Date(),
           updatedAt: new Date(),
-          createdBy: existing?.createdBy || userId || 'system',
-          updatedBy: userId || 'system',
+          createdBy: existing?.createdBy || auth.userId || 'system',
+          updatedBy: auth.userId || 'system',
         };
 
         if (existing) {

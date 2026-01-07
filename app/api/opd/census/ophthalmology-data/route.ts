@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
+import type { Department } from '@/lib/models/Department';
 
 export async function POST() {
   try {
@@ -10,7 +11,7 @@ export async function POST() {
     const censusCollection = await getCollection('opd_census');
 
     // Get or create Ophthalmology department
-    let ophthDept = await departmentsCollection.findOne({ code: 'OPHTH' });
+    let ophthDept = await departmentsCollection.findOne<Department>({ code: 'OPHTH' });
 
     if (!ophthDept) {
       ophthDept = {

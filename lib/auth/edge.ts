@@ -17,8 +17,14 @@ function getJwtSecret(): string {
 export interface TokenPayload {
   userId: string;
   email: string;
-  role: 'admin' | 'supervisor' | 'staff' | 'viewer' | 'group-admin' | 'hospital-admin';
+  role: 'admin' | 'supervisor' | 'staff' | 'viewer' | 'group-admin' | 'hospital-admin' | 'syra-owner';
   sessionId?: string; // Session ID for single active session enforcement
+  entitlements?: {
+    sam: boolean;
+    health: boolean;
+    edrac: boolean;
+    cvision: boolean;
+  }; // Effective platform entitlements (computed at login)
 }
 
 /**

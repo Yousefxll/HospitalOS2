@@ -13,26 +13,23 @@ export const revalidate = 0;
  */
 export async function POST(request: NextRequest) {
   try {
-    const userId = request.headers.get('x-user-id');
-    const userRole = request.headers.get('x-user-role') as Role | null;
+    // Authenticate
+    const { requireAuth } = await import('@/lib/security/auth');
+    const { requireRole } = await import('@/lib/security/auth');
     
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    const auth = await requireAuth(request);
+    if (auth instanceof NextResponse) {
+      return auth;
     }
 
     // Check role: admin or supervisor only
-    if (!userRole || !requireRole(userRole as Role, ['admin', 'supervisor'])) {
-      return NextResponse.json(
-        { error: 'Forbidden: Admin or Supervisor role required' },
-        { status: 403 }
-      );
+    const roleCheck = await requireRole(request, ['admin', 'supervisor'], auth);
+    if (roleCheck instanceof NextResponse) {
+      return roleCheck;
     }
 
     // Call shared SLA runner function
-    const result = await runPxSla(userId);
+    const result = await runPxSla(auth.userId);
 
     return NextResponse.json({
       success: true,

@@ -5,19 +5,29 @@ import { translateToEnglish } from '@/lib/translate/translateToEnglish';
 import { detectLang } from '@/lib/translate/detectLang';
 import { PXCase } from '@/lib/models/PXCase';
 import { Notification } from '@/lib/models/Notification';
-import { requireRoleAsync, buildScopeFilter, buildStaffFilter } from '@/lib/auth/requireRole';
+import { requireRoleAsync, buildScopeFilter } from '@/lib/auth/requireRole';
+import { getTenantContextOrThrow } from '@/lib/auth/getTenantIdOrThrow';
+import type { PatientExperience } from '@/lib/models/PatientExperience';
 
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export async function POST(request: NextRequest) {
   try {
+    // Tenant isolation: get tenantId from session
+    const tenantContext = await getTenantContextOrThrow(request);
+    const { tenantId, userId, userEmail, userRole } = tenantContext;
+
+    // Debug logging (if enabled)
+    if (process.env.DEBUG_TENANT === '1') {
+      console.log('[TENANT]', '/api/patient-experience (POST)', 'tenant=', tenantId, 'user=', userEmail, 'role=', userRole, 'collection=patient_experience');
+    }
+
     // RBAC: staff, supervisor, admin can create visits
-    const authResult = await requireRoleAsync(request, ['staff', 'supervisor', 'admin']);
+    const authResult = await requireRoleAsync(request, ['staff', 'supervisor', 'admin', 'syra-owner']);
     if (authResult instanceof NextResponse) {
       return authResult; // Returns 401 or 403
     }
-    const { userId, userEmail } = authResult;
 
     const body = await request.json();
     const {
@@ -242,6 +252,7 @@ export async function POST(request: NextRequest) {
       updatedAt: new Date(),
       createdBy: userId,
       updatedBy: userId,
+      tenantId: tenantId, // TENANT ISOLATION: Always set tenantId from session
       // Backward compatibility fields (deprecated, kept for migration)
       ...(floor && { floor }),
       ...(department && { department }),
@@ -279,7 +290,7 @@ export async function POST(request: NextRequest) {
       }, complaintClassifications[0]);
       
       const slaRulesCollection = await getCollection('sla_rules');
-      const slaRule = await slaRulesCollection.findOne({
+      const slaRule = await slaRulesCollection.findOne<{ minutes: number }>({
         severity: maxSeverity.severity,
         active: true,
       });
@@ -302,6 +313,7 @@ export async function POST(request: NextRequest) {
         updatedAt: new Date(),
         createdBy: userId,
         updatedBy: userId,
+        tenantId: tenantId, // TENANT ISOLATION: Always set tenantId from session
       };
 
       await casesCollection.insertOne(pxCase);
@@ -365,8 +377,17 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    // Tenant isolation: get tenantId from session
+    const tenantContext = await getTenantContextOrThrow(request);
+    const { tenantId, userId, userEmail, userRole } = tenantContext;
+
+    // Debug logging (if enabled)
+    if (process.env.DEBUG_TENANT === '1') {
+      console.log('[TENANT]', '/api/patient-experience (GET)', 'tenant=', tenantId, 'user=', userEmail, 'role=', userRole, 'collection=patient_experience');
+    }
+
     // RBAC: staff, supervisor, admin can view visits (with scope restrictions)
-    const authResult = await requireRoleAsync(request, ['staff', 'supervisor', 'admin']);
+    const authResult = await requireRoleAsync(request, ['staff', 'supervisor', 'admin', 'syra-owner']);
     if (authResult instanceof NextResponse) {
       return authResult; // Returns 401 or 403
     }
@@ -382,20 +403,25 @@ export async function GET(request: NextRequest) {
 
     const patientExperienceCollection = await getCollection('patient_experience');
     
-    // Build query with RBAC scope filtering
-    const query: any = {};
+    // Build query with tenant isolation (GOLDEN RULE: tenantId from session only)
+    // Backward compatibility: include documents without tenantId until migration is run
+    const query: any = {
+      $or: [
+        { tenantId: tenantId },
+        { tenantId: { $exists: false } }, // Backward compatibility for existing data
+        { tenantId: null },
+        { tenantId: '' },
+      ],
+    };
     
     // Apply role-based filtering
-    if (authResult.userRole === 'staff') {
-      // Staff: only their own visits (by staffId)
-      const staffFilter = buildStaffFilter(authResult, 'staffId');
-      Object.assign(query, staffFilter);
-    } else if (authResult.userRole === 'supervisor') {
+    // Staff and Admin: see all visits within tenant (same organization)
+    if (authResult.userRole === 'supervisor') {
       // Supervisor: department scope
       const scopeFilter = buildScopeFilter(authResult, 'departmentKey');
       Object.assign(query, scopeFilter);
     }
-    // Admin: no filter (sees all)
+    // Staff and Admin: no additional filter (sees all within tenant)
     
     // Apply additional filters from query params
     if (floor) query.floor = floor;
@@ -453,12 +479,20 @@ export async function GET(request: NextRequest) {
 // PATCH - Update visit/feedback record
 export async function PATCH(request: NextRequest) {
   try {
+    // Tenant isolation: get tenantId from session
+    const tenantContext = await getTenantContextOrThrow(request);
+    const { tenantId, userId, userEmail, userRole } = tenantContext;
+
+    // Debug logging (if enabled)
+    if (process.env.DEBUG_TENANT === '1') {
+      console.log('[TENANT]', '/api/patient-experience (PATCH)', 'tenant=', tenantId, 'user=', userEmail, 'role=', userRole, 'collection=patient_experience');
+    }
+
     // RBAC: supervisor, admin can update visits
     const authResult = await requireRoleAsync(request, ['supervisor', 'admin']);
     if (authResult instanceof NextResponse) {
       return authResult; // Returns 401 or 403
     }
-    const { userId } = authResult;
 
     const body = await request.json();
     const { id, ...updates } = body;
@@ -471,6 +505,23 @@ export async function PATCH(request: NextRequest) {
     }
 
     const patientExperienceCollection = await getCollection('patient_experience');
+    
+    // TENANT ISOLATION: Verify record belongs to tenant before updating
+    const existingRecord = await patientExperienceCollection.findOne<PatientExperience>({ id });
+    if (!existingRecord) {
+      return NextResponse.json(
+        { error: 'Record not found' },
+        { status: 404 }
+      );
+    }
+    // Check tenantId matches (with backward compatibility)
+    // Note: PatientExperience doesn't have tenantId in the interface, but it may exist in the DB
+    if ((existingRecord as any).tenantId && (existingRecord as any).tenantId !== tenantId) {
+      return NextResponse.json(
+        { error: 'Forbidden: Record does not belong to your tenant' },
+        { status: 403 }
+      );
+    }
     const updateData: any = {
       updatedAt: new Date(),
       updatedBy: userId,
@@ -517,8 +568,17 @@ export async function PATCH(request: NextRequest) {
       updateData.complainedStaffName = updates.complainedStaffName || undefined;
     }
 
+    // TENANT ISOLATION: Include tenantId in filter to prevent cross-tenant updates
     await patientExperienceCollection.updateOne(
-      { id },
+      { 
+        id,
+        $or: [
+          { tenantId: tenantId },
+          { tenantId: { $exists: false } }, // Backward compatibility
+          { tenantId: null },
+          { tenantId: '' },
+        ],
+      },
       { $set: updateData }
     );
 

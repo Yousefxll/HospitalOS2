@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
-
+import { requireAuth } from '@/lib/auth/requireAuth';
+import { getActiveTenantId } from '@/lib/auth/sessionHelpers';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -117,6 +118,21 @@ function buildDateQuery(params: FilterParams) {
 
 export async function GET(request: NextRequest) {
   try {
+    // SINGLE SOURCE OF TRUTH: Get activeTenantId from session
+    const activeTenantId = await getActiveTenantId(request);
+    if (!activeTenantId) {
+      return NextResponse.json(
+        { error: 'Tenant not selected. Please log in again.' },
+        { status: 400 }
+      );
+    }
+
+    // Authentication
+    const authResult = await requireAuth(request);
+    if (authResult instanceof NextResponse) {
+      return authResult;
+    }
+
     const { searchParams } = new URL(request.url);
     const params: FilterParams = {
       granularity: searchParams.get('granularity') || 'day',
@@ -135,24 +151,35 @@ export async function GET(request: NextRequest) {
 
     const query = buildDateQuery(params);
 
-    // Get aggregated data from both opd_daily_data and opd_census
+    // Get aggregated data from both opd_daily_data and opd_census WITH tenant isolation
     let records: any[] = [];
     try {
       const { getAggregatedOPDData } = await import('@/lib/opd/data-aggregator');
-      records = await getAggregatedOPDData(query, params.departmentId);
+      records = await getAggregatedOPDData(query, params.departmentId, activeTenantId);
     } catch (error) {
       console.error('Error getting aggregated OPD data:', error);
       // Continue with empty records array
       records = [];
     }
 
-    // Fetch departments and clinics for enrichment
+    // Fetch departments and clinics for enrichment - WITH tenant isolation
     const departmentsCollection = await getCollection('departments');
     const clinicsCollection = await getCollection('clinic_details');
     const doctorsCollection = await getCollection('doctors');
 
-    // Get all departments - only OPD departments (OPD or BOTH), exclude sample data
+    // Build tenant filter for departments
+    const tenantFilter = {
+      $or: [
+        { tenantId: activeTenantId },
+        { tenantId: { $exists: false } }, // Backward compatibility
+        { tenantId: null },
+        { tenantId: '' },
+      ],
+    };
+
+    // Get all departments - only OPD departments (OPD or BOTH), exclude sample data, WITH tenant isolation
     const departments = await departmentsCollection.find({ 
+      ...tenantFilter,
       isActive: true,
       type: { $in: ['OPD', 'BOTH'] }, // Only OPD departments
       createdBy: { 
@@ -163,12 +190,17 @@ export async function GET(request: NextRequest) {
     }).toArray();
     const departmentMap = new Map(departments.map((d: any) => [d.id, d]));
 
-    // Get all clinics
-    const clinics = await clinicsCollection.find({}).toArray();
+    // Get all clinics - WITH tenant isolation
+    const clinics = await clinicsCollection.find({ 
+      ...tenantFilter 
+    }).toArray();
     const clinicMap = new Map(clinics.map((c: any) => [c.clinicId || c.id, c]));
 
-    // Get all doctors
-    const doctors = await doctorsCollection.find({ isActive: true }).toArray();
+    // Get all doctors - WITH tenant isolation
+    const doctors = await doctorsCollection.find({ 
+      ...tenantFilter,
+      isActive: true 
+    }).toArray();
     const doctorMap = new Map(doctors.map((d: any) => [d.id, d]));
 
     // Enrich records

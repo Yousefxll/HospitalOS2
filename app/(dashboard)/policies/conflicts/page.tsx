@@ -34,6 +34,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { PolicyQuickNav } from '@/components/policies/PolicyQuickNav';
+import { useRoutePermission } from '@/lib/hooks/useRoutePermission';
 
 interface Policy {
   policyId: string;
@@ -70,18 +71,12 @@ interface AIIssue {
 
 export default function PoliciesConflictsPage() {
   const { t } = useTranslation();
-  const [mode, setMode] = useState<'single' | 'pair' | 'global'>('single');
+  
+  // Check route permission - redirect to /welcome if user doesn't have permission
+  const { hasPermission, isLoading: permissionLoading } = useRoutePermission('/policies/conflicts');
+  
   const [policies, setPolicies] = useState<Policy[]>([]);
-  const [selectedPolicyA, setSelectedPolicyA] = useState<string>('');
-  const [selectedPolicyB, setSelectedPolicyB] = useState<string>('');
-  const [category, setCategory] = useState<string>('');
-  const [strictness, setStrictness] = useState<'Strict' | 'Balanced'>('Strict');
-  const [limitPolicies, setLimitPolicies] = useState<number>(20);
   const [isLoading, setIsLoading] = useState(false);
-  const [isScanning, setIsScanning] = useState(false);
-  const [issues, setIssues] = useState<Issue[]>([]);
-  const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
-  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isRewriting, setIsRewriting] = useState(false);
   const [rewrittenPolicy, setRewrittenPolicy] = useState<string | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -93,7 +88,7 @@ export default function PoliciesConflictsPage() {
   const { toast } = useToast();
 
   // AI Review state
-  const [aiQuery, setAiQuery] = useState('Find conflicts, gaps, and risks in these policies');
+  const [aiQuery, setAiQuery] = useState('');
   const [selectedPoliciesForAI, setSelectedPoliciesForAI] = useState<string[]>([]);
   const [isAIRunning, setIsAIRunning] = useState(false);
   const [aiIssues, setAiIssues] = useState<AIIssue[]>([]);
@@ -208,130 +203,6 @@ export default function PoliciesConflictsPage() {
     fetchPolicies();
   }, []);
 
-  async function handleScan() {
-    if (mode === 'single' && !selectedPolicyA) {
-      toast({
-        title: t.common.error,
-        description: t.policies.conflicts.selectPolicyA,
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (mode === 'pair' && (!selectedPolicyA || !selectedPolicyB)) {
-      toast({
-        title: t.common.error,
-        description: 'Please select both policies',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setIsScanning(true);
-    setIssues([]);
-
-    try {
-      const response = await fetch('/api/policy-engine/conflicts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          mode,
-          policyIdA: selectedPolicyA || undefined,
-          policyIdB: selectedPolicyB || undefined,
-          strictness: strictness.toLowerCase(),
-          category: category || undefined,
-          limitPolicies: mode === 'global' ? limitPolicies : undefined,
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setIssues(data.issues || []);
-        toast({
-          title: t.common.success,
-          description: `${t.policies.conflicts.issuesFound}: ${data.issues?.length || 0}`,
-        });
-      } else {
-        const errorData = await response.json().catch(() => ({ error: 'Scan failed' }));
-        throw new Error(errorData.error || 'Failed to scan for conflicts');
-      }
-    } catch (error: any) {
-      toast({
-        title: t.common.error,
-        description: error.message || 'Failed to scan policies',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsScanning(false);
-    }
-  }
-
-  function getSeverityColor(severity: string) {
-    switch (severity) {
-      case 'HIGH':
-        return 'destructive';
-      case 'MED':
-        return 'default';
-      case 'LOW':
-        return 'secondary';
-      default:
-        return 'outline';
-    }
-  }
-
-  function getTypeColor(type: string) {
-    switch (type) {
-      case 'CONFLICT':
-        return 'destructive';
-      case 'GAP':
-        return 'default';
-      case 'DUPLICATE':
-        return 'secondary';
-      case 'INCONSISTENCY':
-        return 'outline';
-      default:
-        return 'outline';
-    }
-  }
-
-  // Group issues by policyId
-  function getIssuesByPolicy() {
-    const grouped: Record<string, { policy: { policyId: string; filename: string }; issues: Issue[] }> = {};
-    issues.forEach((issue) => {
-      const policyId = issue.policyA.policyId;
-      if (!grouped[policyId]) {
-        grouped[policyId] = {
-          policy: issue.policyA,
-          issues: [],
-        };
-      }
-      grouped[policyId].issues.push(issue);
-      
-      // Also include policyB if it exists
-      if (issue.policyB) {
-        const policyBId = issue.policyB.policyId;
-        if (!grouped[policyBId]) {
-          grouped[policyBId] = {
-            policy: issue.policyB,
-            issues: [],
-          };
-        }
-        grouped[policyBId].issues.push(issue);
-      }
-    });
-    return grouped;
-  }
-  
-  // Get unique policies with issues for global scan
-  function getPoliciesWithIssues() {
-    const grouped = getIssuesByPolicy();
-    return Object.values(grouped).map(({ policy, issues }) => ({
-      policyId: policy.policyId,
-      filename: policy.filename,
-      issueCount: issues.length,
-    }));
-  }
 
   async function handleAIRun() {
     if (!aiQuery.trim()) {
@@ -906,193 +777,34 @@ export default function PoliciesConflictsPage() {
       return;
     }
     
-    if (mode === 'single') {
-      if (!selectedPolicyA || issues.length === 0) {
-        toast({
-          title: 'Error',
-          description: 'Please scan a single policy first and ensure issues are found',
-          variant: 'destructive',
-        });
-        return;
-      }
-      targetPolicyId = selectedPolicyA;
-      
-      // Check if already rewritten
-      if (rewrittenPolicies[targetPolicyId]) {
-        const rewritten = rewrittenPolicies[targetPolicyId];
-        setRewrittenPolicy(rewritten.text);
-        setCurrentPreviewPolicyId(rewritten.policyId);
-        setIsPreviewOpen(true);
-        toast({
-          title: 'Info',
-          description: `Showing previously rewritten policy: ${rewritten.filename}`,
-        });
-        return;
-      }
-      
-      // If no accreditation provided, show dialog
-      if (!accreditation) {
-        setPendingRewritePolicyId(targetPolicyId);
-        setIsAccreditationDialogOpen(true);
-        return;
-      }
-    } else if (mode === 'pair') {
-      if (!selectedPolicyA || !selectedPolicyB || issues.length === 0) {
-        toast({
-          title: 'Error',
-          description: 'Please compare two policies first and ensure issues are found',
-          variant: 'destructive',
-        });
-        return;
-      }
-      // If no specific policyId provided, rewrite both (if not already rewritten)
-      if (!targetPolicyId) {
-        // Check which policies need rewriting
-        const needsRewriteA = !rewrittenPolicies[selectedPolicyA];
-        const needsRewriteB = !rewrittenPolicies[selectedPolicyB];
-        
-        if (!needsRewriteA && !needsRewriteB) {
-          // Both already rewritten, show selector or first one
-          setRewrittenPolicies(prev => prev);
-          setCurrentPreviewPolicyId(selectedPolicyA);
-          const rewritten = rewrittenPolicies[selectedPolicyA];
-          setRewrittenPolicy(rewritten.text);
-          setIsPreviewOpen(true);
-          toast({
-            title: 'Info',
-            description: 'Both policies have been rewritten. Showing first policy.',
-          });
-          return;
-        }
-        
-        // For pair mode, we need to show accreditation dialog for first policy that needs rewriting
-        // This is handled in the dialog - we'll rewrite one at a time
-        if (needsRewriteA) {
-          setPendingRewritePolicyId(selectedPolicyA);
-          setIsAccreditationDialogOpen(true);
-          return;
-        } else if (needsRewriteB) {
-          setPendingRewritePolicyId(selectedPolicyB);
-          setIsAccreditationDialogOpen(true);
-          return;
-        } else {
-          // Both already rewritten, show first one
-          const rewritten = rewrittenPolicies[selectedPolicyA];
-          setRewrittenPolicy(rewritten.text);
-          setCurrentPreviewPolicyId(rewritten.policyId);
-          setIsPreviewOpen(true);
-          toast({
-            title: 'Info',
-            description: 'Both policies have been rewritten. Showing first policy.',
-          });
-          return;
-        }
-      }
-      
-      // Check if specific policy is already rewritten
-      if (rewrittenPolicies[targetPolicyId]) {
-        const rewritten = rewrittenPolicies[targetPolicyId];
-        setRewrittenPolicy(rewritten.text);
-        setCurrentPreviewPolicyId(rewritten.policyId);
-        setIsPreviewOpen(true);
-        toast({
-          title: 'Info',
-          description: `Showing previously rewritten policy: ${rewritten.filename}`,
-        });
-        return;
-      }
-    } else if (mode === 'global') {
-      if (issues.length === 0) {
-        toast({
-          title: 'Error',
-          description: 'Please run a global scan first and ensure issues are found',
-          variant: 'destructive',
-        });
-        return;
-      }
-      // For global mode, show policy selector if no specific policyId provided
-      if (!targetPolicyId) {
-        const policiesWithIssues = getPoliciesWithIssues();
-        if (policiesWithIssues.length === 0) {
-          toast({
-            title: 'Error',
-            description: 'No policies with issues found',
-            variant: 'destructive',
-          });
-          return;
-        }
-        // Filter out already rewritten policies, but still show them in selector
-        const needsRewrite = policiesWithIssues.filter(p => !rewrittenPolicies[p.policyId]);
-        if (needsRewrite.length === 0) {
-          // All policies already rewritten, show first one
-          const firstPolicy = policiesWithIssues[0];
-          const rewritten = rewrittenPolicies[firstPolicy.policyId];
-          setRewrittenPolicy(rewritten.text);
-          setCurrentPreviewPolicyId(rewritten.policyId);
-          setPendingRewritePolicies(policiesWithIssues);
-          setCurrentRewriteIndex(0);
-          setIsPreviewOpen(true);
-          toast({
-            title: 'Info',
-            description: 'All policies have been rewritten. Showing first policy.',
-          });
-          return;
-        }
-        // Store pending policies and open selector
-        setPendingRewritePolicies(policiesWithIssues);
-        setCurrentRewriteIndex(0);
-        setIsPolicySelectorOpen(true);
-        return;
-      }
-      
-      // Check if specific policy is already rewritten
-      if (rewrittenPolicies[targetPolicyId]) {
-        const rewritten = rewrittenPolicies[targetPolicyId];
-        setRewrittenPolicy(rewritten.text);
-        setCurrentPreviewPolicyId(rewritten.policyId);
-        setIsPreviewOpen(true);
-        toast({
-          title: 'Info',
-          description: `Showing previously rewritten policy: ${rewritten.filename}`,
-        });
-        return;
-      }
-      
-      // Update currentRewriteIndex if this policy is in the pending list
-      if (mode === 'global' && pendingRewritePolicies.length > 0) {
-        const index = pendingRewritePolicies.findIndex(p => p.policyId === targetPolicyId);
-        if (index >= 0) {
-          setCurrentRewriteIndex(index);
-        }
-      }
-    } else {
+    // For AI Review, we only rewrite based on AI issues
+    if (!targetPolicyId) {
       toast({
         title: 'Error',
-        description: 'Invalid scan mode',
+        description: 'Please select a policy to rewrite',
         variant: 'destructive',
       });
       return;
     }
-
-    // Get issues for the target policy
-    const policyIssues = issues.filter((issue) => 
-      issue.policyA.policyId === targetPolicyId || 
-      (issue.policyB && issue.policyB.policyId === targetPolicyId)
+    
+    // If no accreditation provided, show dialog
+    if (!accreditation) {
+      setPendingRewritePolicyId(targetPolicyId);
+      setIsAccreditationDialogOpen(true);
+      return;
+    }
+    
+    // Get AI issues for the target policy
+    const policyIssues = aiIssues.filter((issue) => 
+      issue.evidence.some(ev => ev.policyId === targetPolicyId)
     );
     
     if (policyIssues.length === 0) {
       toast({
         title: 'Error',
-        description: `No issues found for the selected policy`,
+        description: `No AI issues found for the selected policy`,
         variant: 'destructive',
       });
-      return;
-    }
-
-    // If no accreditation provided and we have a target policy, show dialog
-    if (!accreditation && targetPolicyId) {
-      setPendingRewritePolicyId(targetPolicyId);
-      setIsAccreditationDialogOpen(true);
       return;
     }
     
@@ -1104,26 +816,13 @@ export default function PoliciesConflictsPage() {
         credentials: 'include',
         body: JSON.stringify({
           mode: 'apply_all',
-          issues: policyIssues.map((issue) => ({
-            issueId: issue.issueId,
-            severity: issue.severity,
+          aiIssues: policyIssues.map((issue) => ({
             type: issue.type,
+            severity: issue.severity,
+            title: issue.title,
             summary: issue.summary,
             recommendation: issue.recommendation,
-            locationA: {
-              pageNumber: issue.locationA.pageNumber,
-              lineStart: issue.locationA.lineStart,
-              lineEnd: issue.locationA.lineEnd,
-              snippet: issue.locationA.snippet,
-            },
-            locationB: issue.locationB
-              ? {
-                  pageNumber: issue.locationB.pageNumber,
-                  lineStart: issue.locationB.lineStart,
-                  lineEnd: issue.locationB.lineEnd,
-                  snippet: issue.locationB.snippet,
-                }
-              : null,
+            evidence: issue.evidence.filter(ev => ev.policyId === targetPolicyId),
           })),
           language: 'auto',
           standard: accreditation, // Pass accreditation/standard to API
@@ -1150,26 +849,10 @@ export default function PoliciesConflictsPage() {
         };
         setRewrittenPolicies(updatedPolicies);
         
-        // For single mode, show preview immediately
-        if (mode === 'single') {
-          setRewrittenPolicy(rewrittenText);
-          setCurrentPreviewPolicyId(targetPolicyId!);
-          setIsPreviewOpen(true);
-        } else if (mode === 'pair') {
-          // For pair mode, set current preview
-          setCurrentPreviewPolicyId(targetPolicyId!);
-          // Check if both policies are rewritten
-          const allPolicyIds = [selectedPolicyA, selectedPolicyB].filter(Boolean);
-          const rewrittenIds = Object.keys(updatedPolicies);
-          if (allPolicyIds.every(id => rewrittenIds.includes(id))) {
-            setIsPreviewOpen(true);
-          }
-        } else if (mode === 'global') {
-          // For global mode, show preview immediately and allow navigation to next
-          setRewrittenPolicy(rewrittenText);
-          setCurrentPreviewPolicyId(targetPolicyId!);
-          setIsPreviewOpen(true);
-        }
+        // Show preview immediately
+        setRewrittenPolicy(rewrittenText);
+        setCurrentPreviewPolicyId(targetPolicyId!);
+        setIsPreviewOpen(true);
         
         toast({
           title: 'Success',
@@ -1190,6 +873,15 @@ export default function PoliciesConflictsPage() {
     }
   }
 
+  // Show loading while checking permissions
+  if (permissionLoading || !hasPermission) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <PolicyQuickNav />
@@ -1199,166 +891,6 @@ export default function PoliciesConflictsPage() {
           Scan policies for conflicts, gaps, duplicates, and inconsistencies
         </p>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Scan Configuration</CardTitle>
-          <CardDescription>Select mode and configure scan parameters</CardDescription>
-        </CardHeader>
-        {serviceUnavailable && (
-          <div className="px-6 pb-4">
-            <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-              <p className="text-sm text-blue-900 dark:text-blue-200">
-                <span className="font-medium">Policy Engine is offline.</span> Policy AI features are disabled.
-              </p>
-            </div>
-          </div>
-        )}
-        <CardContent>
-          <div className="space-y-6">
-            {/* Mode Selector Tabs */}
-            <Tabs value={mode} onValueChange={(v) => setMode(v as 'single' | 'pair' | 'global')}>
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="single">Single Policy</TabsTrigger>
-                <TabsTrigger value="pair">Compare Two</TabsTrigger>
-                <TabsTrigger value="global">Global Scan</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="single" className="space-y-4 mt-4">
-                <div className="space-y-2">
-                  <Label>Policy</Label>
-                  <Select value={selectedPolicyA} onValueChange={setSelectedPolicyA}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a policy" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {policies.map((policy) => (
-                        <SelectItem key={policy.policyId} value={policy.policyId}>
-                          {policy.filename}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button onClick={handleScan} disabled={isScanning || !selectedPolicyA}>
-                  {isScanning ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Scanning...
-                    </>
-                  ) : (
-                    <>
-                      <FileText className="mr-2 h-4 w-4" />
-                      Scan Policy
-                    </>
-                  )}
-                </Button>
-              </TabsContent>
-
-              <TabsContent value="pair" className="space-y-4 mt-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Policy A</Label>
-                    <Select value={selectedPolicyA} onValueChange={setSelectedPolicyA}>
-                      <SelectTrigger>
-                        <SelectValue placeholder={t.policies.conflicts.selectPolicyA} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {policies.map((policy) => (
-                          <SelectItem key={policy.policyId} value={policy.policyId}>
-                            {policy.filename}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Policy B</Label>
-                    <Select value={selectedPolicyB} onValueChange={setSelectedPolicyB}>
-                      <SelectTrigger>
-                        <SelectValue placeholder={t.policies.conflicts.selectPolicyB} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {policies.map((policy) => (
-                          <SelectItem key={policy.policyId} value={policy.policyId}>
-                            {policy.filename}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <Button
-                  onClick={handleScan}
-                  disabled={isScanning || !selectedPolicyA || !selectedPolicyB}
-                >
-                  {isScanning ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Comparing...
-                    </>
-                  ) : (
-                    <>
-                      <AlertCircle className="mr-2 h-4 w-4" />
-                      Compare
-                    </>
-                  )}
-                </Button>
-              </TabsContent>
-
-              <TabsContent value="global" className="space-y-4 mt-4">
-                <div className="space-y-2">
-                  <Label>Limit Top N Policies (optional)</Label>
-                  <Input
-                    type="number"
-                    min="5"
-                    max="100"
-                    value={limitPolicies}
-                    onChange={(e) => setLimitPolicies(parseInt(e.target.value) || 20)}
-                  />
-                </div>
-                <Button onClick={handleScan} disabled={isScanning}>
-                  {isScanning ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Scanning All Policies...
-                    </>
-                  ) : (
-                    <>
-                      <AlertCircle className="mr-2 h-4 w-4" />
-                      Scan All Policies
-                    </>
-                  )}
-                </Button>
-              </TabsContent>
-            </Tabs>
-
-            {/* Shared Filters */}
-            <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-              <div className="space-y-2">
-                <Label>Category (optional)</Label>
-                <Input
-                  placeholder="Filter by category"
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Relevance Strictness</Label>
-                <Select value={strictness} onValueChange={(v: 'Strict' | 'Balanced') => setStrictness(v)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Strict">Strict</SelectItem>
-                    <SelectItem value="Balanced">Balanced</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* AI Review Section */}
       <Card>
@@ -1885,269 +1417,18 @@ export default function PoliciesConflictsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Results */}
-      {issues.length > 0 && (
-        <Card>
-          <CardHeader>
-            <div className="flex justify-between items-center">
-              <div>
-                <CardTitle>Issues Found</CardTitle>
-                <CardDescription>{issues.length} issue(s) detected</CardDescription>
-              </div>
-              {((mode === 'single' && selectedPolicyA) || (mode === 'pair' && selectedPolicyA && selectedPolicyB) || mode === 'global') && (
-                <Button
-                  onClick={() => handleRewriteAll()}
-                  disabled={isRewriting}
-                  className="gap-2"
-                >
-                  {isRewriting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Rewriting...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="h-4 w-4" />
-                      {mode === 'pair' 
-                        ? 'Rewrite Both Policies (Apply All Issues)' 
-                        : mode === 'global'
-                        ? 'Rewrite Policies (Apply All Issues)'
-                        : 'Rewrite Policy (Apply All Issues)'}
-                    </>
-                  )}
-                </Button>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Severity</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Summary</TableHead>
-                  <TableHead>Policies</TableHead>
-                  <TableHead>Locations</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {issues.map((issue) => (
-                  <TableRow key={issue.issueId}>
-                    <TableCell>
-                      <Badge variant={getSeverityColor(issue.severity) as any}>
-                        {issue.severity}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={getTypeColor(issue.type) as any}>
-                        {issue.type}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="max-w-md">{issue.summary}</TableCell>
-                    <TableCell>
-                      <div className="text-sm space-y-1">
-                        <div>
-                          <span className="font-medium">A:</span> {issue.policyA.filename}
-                        </div>
-                        {issue.policyB && (
-                          <div>
-                            <span className="font-medium">B:</span> {issue.policyB.filename}
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm space-y-1">
-                        <div>
-                          Page {issue.locationA.pageNumber}, Lines {issue.locationA.lineStart}-
-                          {issue.locationA.lineEnd}
-                        </div>
-                        {issue.locationB && (
-                          <div>
-                            Page {issue.locationB.pageNumber}, Lines {issue.locationB.lineStart}-
-                            {issue.locationB.lineEnd}
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedIssue(issue);
-                            setIsDetailsOpen(true);
-                          }}
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          View Details
-                        </Button>
-                        {rewrittenPolicies[issue.policyA.policyId] && (
-                          <Button
-                            variant="default"
-                            size="sm"
-                            onClick={() => {
-                              const rewritten = rewrittenPolicies[issue.policyA.policyId];
-                              setRewrittenPolicy(rewritten.text);
-                              setCurrentPreviewPolicyId(rewritten.policyId);
-                              setIsPreviewOpen(true);
-                            }}
-                          >
-                            <FileText className="h-4 w-4 mr-1" />
-                            View Rewritten
-                          </Button>
-                        )}
-                        {issue.policyB && rewrittenPolicies[issue.policyB.policyId] && (
-                          <Button
-                            variant="default"
-                            size="sm"
-                            onClick={() => {
-                              const rewritten = rewrittenPolicies[issue.policyB!.policyId];
-                              setRewrittenPolicy(rewritten.text);
-                              setCurrentPreviewPolicyId(rewritten.policyId);
-                              setIsPreviewOpen(true);
-                            }}
-                          >
-                            <FileText className="h-4 w-4 mr-1" />
-                            View Rewritten B
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Details Dialog */}
-      <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              Issue Details
-              {selectedIssue && (
-                <div className="flex gap-2 mt-2">
-                  <Badge variant={getSeverityColor(selectedIssue.severity) as any}>
-                    {selectedIssue.severity}
-                  </Badge>
-                  <Badge variant={getTypeColor(selectedIssue.type) as any}>
-                    {selectedIssue.type}
-                  </Badge>
-                </div>
-              )}
-            </DialogTitle>
-          </DialogHeader>
-          {selectedIssue && (
-            <div className="space-y-4 mt-4">
-              <div>
-                <h3 className="font-semibold mb-2">Summary</h3>
-                <p className="text-sm">{selectedIssue.summary}</p>
-              </div>
-
-              <div>
-                <h3 className="font-semibold mb-2">Policies Involved</h3>
-                <div className="space-y-2 text-sm">
-                  <div>
-                    <span className="font-medium">Policy A:</span> {selectedIssue.policyA.filename}
-                    <Badge variant="outline" className="ml-2 font-mono text-xs">
-                      {selectedIssue.policyA.policyId.substring(0, 8)}...
-                    </Badge>
-                  </div>
-                  {selectedIssue.policyB && (
-                    <div>
-                      <span className="font-medium">Policy B:</span> {selectedIssue.policyB.filename}
-                      <Badge variant="outline" className="ml-2 font-mono text-xs">
-                        {selectedIssue.policyB.policyId.substring(0, 8)}...
-                      </Badge>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <h3 className="font-semibold mb-2">Location A</h3>
-                <div className="p-3 bg-muted rounded text-sm space-y-1">
-                  <div>
-                    <Badge variant="outline">Page {selectedIssue.locationA.pageNumber}</Badge>
-                    <Badge variant="outline" className="ml-2">
-                      Lines {selectedIssue.locationA.lineStart}-{selectedIssue.locationA.lineEnd}
-                    </Badge>
-                  </div>
-                  <div className="mt-2 p-2 bg-background rounded border">
-                    {selectedIssue.locationA.snippet}
-                  </div>
-                </div>
-              </div>
-
-              {selectedIssue.locationB && (
-                <div>
-                  <h3 className="font-semibold mb-2">Location B</h3>
-                  <div className="p-3 bg-muted rounded text-sm space-y-1">
-                    <div>
-                      <Badge variant="outline">Page {selectedIssue.locationB.pageNumber}</Badge>
-                      <Badge variant="outline" className="ml-2">
-                        Lines {selectedIssue.locationB.lineStart}-{selectedIssue.locationB.lineEnd}
-                      </Badge>
-                    </div>
-                    <div className="mt-2 p-2 bg-background rounded border">
-                      {selectedIssue.locationB.snippet}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <h3 className="font-semibold mb-2">Recommended Resolution</h3>
-                <p className="text-sm p-3 bg-blue-50 dark:bg-blue-950 rounded border border-blue-200 dark:border-blue-800">
-                  {selectedIssue.recommendation}
-                </p>
-              </div>
-
-              <div className="pt-4 border-t flex gap-2">
-                <Button
-                  onClick={async () => {
-                    setIsDetailsOpen(false);
-                    await handleRewriteAll();
-                  }}
-                  disabled={isRewriting}
-                  className="flex-1"
-                >
-                  {isRewriting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Rewriting...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="mr-2 h-4 w-4" />
-                      Rewrite Policy Using ALL Issues
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
 
       {/* Rewritten Policy Preview Dialog */}
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {mode === 'pair' && Object.keys(rewrittenPolicies).length > 1
+              {Object.keys(rewrittenPolicies).length > 1
                 ? 'Rewritten Policies Preview'
-                : mode === 'global'
-                ? `Rewritten Policy Preview (${currentRewriteIndex + 1} / ${pendingRewritePolicies.length})`
                 : 'Rewritten Policy Preview'}
             </DialogTitle>
           </DialogHeader>
-          {mode === 'pair' && Object.keys(rewrittenPolicies).length > 1 ? (
+          {Object.keys(rewrittenPolicies).length > 1 ? (
             // Pair mode: Show tabs for multiple policies
             <div className="mt-4">
               <Tabs value={currentPreviewPolicyId || Object.keys(rewrittenPolicies)[0]} onValueChange={setCurrentPreviewPolicyId}>
@@ -2238,7 +1519,7 @@ export default function PoliciesConflictsPage() {
                 ) : null;
               })()}
               <div className="mt-4 flex gap-2 justify-between items-center">
-                {mode === 'global' && currentRewriteIndex > 0 && (
+                {pendingRewritePolicies.length > 0 && currentRewriteIndex > 0 && (
                   <Button
                     variant="outline"
                     onClick={async () => {
@@ -2292,7 +1573,7 @@ export default function PoliciesConflictsPage() {
                     <FileText className="h-4 w-4" />
                     Download PDF
                   </Button>
-                  {mode === 'global' && currentRewriteIndex < pendingRewritePolicies.length - 1 && (
+                  {pendingRewritePolicies.length > 0 && currentRewriteIndex < pendingRewritePolicies.length - 1 && (
                     <Button
                       onClick={async () => {
                         setIsPreviewOpen(false);

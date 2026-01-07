@@ -4,6 +4,8 @@ import { hashPassword } from '@/lib/auth';
 import { ensureSessionIndexes } from '@/lib/auth/sessions';
 import { getDefaultPermissionsForRole } from '@/lib/permissions';
 import { v4 as uuidv4 } from 'uuid';
+import type { User } from '@/lib/models/User';
+import type { Department } from '@/lib/models/Department';
 
 export async function POST() {
   try {
@@ -13,7 +15,7 @@ export async function POST() {
     const usersCollection = await getCollection('users');
     
     // Check if admin exists
-    const existingAdmin = await usersCollection.findOne({ email: 'admin@hospital.com' });
+    const existingAdmin = await usersCollection.findOne<User>({ email: 'admin@hospital.com' });
     
     if (existingAdmin) {
       return NextResponse.json({ message: 'Admin user already exists' });
@@ -33,7 +35,7 @@ export async function POST() {
       isActive: true,
       createdAt: new Date(),
       updatedAt: new Date(),
-    });
+    } as User);
 
     // Create sample departments
     const departmentsCollection = await getCollection('departments');
@@ -60,7 +62,7 @@ export async function POST() {
         createdBy: 'system',
         updatedBy: 'system',
       },
-    ]);
+    ] as Department[]);
 
     return NextResponse.json({
       success: true,

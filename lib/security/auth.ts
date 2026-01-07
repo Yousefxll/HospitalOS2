@@ -44,16 +44,25 @@ export async function requireAuth(
   // Verify token
   const payload = await verifyTokenEdge(token);
   if (!payload || !payload.userId) {
+    if (process.env.DEBUG_AUTH === '1') {
+      console.error('[requireAuth] Token verification failed - no payload or userId');
+    }
     return NextResponse.json(
       { error: 'Unauthorized', message: 'Invalid authentication token' },
       { status: 401 }
     );
   }
+  
+  // Token verification successful - only log if DEBUG_AUTH is enabled
+  // (removed verbose logging to reduce console noise)
 
   // Validate session with enhanced security checks
   if (payload.sessionId) {
     const sessionValidation = await validateSecureSession(payload.userId, payload.sessionId);
     if (!sessionValidation.valid) {
+      if (process.env.DEBUG_AUTH === '1') {
+        console.error(`[requireAuth] Session validation failed - userId: ${payload.userId}, sessionId: ${payload.sessionId}, message: ${sessionValidation.message}`);
+      }
       return NextResponse.json(
         {
           error: 'Unauthorized',
@@ -66,23 +75,151 @@ export async function requireAuth(
 
   // Get session data for tenantId (MUST come from session, not user/body/query)
   const sessionData = await getSessionData(request);
-  if (!sessionData || !sessionData.tenantId) {
-    return NextResponse.json(
-      { error: 'Unauthorized', message: 'Session tenantId not found' },
-      { status: 401 }
-    );
+  
+  if (process.env.DEBUG_AUTH === '1') {
+    console.log(`[requireAuth] Session data:`, {
+      hasSessionData: !!sessionData,
+      activeTenantId: sessionData?.activeTenantId,
+      tenantId: sessionData?.tenantId,
+      sessionId: sessionData?.sessionId,
+    });
   }
+  
+  // For syra-owner, sessionData might be null or tenantId might be empty
+  // We'll check user role first before requiring sessionData
+  const activeTenantId = sessionData?.activeTenantId || sessionData?.tenantId;
 
-  // Get user from database
+  // Get user from database - search in multiple places: platform DB, tenant DBs, legacy DB
+  let user: User | null = null;
+  
   try {
-    const usersCollection = await getCollection('users');
-    const user = await usersCollection.findOne<User>({ id: payload.userId }) as User | null;
+    // First, try platform DB
+    try {
+      const { getPlatformCollection } = await import('@/lib/db/platformDb');
+      const platformUsersCollection = await getPlatformCollection('users');
+      user = await platformUsersCollection.findOne<User>({ id: payload.userId }) as User | null;
+    } catch (error) {
+      // Will try other sources
+    }
+
+    // If not found and we have activeTenantId, try tenant DB first
+    if (!user && activeTenantId) {
+      try {
+        const { getTenantDbByKey } = await import('@/lib/db/tenantDb');
+        const tenantDb = await getTenantDbByKey(activeTenantId);
+        const tenantUsersCollection = tenantDb.collection<User>('users');
+        user = await tenantUsersCollection.findOne<User>({ id: payload.userId }) as User | null;
+        if (user && process.env.DEBUG_AUTH === '1') {
+          console.log(`[requireAuth] Found user ${payload.userId} in tenant DB ${activeTenantId}`);
+        }
+      } catch (error) {
+        if (process.env.DEBUG_AUTH === '1') {
+          console.error(`[requireAuth] Error searching tenant DB ${activeTenantId}:`, error);
+        }
+        // Will try all tenant DBs
+      }
+    }
+
+    // If still not found, try searching all tenant DBs (even if sessionData is null or activeTenantId is missing)
+    // This is important because the user might be in a different tenant DB than what's in the session
+    if (!user) {
+      try {
+        const { getPlatformCollection } = await import('@/lib/db/platformDb');
+        const { getTenantDbByKey } = await import('@/lib/db/tenantDb');
+        const tenantsCollection = await getPlatformCollection('tenants');
+        const allTenants = await tenantsCollection.find({ status: 'active' }).toArray();
+        
+        if (process.env.DEBUG_AUTH === '1') {
+          console.log(`[requireAuth] Searching in ${allTenants.length} tenant DBs for userId: ${payload.userId}`);
+        }
+        
+        for (const tenant of allTenants) {
+          const tId = tenant.tenantId || (tenant as any).id || (tenant as any)._id?.toString();
+          if (!tId) continue;
+          
+          try {
+            const tenantDb = await getTenantDbByKey(tId);
+            const tenantUsersCollection = tenantDb.collection<User>('users');
+            const foundUser = await tenantUsersCollection.findOne<User>({ id: payload.userId }) as User | null;
+            
+            if (foundUser) {
+              if (process.env.DEBUG_AUTH === '1') {
+                console.log(`[requireAuth] Found user ${payload.userId} in tenant DB ${tId}`);
+              }
+              user = foundUser;
+              break;
+            }
+          } catch (error) {
+            if (process.env.DEBUG_AUTH === '1') {
+              console.error(`[requireAuth] Error searching tenant DB ${tId}:`, error);
+            }
+            // Continue searching other tenants
+          }
+        }
+      } catch (error) {
+        if (process.env.DEBUG_AUTH === '1') {
+          console.error(`[requireAuth] Error searching all tenant DBs:`, error);
+        }
+        // Will try legacy DB
+      }
+    }
+
+    // Also try legacy hospital_ops DB as fallback
+    if (!user) {
+      try {
+        const usersCollection = await getCollection('users');
+        user = await usersCollection.findOne<User>({ id: payload.userId }) as User | null;
+      } catch (error) {
+        // Will be handled below
+      }
+    }
 
     if (!user || !user.isActive) {
+      if (process.env.DEBUG_AUTH === '1') {
+        console.error(`[requireAuth] User not found or inactive - userId: ${payload.userId}, found: ${!!user}, active: ${user?.isActive}`);
+      }
       return NextResponse.json(
         { error: 'Unauthorized', message: 'User not found or inactive' },
         { status: 401 }
       );
+    }
+    
+    if (process.env.DEBUG_AUTH === '1') {
+      console.log(`[requireAuth] User found - userId: ${user.id}, role: ${user.role}, tenantId: ${(user as any).tenantId || 'none'}`);
+    }
+
+    // Determine final tenantId:
+    // 1. For syra-owner: allow empty tenantId
+    // 2. For other users: use activeTenantId from session, or user.tenantId from DB as fallback
+    // 3. If user has tenantId in DB, use it as fallback (for backward compatibility)
+    let finalTenantId: string;
+    
+    if (user.role === 'syra-owner') {
+      // syra-owner can work without tenant
+      finalTenantId = activeTenantId || sessionData?.tenantId || '';
+    } else {
+      // For other users, try activeTenantId from session first
+      // If not available, use user.tenantId from DB (backward compatibility)
+      finalTenantId = activeTenantId || sessionData?.tenantId || (user as any).tenantId || '';
+      
+      // Only require tenantId if user doesn't have one in DB
+      if (!finalTenantId && !(user as any).tenantId) {
+        if (process.env.DEBUG_AUTH === '1') {
+          console.error(`[requireAuth] Tenant required but not found - userId: ${user.id}, role: ${user.role}, activeTenantId: ${activeTenantId}, user.tenantId: ${(user as any).tenantId}`);
+        }
+        return NextResponse.json(
+          { error: 'Unauthorized', message: 'Tenant not selected. Please log in again.' },
+          { status: 401 }
+        );
+      }
+      
+      // Use user.tenantId if session doesn't have one
+      if (!finalTenantId && (user as any).tenantId) {
+        finalTenantId = (user as any).tenantId;
+        if (process.env.DEBUG_AUTH === '1') {
+          console.log(`[requireAuth] Using user.tenantId from DB as fallback: ${finalTenantId}`);
+        }
+      }
     }
 
     return {
@@ -90,8 +227,8 @@ export async function requireAuth(
       userRole: user.role,
       userEmail: user.email,
       user,
-      tenantId: sessionData.tenantId, // ALWAYS from session
-      sessionId: sessionData.sessionId,
+      tenantId: finalTenantId || '',
+      sessionId: sessionData?.sessionId || '',
       groupId: user.groupId,
       hospitalId: user.hospitalId,
     };
@@ -107,18 +244,30 @@ export async function requireAuth(
 /**
  * Require specific roles
  * Returns authenticated user context or 403 response
+ * 
+ * @param request - NextRequest object
+ * @param allowedRoles - Array of allowed roles
+ * @param authResult - Optional pre-authenticated result (to avoid double auth check)
  */
 export async function requireRole(
   request: NextRequest,
-  allowedRoles: Role[]
+  allowedRoles: Role[],
+  authResult?: AuthenticatedUser | NextResponse
 ): Promise<AuthenticatedUser | NextResponse> {
-  const auth = await requireAuth(request);
+  // Use provided auth result if available, otherwise authenticate
+  const auth = authResult || await requireAuth(request);
   
   if (auth instanceof NextResponse) {
+    if (process.env.DEBUG_AUTH === '1') {
+      console.error(`[requireRole] Auth failed - status: ${auth.status}`);
+    }
     return auth; // Already an error response
   }
 
   if (!allowedRoles.includes(auth.userRole)) {
+    if (process.env.DEBUG_AUTH === '1') {
+      console.error(`[requireRole] Role check failed - userRole: ${auth.userRole}, allowed: ${allowedRoles.join(', ')}`);
+    }
     return NextResponse.json(
       { 
         error: 'Forbidden', 
@@ -126,6 +275,10 @@ export async function requireRole(
       },
       { status: 403 }
     );
+  }
+
+  if (process.env.DEBUG_AUTH === '1') {
+    console.log(`[requireRole] Role check passed - userRole: ${auth.userRole}`);
   }
 
   return auth;

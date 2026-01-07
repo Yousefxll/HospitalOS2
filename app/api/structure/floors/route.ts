@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { requireRoleAsync } from '@/lib/auth/requireRole';
 import * as structureService from '@/lib/services/structureService';
 import { getAuthContext } from '@/lib/auth/requireRole';
+import type { User } from '@/lib/models/User';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,7 +23,14 @@ export async function GET(request: NextRequest) {
       return authResult;
     }
 
-    const floors = await structureService.getAllFloors();
+    // GOLDEN RULE: tenantId must ALWAYS come from session
+    const { requireTenantId } = await import('@/lib/tenant');
+    const tenantIdResult = await requireTenantId(request);
+    if (tenantIdResult instanceof NextResponse) {
+      return tenantIdResult;
+    }
+    const tenantId = tenantIdResult;
+    const floors = await structureService.getAllFloors(tenantId);
     return NextResponse.json({ success: true, data: floors });
   } catch (error: any) {
     console.error('Error fetching floors:', error);
@@ -44,7 +52,7 @@ export async function POST(request: NextRequest) {
     // Check permission: admin.structure-management.create
     const { getCollection } = await import('@/lib/db');
     const usersCollection = await getCollection('users');
-    const user = await usersCollection.findOne({ id: authResult.userId });
+    const user = await usersCollection.findOne<User>({ id: authResult.userId });
     const userPermissions = user?.permissions || [];
 
     if (
@@ -60,12 +68,20 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = createFloorSchema.parse(body);
 
+    // GOLDEN RULE: tenantId must ALWAYS come from session
+    const { requireTenantId } = await import('@/lib/tenant');
+    const tenantIdResult = await requireTenantId(request);
+    if (tenantIdResult instanceof NextResponse) {
+      return tenantIdResult;
+    }
+    const tenantId = tenantIdResult;
     const floor = await structureService.createFloor({
       number: validatedData.number,
       name: validatedData.name,
       label_en: validatedData.label_en,
       label_ar: validatedData.label_ar,
       createdBy: authResult.userId,
+      tenantId: tenantId, // Always set tenantId on creation
     });
 
     return NextResponse.json({ success: true, data: floor }, { status: 201 });

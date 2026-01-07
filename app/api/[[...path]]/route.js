@@ -1,19 +1,13 @@
-import { MongoClient } from 'mongodb'
 import { v4 as uuidv4 } from 'uuid'
 import { NextResponse } from 'next/server'
 // Import env module (Next.js supports ES6 imports in .js files)
 import { env } from '@/lib/env'
 
-// MongoDB connection
-let client
-let db
-
+// Use shared MongoDB connection helper
 async function connectToMongo() {
-  if (!client) {
-    client = new MongoClient(env.MONGO_URL)
-    await client.connect()
-    db = client.db(env.DB_NAME)
-  }
+  // Dynamic import to handle ES modules in .js file
+  const { getHospitalOpsClient } = await import('@/lib/db/mongo')
+  const { db } = await getHospitalOpsClient()
   return db
 }
 
@@ -38,6 +32,27 @@ async function handleRoute(request, { params }) {
   const method = request.method
 
   try {
+    // Require auth context for all operations
+    // Dynamic import to handle ES modules in .js file
+    const { requireAuthContext } = await import('@/lib/auth/requireAuthContext')
+    const authContext = await requireAuthContext(request, true) // Allow platform access
+    
+    if (authContext instanceof NextResponse) {
+      return handleCORS(authContext)
+    }
+
+    const { userRole, tenantId } = authContext
+
+    // Restrict catch-all to platform roles only for security
+    // This endpoint is high-risk - only platform roles can use it
+    const isPlatformRole = ['syra-owner', 'platform', 'owner'].includes(userRole)
+    if (!isPlatformRole || tenantId !== 'platform') {
+      return handleCORS(NextResponse.json(
+        { error: 'Forbidden', message: 'Platform access required for catch-all endpoint' },
+        { status: 403 }
+      ))
+    }
+
     const db = await connectToMongo()
 
     // Root endpoint - GET /api/root (since /api/ is not accessible with catch-all)
@@ -49,7 +64,7 @@ async function handleRoute(request, { params }) {
       return handleCORS(NextResponse.json({ message: "Hello World" }))
     }
 
-    // Status endpoints - POST /api/status
+    // Status endpoints - POST /api/status (platform-only, no tenant filtering needed for status checks)
     if (route === '/status' && method === 'POST') {
       const body = await request.json()
       
@@ -70,7 +85,7 @@ async function handleRoute(request, { params }) {
       return handleCORS(NextResponse.json(statusObj))
     }
 
-    // Status endpoints - GET /api/status
+    // Status endpoints - GET /api/status (platform-only, no tenant filtering needed for status checks)
     if (route === '/status' && method === 'GET') {
       const statusChecks = await db.collection('status_checks')
         .find({})

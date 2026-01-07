@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import OpenAI from 'openai';
 import { env } from '@/lib/env';
+import { requireAuth } from '@/lib/security/auth';
+import { requirePermission } from '@/lib/security/permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,6 +31,18 @@ const createSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    // Authenticate
+    const auth = await requireAuth(request);
+    if (auth instanceof NextResponse) {
+      return auth;
+    }
+
+    // Check permission: policies.new-creator.view
+    const permissionCheck = await requirePermission(request, 'policies.new-creator.view', auth);
+    if (permissionCheck instanceof NextResponse) {
+      return permissionCheck;
+    }
+
     const body = await request.json();
     const data = createSchema.parse(body);
 

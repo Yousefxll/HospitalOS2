@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from '@/hooks/use-translation';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useMe } from '@/lib/hooks/useMe';
 
 interface UserInfo {
   id: string;
@@ -18,7 +20,7 @@ interface UserInfo {
 }
 
 export default function AccountPage() {
-  const [user, setUser] = useState<UserInfo | null>(null);
+  const { me, isLoading: meLoading } = useMe();
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -26,26 +28,7 @@ export default function AccountPage() {
   const { toast } = useToast();
   const { t } = useTranslation();
 
-  useEffect(() => {
-    fetchUser();
-  }, []);
-
-  async function fetchUser() {
-    try {
-      const response = await fetch('/api/auth/me', {
-        credentials: 'include', // Ensure cookies are sent
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setUser(data.user);
-      } else if (response.status === 401) {
-        // Not authenticated, silently fail
-        setUser(null);
-      }
-    } catch (error) {
-      console.error('Failed to fetch user:', error);
-    }
-  }
+  const user = me?.user as UserInfo | null;
 
   async function handleChangePassword(e: React.FormEvent) {
     e.preventDefault();
@@ -90,18 +73,29 @@ export default function AccountPage() {
     }
   }
 
-  if (!user) {
+  if (meLoading || !user) {
     return <div>{t.common.loading}</div>;
   }
 
   return (
-    <div className="space-y-6">
-      <div>
+    <div className="space-y-4 md:space-y-6">
+      {/* Header - Hidden on mobile (MobileTopBar shows it) */}
+      <div className="hidden md:block">
         <h1 className="text-3xl font-bold">{t.account.accountSettings}</h1>
         <p className="text-muted-foreground">{t.account.manageAccountPreferences}</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Mobile Quick Summary */}
+      <div className="md:hidden">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">{t.account.accountSettings}</CardTitle>
+            <CardDescription>{t.account.manageAccountPreferences}</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         {/* Profile Information */}
         <Card>
           <CardHeader className="text-center">
@@ -149,6 +143,7 @@ export default function AccountPage() {
                   value={oldPassword}
                   onChange={(e) => setOldPassword(e.target.value)}
                   required
+                  className="h-11"
                 />
               </div>
               <div className="space-y-2">
@@ -159,6 +154,7 @@ export default function AccountPage() {
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   required
+                  className="h-11"
                 />
               </div>
               <div className="space-y-2">
@@ -169,9 +165,10 @@ export default function AccountPage() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
+                  className="h-11"
                 />
               </div>
-              <Button type="submit" disabled={isChangingPassword}>
+              <Button type="submit" disabled={isChangingPassword} className="w-full md:w-auto min-h-[44px]">
                 {isChangingPassword ? t.account.changing : t.account.changePassword}
               </Button>
             </form>

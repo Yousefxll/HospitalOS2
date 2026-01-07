@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
-
-/**
+import { requireAuth } from '@/lib/security/auth';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+
+/**
  * PATCH /api/notifications/:id
  * Mark notification as read
  */
@@ -13,14 +14,13 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const userId = request.headers.get('x-user-id');
-    
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    // Authenticate
+    const auth = await requireAuth(request);
+    if (auth instanceof NextResponse) {
+      return auth;
     }
+    
+    const userId = auth.userId;
 
     const { id } = params;
     const notificationsCollection = await getCollection('notifications');

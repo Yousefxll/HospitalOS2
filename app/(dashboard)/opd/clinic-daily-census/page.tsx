@@ -21,6 +21,10 @@ import {
 import { Download, Filter, ChevronDown, ChevronUp, Users, Calendar, Activity, Clock, TrendingUp } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import TimeFilter, { TimeFilterValue, getAPIParams } from '@/components/TimeFilter';
+import { MobileSearchBar } from '@/components/mobile/MobileSearchBar';
+import { MobileCardList } from '@/components/mobile/MobileCardList';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useTranslation } from '@/hooks/use-translation';
 
 interface Department {
   id: string;
@@ -57,6 +61,8 @@ interface DepartmentStats {
 }
 
 export default function ClinicDailyCensusPage() {
+  const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const [filter, setFilter] = useState<TimeFilterValue>({
     granularity: 'day',
     date: new Date().toISOString().split('T')[0],
@@ -67,6 +73,7 @@ export default function ClinicDailyCensusPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [departmentStats, setDepartmentStats] = useState<DepartmentStats | null>(null);
   const [sortBy, setSortBy] = useState<string>('totalPatients'); // Default sort by total patients
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   useEffect(() => {
     fetchDepartments();
@@ -149,9 +156,80 @@ export default function ClinicDailyCensusPage() {
     doctors: [],
   };
 
+  // Filter doctors by search query
+  const allDoctors = stats.doctors || [];
+  const filteredDoctors = searchQuery.trim()
+    ? allDoctors.filter(doctor =>
+        doctor.doctorName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        doctor.employeeId.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : allDoctors;
+
+  // Convert doctors to card format for mobile
+  const doctorCardItems = (() => {
+    const fullTimeDoctors = filteredDoctors.filter(d => d.employmentType === 'Full-Time');
+    const partTimeDoctors = filteredDoctors.filter(d => d.employmentType === 'Part-Time');
+    
+    const sortDoctors = (doctors: DoctorStats[]) => {
+      return [...doctors].sort((a, b) => {
+        switch (sortBy) {
+          case 'totalPatients': return b.totalPatients - a.totalPatients;
+          case 'booked': return b.booked - a.booked;
+          case 'waiting': return b.waiting - a.waiting;
+          case 'procedures': return b.procedures - a.procedures;
+          case 'hours': return b.hours - a.hours;
+          case 'sessions': return (b.sessions || 0) - (a.sessions || 0);
+          case 'utilization': return (b.utilization || 0) - (a.utilization || 0);
+          case 'employeeId': return (a.employeeId || '').localeCompare(b.employeeId || '');
+          case 'name': return (a.doctorName || '').localeCompare(b.doctorName || '');
+          default: return 0;
+        }
+      });
+    };
+    
+    const sortedFullTime = sortDoctors(fullTimeDoctors);
+    const sortedPartTime = sortDoctors(partTimeDoctors);
+    
+    return [
+      ...sortedFullTime.map(doctor => ({
+        id: doctor.doctorId,
+        title: doctor.doctorName,
+        subtitle: `${doctor.employeeId || 'N/A'} • ${doctor.employmentType}`,
+        description: `${doctor.totalPatients} patients • ${doctor.hours}h`,
+        badges: [
+          { label: 'FT', variant: 'default' as const },
+          { label: `${doctor.utilization || 0}%`, variant: 'secondary' as const },
+        ],
+        metadata: [
+          { label: 'Booked', value: doctor.booked.toString() },
+          { label: 'Waiting', value: doctor.waiting.toString() },
+          { label: 'Procedures', value: doctor.procedures.toString() },
+          { label: 'Sessions', value: (doctor.sessions || 0).toString() },
+        ],
+      })),
+      ...sortedPartTime.map(doctor => ({
+        id: doctor.doctorId,
+        title: doctor.doctorName,
+        subtitle: `${doctor.employeeId || 'N/A'} • ${doctor.employmentType}`,
+        description: `${doctor.totalPatients} patients • ${doctor.hours}h`,
+        badges: [
+          { label: 'PT', variant: 'outline' as const },
+          { label: `${doctor.utilization || 0}%`, variant: 'secondary' as const },
+        ],
+        metadata: [
+          { label: 'Booked', value: doctor.booked.toString() },
+          { label: 'Waiting', value: doctor.waiting.toString() },
+          { label: 'Procedures', value: doctor.procedures.toString() },
+          { label: 'Sessions', value: (doctor.sessions || 0).toString() },
+        ],
+      })),
+    ];
+  })();
+
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-4 md:space-y-6">
+      {/* Header - Hidden on mobile (MobileTopBar shows it) */}
+      <div className="hidden md:flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">Daily Clinic Census</h1>
           <p className="text-muted-foreground">Patient counts per clinic</p>
@@ -177,33 +255,60 @@ export default function ClinicDailyCensusPage() {
         </div>
       </div>
 
+      {/* Mobile Quick Summary */}
+      <div className="md:hidden">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Daily Clinic Census</CardTitle>
+            <CardDescription>Patient counts per clinic</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="outline"
+              onClick={() => setShowFilter(!showFilter)}
+              className="w-full min-h-[44px] mb-2"
+            >
+              <Filter className="h-4 w-4 mr-2" />
+              {showFilter ? 'Hide Filter' : 'Show Filter'}
+            </Button>
+            <Button onClick={handleExport} className="w-full min-h-[44px]">
+              <Download className="mr-2 h-4 w-4" />
+              Export
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Department Filter */}
-      <div className="flex items-center gap-4">
-        <label className="text-sm font-medium">Department:</label>
-        <Select 
-          value={selectedDepartmentId || undefined} 
-          onValueChange={(value) => setSelectedDepartmentId(value || '')}
-        >
-          <SelectTrigger className="w-[250px]">
-            <SelectValue placeholder="Select Department" />
-          </SelectTrigger>
-          <SelectContent>
-            {departments.map((dept) => (
-              <SelectItem key={dept.id} value={dept.id}>
-                {dept.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {selectedDepartmentId && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setSelectedDepartmentId('')}
+      <div className="flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-4">
+        <label className="text-sm font-medium whitespace-nowrap">Department:</label>
+        <div className="flex-1 w-full md:w-auto flex gap-2">
+          <Select 
+            value={selectedDepartmentId || undefined} 
+            onValueChange={(value) => setSelectedDepartmentId(value || '')}
           >
-            Clear
-          </Button>
-        )}
+            <SelectTrigger className="w-full md:w-[250px] h-11">
+              <SelectValue placeholder="Select Department" />
+            </SelectTrigger>
+            <SelectContent>
+              {departments.map((dept) => (
+                <SelectItem key={dept.id} value={dept.id}>
+                  {dept.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {selectedDepartmentId && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedDepartmentId('')}
+              className="min-h-[44px]"
+            >
+              Clear
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Time Filter - Collapsible */}
@@ -216,10 +321,81 @@ export default function ClinicDailyCensusPage() {
         <div className="text-center text-muted-foreground">Loading data...</div>
       )}
 
+      {/* Mobile Search */}
+      {selectedDepartmentId && departmentStats && stats.doctors.length > 0 && (
+        <div className="md:hidden">
+          <MobileSearchBar
+            placeholderKey="common.search"
+            queryParam="q"
+            onSearch={setSearchQuery}
+          />
+        </div>
+      )}
+
       {/* KPI Cards */}
       {selectedDepartmentId && departmentStats && (
         <>
-          <div className="flex flex-row gap-4 w-full">
+          {/* Mobile KPI Cards - 2 columns */}
+          <div className="md:hidden grid grid-cols-2 gap-3">
+            <Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-xs font-medium">Total Patients</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="text-xl font-bold">{stats.totalPatients}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-xs font-medium">Booked</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="text-xl font-bold">{stats.booked}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-xs font-medium">Waiting</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="text-xl font-bold">{stats.waiting}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-xs font-medium">Procedures</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="text-xl font-bold">{stats.procedures}</div>
+              </CardContent>
+            </Card>
+            <Card className="col-span-2">
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-xs font-medium">Utilization</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="text-xl font-bold">{stats.utilization || 0}%</div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Desktop KPI Cards - 5 columns */}
+          <div className="hidden md:flex flex-row gap-4 w-full">
             <Card className="flex-1 min-w-0">
               <CardHeader className="flex flex-row items-center justify-center space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-center">Total Patients Seen</CardTitle>
@@ -308,9 +484,42 @@ export default function ClinicDailyCensusPage() {
             </div>
           )}
 
-          {/* Doctors List */}
-          {stats.doctors && stats.doctors.length > 0 && (
-            <Card>
+          {/* Mobile: Doctors Card List */}
+          {filteredDoctors.length > 0 && (
+            <div className="md:hidden">
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">Doctors Performance</CardTitle>
+                    <Select value={sortBy} onValueChange={setSortBy}>
+                      <SelectTrigger className="w-[140px] h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="totalPatients">Total</SelectItem>
+                        <SelectItem value="booked">Booked</SelectItem>
+                        <SelectItem value="waiting">Waiting</SelectItem>
+                        <SelectItem value="procedures">Procedures</SelectItem>
+                        <SelectItem value="utilization">Utilization</SelectItem>
+                        <SelectItem value="name">Name</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <MobileCardList
+                    items={doctorCardItems}
+                    isLoading={isLoading}
+                    emptyMessage="No doctors found"
+                  />
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Desktop: Doctors Table */}
+          {filteredDoctors.length > 0 && (
+            <Card className="hidden md:block">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
@@ -359,8 +568,8 @@ export default function ClinicDailyCensusPage() {
                   <TableBody>
                     {(() => {
                       // Separate Full-Time and Part-Time doctors
-                      const fullTimeDoctors = stats.doctors.filter(d => d.employmentType === 'Full-Time');
-                      const partTimeDoctors = stats.doctors.filter(d => d.employmentType === 'Part-Time');
+                      const fullTimeDoctors = filteredDoctors.filter(d => d.employmentType === 'Full-Time');
+                      const partTimeDoctors = filteredDoctors.filter(d => d.employmentType === 'Part-Time');
                       
                       // Sort function
                       const sortDoctors = (doctors: DoctorStats[]) => {

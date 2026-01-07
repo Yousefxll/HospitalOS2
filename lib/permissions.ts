@@ -195,6 +195,16 @@ export const PERMISSIONS: Permission[] = [
   { key: 'policies.harmonization.edit', label: 'Edit Policy Harmonization', category: 'Policy System' },
   { key: 'policies.harmonization.delete', label: 'Delete Policy Harmonization', category: 'Policy System' },
   
+  { key: 'policies.risk-detector.view', label: 'View Risk Detector', category: 'Policy System' },
+  { key: 'policies.risk-detector.create', label: 'Create Risk Detector', category: 'Policy System' },
+  { key: 'policies.risk-detector.edit', label: 'Edit Risk Detector', category: 'Policy System' },
+  { key: 'policies.risk-detector.delete', label: 'Delete Risk Detector', category: 'Policy System' },
+  
+  { key: 'policies.tag-review.view', label: 'View Tag Review Queue', category: 'Policy System' },
+  { key: 'policies.tag-review.create', label: 'Create Tag Review Queue', category: 'Policy System' },
+  { key: 'policies.tag-review.edit', label: 'Edit Tag Review Queue', category: 'Policy System' },
+  { key: 'policies.tag-review.delete', label: 'Delete Tag Review Queue', category: 'Policy System' },
+  
   // Admin
   { key: 'admin.data-admin.view', label: 'View Data Admin', category: 'Admin' },
   { key: 'admin.data-admin.create', label: 'Create Data Admin', category: 'Admin' },
@@ -280,6 +290,8 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   '/policies': 'policies.view',
   '/policies/conflicts': 'policies.conflicts.view',
   '/policies/create': 'policies.create.view',
+  '/policies/risk-detector': 'policies.risk-detector.view',
+  '/policies/tag-review-queue': 'policies.tag-review.view',
   '/ai/policy-assistant': 'policies.assistant.view',
   '/ai/new-policy-from-scratch': 'policies.new-creator.view',
   '/ai/policy-harmonization': 'policies.harmonization.view',
@@ -295,17 +307,19 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
 
 /**
  * Check if user has permission for a route
+ * SECURITY: If route is not in map, DENY access (no backward compatibility)
  */
 export function hasRoutePermission(userPermissions: string[], route: string): boolean {
-  // Admin always has access
+  // Admin always has access (users with admin.users permission)
   if (userPermissions.includes('admin.users')) {
     return true;
   }
   
   const requiredPermission = ROUTE_PERMISSIONS[route];
   if (!requiredPermission) {
-    // If route not in map, allow access (backward compatibility)
-    return true;
+    // SECURITY: If route not in map, DENY access (fail secure)
+    // This prevents unauthorized access to new routes that haven't been added to the map yet
+    return false;
   }
   
   return userPermissions.includes(requiredPermission);

@@ -12,10 +12,22 @@ import { Floor, FloorDepartment, FloorRoom } from '@/lib/models/Floor';
 // Floor Operations
 // ============================================================================
 
-export async function getAllFloors(): Promise<Floor[]> {
+export async function getAllFloors(tenantId?: string): Promise<Floor[]> {
   const floorsCollection = await getCollection('floors');
+  
+  // Build tenant filter (GOLDEN RULE: tenantId from session only)
+  // Backward compatibility: include documents without tenantId until migration is run
+  const tenantFilter = tenantId ? {
+    $or: [
+      { tenantId: tenantId },
+      { tenantId: { $exists: false } }, // Backward compatibility
+      { tenantId: null },
+      { tenantId: '' },
+    ],
+  } : {};
+  
   const floors = await floorsCollection
-    .find({ active: true })
+    .find<Floor>({ ...tenantFilter, active: true })
     .sort({ number: 1 })
     .toArray();
   
@@ -25,8 +37,8 @@ export async function getAllFloors(): Promise<Floor[]> {
     number: floor.number,
     name: floor.name,
     key: floor.key,
-    label_en: floor.label_en || floor.labelEn,
-    label_ar: floor.label_ar || floor.labelAr,
+    label_en: floor.label_en,
+    label_ar: floor.label_ar,
     active: floor.active !== false, // Default to true
     createdAt: floor.createdAt,
     updatedAt: floor.updatedAt,
@@ -35,9 +47,20 @@ export async function getAllFloors(): Promise<Floor[]> {
   })) as Floor[];
 }
 
-export async function getFloorById(id: string): Promise<Floor | null> {
+export async function getFloorById(id: string, tenantId?: string): Promise<Floor | null> {
   const floorsCollection = await getCollection('floors');
-  const floor = await floorsCollection.findOne({ id, active: true });
+  
+  // Build tenant filter
+  const tenantFilter = tenantId ? {
+    $or: [
+      { tenantId: tenantId },
+      { tenantId: { $exists: false } },
+      { tenantId: null },
+      { tenantId: '' },
+    ],
+  } : {};
+  
+  const floor = await floorsCollection.findOne<Floor>({ ...tenantFilter, id, active: true });
   
   if (!floor) return null;
   
@@ -47,8 +70,8 @@ export async function getFloorById(id: string): Promise<Floor | null> {
     number: floor.number,
     name: floor.name,
     key: floor.key,
-    label_en: floor.label_en || floor.labelEn,
-    label_ar: floor.label_ar || floor.labelAr,
+    label_en: floor.label_en,
+    label_ar: floor.label_ar,
     active: floor.active !== false,
     createdAt: floor.createdAt,
     updatedAt: floor.updatedAt,
@@ -64,6 +87,7 @@ export async function createFloor(data: {
   label_ar: string;
   key?: string;
   createdBy: string;
+  tenantId?: string; // REQUIRED: tenantId for isolation
 }): Promise<Floor> {
   const floorsCollection = await getCollection('floors');
   const { v4: uuidv4 } = await import('uuid');
@@ -79,6 +103,7 @@ export async function createFloor(data: {
     label_en: data.label_en,
     label_ar: data.label_ar,
     active: true,
+    tenantId: data.tenantId, // Always set tenantId on creation
     createdAt: new Date(),
     updatedAt: new Date(),
     createdBy: data.createdBy,
@@ -114,23 +139,24 @@ export async function updateFloor(
     { id, active: true },
     { $set: updateData },
     { returnDocument: 'after' }
-  );
+  ) as any as { value: Floor | null };
   
-  if (!result) return null;
+  if (!result || !result.value) return null;
   
+  const updated = result.value;
   return {
-    _id: result._id,
-    id: result.id,
-    number: result.number,
-    name: result.name,
-    key: result.key,
-    label_en: result.label_en || result.labelEn,
-    label_ar: result.label_ar || result.labelAr,
-    active: result.active !== false,
-    createdAt: result.createdAt,
-    updatedAt: result.updatedAt,
-    createdBy: result.createdBy,
-    updatedBy: result.updatedBy,
+    _id: updated._id,
+    id: updated.id,
+    number: updated.number,
+    name: updated.name,
+    key: updated.key,
+    label_en: updated.label_en,
+    label_ar: updated.label_ar,
+    active: updated.active !== false,
+    createdAt: updated.createdAt,
+    updatedAt: updated.updatedAt,
+    createdBy: updated.createdBy,
+    updatedBy: updated.updatedBy,
   } as Floor;
 }
 
@@ -155,10 +181,21 @@ export async function deleteFloor(id: string, updatedBy: string): Promise<boolea
 // Department Operations
 // ============================================================================
 
-export async function getAllDepartments(): Promise<FloorDepartment[]> {
+export async function getAllDepartments(tenantId?: string): Promise<FloorDepartment[]> {
   const departmentsCollection = await getCollection('floor_departments');
+  
+  // Build tenant filter
+  const tenantFilter = tenantId ? {
+    $or: [
+      { tenantId: tenantId },
+      { tenantId: { $exists: false } },
+      { tenantId: null },
+      { tenantId: '' },
+    ],
+  } : {};
+  
   const departments = await departmentsCollection
-    .find({ active: true })
+    .find<FloorDepartment>({ ...tenantFilter, active: true })
     .sort({ label_en: 1 })
     .toArray();
   
@@ -181,10 +218,21 @@ export async function getAllDepartments(): Promise<FloorDepartment[]> {
   })) as FloorDepartment[];
 }
 
-export async function getDepartmentsByFloor(floorKey: string): Promise<FloorDepartment[]> {
+export async function getDepartmentsByFloor(floorKey: string, tenantId?: string): Promise<FloorDepartment[]> {
   const departmentsCollection = await getCollection('floor_departments');
+  
+  // Build tenant filter
+  const tenantFilter = tenantId ? {
+    $or: [
+      { tenantId: tenantId },
+      { tenantId: { $exists: false } },
+      { tenantId: null },
+      { tenantId: '' },
+    ],
+  } : {};
+  
   const departments = await departmentsCollection
-    .find({ floorKey, active: true })
+    .find<FloorDepartment>({ ...tenantFilter, floorKey, active: true })
     .sort({ label_en: 1 })
     .toArray();
   
@@ -217,6 +265,7 @@ export async function createDepartment(data: {
   label_ar: string;
   key?: string;
   createdBy: string;
+  tenantId?: string; // REQUIRED: tenantId for isolation
 }): Promise<FloorDepartment> {
   const departmentsCollection = await getCollection('floor_departments');
   const { v4: uuidv4 } = await import('uuid');
@@ -235,6 +284,7 @@ export async function createDepartment(data: {
     label_en: data.label_en,
     label_ar: data.label_ar,
     active: true,
+    tenantId: data.tenantId, // Always set tenantId on creation
     createdAt: new Date(),
     updatedAt: new Date(),
     createdBy: data.createdBy,
@@ -271,26 +321,27 @@ export async function updateDepartment(
     { id, active: true },
     { $set: updateData },
     { returnDocument: 'after' }
-  );
+  ) as any as { value: FloorDepartment | null };
   
-  if (!result) return null;
+  if (!result || !result.value) return null;
   
+  const updated = result.value;
   return {
-    _id: result._id,
-    id: result.id,
-    floorId: result.floorId,
-    floorKey: result.floorKey,
-    departmentId: result.departmentId,
-    departmentKey: result.departmentKey,
-    departmentName: result.departmentName,
-    key: result.key,
-    label_en: result.label_en || result.labelEn,
-    label_ar: result.label_ar || result.labelAr,
-    active: result.active !== false,
-    createdAt: result.createdAt,
-    updatedAt: result.updatedAt,
-    createdBy: result.createdBy,
-    updatedBy: result.updatedBy,
+    _id: updated._id,
+    id: updated.id,
+    floorId: updated.floorId,
+    floorKey: updated.floorKey,
+    departmentId: updated.departmentId,
+    departmentKey: updated.departmentKey,
+    departmentName: updated.departmentName,
+    key: updated.key,
+    label_en: updated.label_en,
+    label_ar: updated.label_ar,
+    active: updated.active !== false,
+    createdAt: updated.createdAt,
+    updatedAt: updated.updatedAt,
+    createdBy: updated.createdBy,
+    updatedBy: updated.updatedBy,
   } as FloorDepartment;
 }
 
@@ -315,10 +366,21 @@ export async function deleteDepartment(id: string, updatedBy: string): Promise<b
 // Room Operations
 // ============================================================================
 
-export async function getAllRooms(): Promise<FloorRoom[]> {
+export async function getAllRooms(tenantId?: string): Promise<FloorRoom[]> {
   const roomsCollection = await getCollection('floor_rooms');
+  
+  // Build tenant filter
+  const tenantFilter = tenantId ? {
+    $or: [
+      { tenantId: tenantId },
+      { tenantId: { $exists: false } },
+      { tenantId: null },
+      { tenantId: '' },
+    ],
+  } : {};
+  
   const rooms = await roomsCollection
-    .find({ active: true })
+    .find<FloorRoom>({ ...tenantFilter, active: true })
     .sort({ roomNumber: 1 })
     .toArray();
   
@@ -344,11 +406,23 @@ export async function getAllRooms(): Promise<FloorRoom[]> {
 
 export async function getRoomsByFloorAndDepartment(
   floorKey: string,
-  departmentKey: string
+  departmentKey: string,
+  tenantId?: string
 ): Promise<FloorRoom[]> {
   const roomsCollection = await getCollection('floor_rooms');
+  
+  // Build tenant filter
+  const tenantFilter = tenantId ? {
+    $or: [
+      { tenantId: tenantId },
+      { tenantId: { $exists: false } },
+      { tenantId: null },
+      { tenantId: '' },
+    ],
+  } : {};
+  
   const rooms = await roomsCollection
-    .find({ floorKey, departmentKey, active: true })
+    .find<FloorRoom>({ ...tenantFilter, floorKey, departmentKey, active: true })
     .sort({ roomNumber: 1 })
     .toArray();
   
@@ -383,6 +457,7 @@ export async function createRoom(data: {
   label_ar: string;
   key?: string;
   createdBy: string;
+  tenantId?: string; // REQUIRED: tenantId for isolation
 }): Promise<FloorRoom> {
   const roomsCollection = await getCollection('floor_rooms');
   const { v4: uuidv4 } = await import('uuid');
@@ -402,6 +477,7 @@ export async function createRoom(data: {
     label_en: data.label_en,
     label_ar: data.label_ar,
     active: true,
+    tenantId: data.tenantId, // Always set tenantId on creation
     createdAt: new Date(),
     updatedAt: new Date(),
     createdBy: data.createdBy,
@@ -439,27 +515,28 @@ export async function updateRoom(
     { id, active: true },
     { $set: updateData },
     { returnDocument: 'after' }
-  );
+  ) as any as { value: FloorRoom | null };
   
-  if (!result) return null;
+  if (!result || !result.value) return null;
   
+  const updated = result.value;
   return {
-    _id: result._id,
-    id: result.id,
-    floorId: result.floorId,
-    floorKey: result.floorKey,
-    departmentId: result.departmentId,
-    departmentKey: result.departmentKey,
-    roomNumber: result.roomNumber,
-    roomName: result.roomName,
-    key: result.key,
-    label_en: result.label_en || result.labelEn,
-    label_ar: result.label_ar || result.labelAr,
-    active: result.active !== false,
-    createdAt: result.createdAt,
-    updatedAt: result.updatedAt,
-    createdBy: result.createdBy,
-    updatedBy: result.updatedBy,
+    _id: updated._id,
+    id: updated.id,
+    floorId: updated.floorId,
+    floorKey: updated.floorKey,
+    departmentId: updated.departmentId,
+    departmentKey: updated.departmentKey,
+    roomNumber: updated.roomNumber,
+    roomName: updated.roomName,
+    key: updated.key,
+    label_en: updated.label_en,
+    label_ar: updated.label_ar,
+    active: updated.active !== false,
+    createdAt: updated.createdAt,
+    updatedAt: updated.updatedAt,
+    createdBy: updated.createdBy,
+    updatedBy: updated.updatedBy,
   } as FloorRoom;
 }
 

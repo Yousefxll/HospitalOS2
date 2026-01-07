@@ -13,7 +13,7 @@ This module implements automatic OCR that works for any document type:
 """
 import os
 from pathlib import Path
-from typing import List, Dict, Any, Tuple, Optional
+from typing import List, Dict, Any, Tuple, Optional, TYPE_CHECKING
 from PIL import Image
 import hashlib
 import re
@@ -36,6 +36,10 @@ except ImportError:
     OPENCV_AVAILABLE = False
     np = None
     cv2 = None
+
+# For type hints only
+if TYPE_CHECKING:
+    import numpy as np
 
 from app.openai_client import get_openai_client
 from app.config import settings
@@ -100,7 +104,7 @@ def preprocess_image_for_ocr(image: Image.Image) -> Image.Image:
         return image
 
 
-def deskew_image(image_array: np.ndarray) -> np.ndarray:
+def deskew_image(image_array: "np.ndarray") -> "np.ndarray":
     """
     Deskew (straighten) rotated text in image
     

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
-
+import type { PolicyDocument, PolicyChunk } from '@/lib/models/Policy';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
 
     // Find matching chunks
     const matchingChunks = await chunksCollection
-      .find(chunksQuery)
+      .find<PolicyChunk>(chunksQuery)
       .limit(100) // Get more chunks, then group by document
       .toArray();
 
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
     if (documentIds.length === 0) {
       // Fallback: search in document titles
       const titleMatches = await policiesCollection
-        .find({
+        .find<PolicyDocument>({
           ...documentQuery,
           title: { $regex: query, $options: 'i' },
         })
@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
             section: doc.section,
             source: doc.source,
             totalPages: doc.totalPages,
-            fileName: doc.fileName,
+            fileName: doc.originalFileName,
           },
           chunks: [],
           relevanceScore: 1,
@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
 
     // Get documents for matching chunks
     const documents = await policiesCollection
-      .find({
+      .find<PolicyDocument>({
         ...documentQuery,
         documentId: { $in: documentIds },
       })
@@ -121,7 +121,7 @@ export async function GET(request: NextRequest) {
           section: doc.section,
           source: doc.source,
           totalPages: doc.totalPages,
-          fileName: doc.fileName,
+            fileName: doc.originalFileName,
         },
         chunks: docChunks.map((chunk: any) => ({
           id: chunk.id,

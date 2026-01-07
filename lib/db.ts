@@ -1,61 +1,68 @@
-import { MongoClient, Db } from 'mongodb';
+import type { Db, Collection } from 'mongodb';
+import { getHospitalOpsClient, resetAllConnectionCaches } from './db/mongo';
 import { env } from './env';
 
-let cachedClient: MongoClient | null = null;
-let cachedDb: Db | null = null;
+// Optional: cache db promise per runtime (useful in production too)
+let _dbPromise: Promise<Db> | null = null;
 
 // Helper function to reset connection cache (useful for testing or connection issues)
 export function resetConnectionCache(): void {
-  cachedClient = null;
-  cachedDb = null;
+  resetAllConnectionCaches();
+  _dbPromise = null;
 }
 
+/**
+ * Connect to Hospital Ops DB and return Db instance.
+ * - No top-level connection
+ * - Caches Db promise to avoid repeated connects
+ */
 export async function connectDB(): Promise<Db> {
-  if (cachedDb && cachedClient) {
-    return cachedDb;
-  }
+  if (_dbPromise) return _dbPromise;
 
-  try {
-    // Add connection timeout and better error handling
-    const client = await MongoClient.connect(env.MONGO_URL, {
-      maxPoolSize: 10,
-      serverSelectionTimeoutMS: 10000, // 10 seconds timeout
-      connectTimeoutMS: 10000,
-    });
+  _dbPromise = (async () => {
+    try {
+      const { db } = await getHospitalOpsClient();
+      return db;
+    } catch (error) {
+      console.error('❌ MongoDB connection error:', error);
 
-    const db = client.db(env.DB_NAME);
+      const errorMessage = error instanceof Error ? error.message : String(error);
 
-    cachedClient = client;
-    cachedDb = db;
+      // Log connection details (hide password)
+      const maskedUrl = env.MONGO_URL.replace(/\/\/[^:]+:[^@]+@/, '//***:***@');
+      console.error('Connection details:', {
+        url: maskedUrl,
+        dbName: env.DB_NAME,
+        error: errorMessage,
+      });
 
-    console.log('MongoDB connected successfully to', env.DB_NAME);
-    return db;
-  } catch (error) {
-    console.error('❌ MongoDB connection error:', error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    
-    // Log connection details (hide password)
-    const maskedUrl = env.MONGO_URL.replace(/\/\/[^:]+:[^@]+@/, '//***:***@');
-    console.error('Connection details:', {
-      url: maskedUrl,
-      dbName: env.DB_NAME,
-      error: errorMessage,
-    });
-    
-    // Provide helpful error messages for common issues
-    if (errorMessage.includes('authentication failed') || errorMessage.includes('bad auth')) {
-      throw new Error(`MongoDB authentication failed. Please check your username and password in MONGO_URL.`);
-    } else if (errorMessage.includes('getaddrinfo') || errorMessage.includes('ENOTFOUND')) {
-      throw new Error(`MongoDB server not found. Please check your cluster URL in MONGO_URL.`);
-    } else if (errorMessage.includes('timeout') || errorMessage.includes('ETIMEDOUT')) {
-      throw new Error(`MongoDB connection timeout. Please check your network connection and MongoDB Atlas Network Access settings.`);
+      // Important: clear cache on failure so next call can retry
+      _dbPromise = null;
+
+      // Provide helpful error messages for common issues
+      if (errorMessage.toLowerCase().includes('authentication failed') || errorMessage.toLowerCase().includes('bad auth')) {
+        throw new Error('MongoDB authentication failed. Please check your username and password in MONGO_URL.');
+      }
+
+      if (errorMessage.includes('getaddrinfo') || errorMessage.includes('ENOTFOUND')) {
+        throw new Error('MongoDB server not found. Please check your cluster URL in MONGO_URL.');
+      }
+
+      if (errorMessage.toLowerCase().includes('timeout') || errorMessage.includes('ETIMEDOUT')) {
+        throw new Error('MongoDB connection timeout. Please check your network and MongoDB Atlas Network Access settings.');
+      }
+
+      throw new Error(`Failed to connect to MongoDB: ${errorMessage}`);
     }
-    
-    throw new Error(`Failed to connect to MongoDB: ${errorMessage}`);
-  }
+  })();
+
+  return _dbPromise;
 }
 
-export async function getCollection(name: string) {
+/**
+ * Get a collection by name.
+ */
+export async function getCollection<T = unknown>(name: string): Promise<Collection<T>> {
   const db = await connectDB();
-  return db.collection(name);
+  return db.collection<T>(name);
 }
