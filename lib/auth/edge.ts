@@ -19,6 +19,7 @@ export interface TokenPayload {
   email: string;
   role: 'admin' | 'supervisor' | 'staff' | 'viewer' | 'group-admin' | 'hospital-admin' | 'syra-owner';
   sessionId?: string; // Session ID for single active session enforcement
+  activeTenantId?: string; // Active tenant ID (selected at login) - for owner tenant check in Edge Runtime
   entitlements?: {
     sam: boolean;
     health: boolean;
