@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
         if (tenantId && tenantId !== 'platform') {
           try {
             const tenantEntitlements = await getTenantEntitlements(tenantId);
-            const userPlatformAccess = await getUserPlatformAccess(payload.userId);
+            const userPlatformAccess = await getUserPlatformAccess(payload.userId, tenantId);
             effectiveEntitlements = tenantEntitlements
               ? computeEffectiveEntitlements(tenantEntitlements, userPlatformAccess)
               : {

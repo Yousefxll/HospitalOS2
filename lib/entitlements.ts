@@ -73,12 +73,40 @@ export async function getTenantEntitlements(tenantId: string): Promise<PlatformE
 
 /**
  * Get user platform access from database
+ * 
+ * @param userId - User ID
+ * @param tenantId - Tenant ID (required to access tenant database)
  */
-export async function getUserPlatformAccess(userId: string): Promise<PlatformEntitlements | null> {
-  const { getCollection } = await import('./db');
-  
+export async function getUserPlatformAccess(
+  userId: string, 
+  tenantId?: string
+): Promise<PlatformEntitlements | null> {
   try {
-    const usersCollection = await getCollection('users');
+    // If tenantId provided, search in tenant database
+    if (tenantId) {
+      const { getTenantDbByKey } = await import('./db/tenantDb');
+      try {
+        const tenantDb = await getTenantDbByKey(tenantId);
+        const usersCollection = tenantDb.collection('users');
+        const user = await usersCollection.findOne({ id: userId }) as User | null;
+        
+        if (user?.platformAccess) {
+          return {
+            sam: user.platformAccess.sam ?? true,
+            health: user.platformAccess.health ?? true,
+            edrac: user.platformAccess.edrac ?? false,
+            cvision: user.platformAccess.cvision ?? false,
+          };
+        }
+      } catch (error) {
+        console.warn(`[getUserPlatformAccess] Failed to search tenant DB ${tenantId}:`, error);
+        // Fall through to platform DB search
+      }
+    }
+    
+    // Fallback: try platform database (for syra-owner or users without tenant)
+    const { getPlatformCollection } = await import('./db/platformDb');
+    const usersCollection = await getPlatformCollection('users');
     const user = await usersCollection.findOne({ id: userId }) as User | null;
     
     if (!user || !user.platformAccess) {
@@ -106,7 +134,7 @@ export async function getEffectiveEntitlements(
   userId: string
 ): Promise<PlatformEntitlements> {
   const tenantEntitlements = await getTenantEntitlements(tenantId);
-  const userPlatformAccess = await getUserPlatformAccess(userId);
+  const userPlatformAccess = await getUserPlatformAccess(userId, tenantId);
   
   // Safe fallback: if tenant not found, grant sam and health (avoid lockout)
   const defaultEntitlements: PlatformEntitlements = {

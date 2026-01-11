@@ -13,6 +13,7 @@ import { getEffectiveEntitlements } from '@/lib/entitlements';
 import { bootstrapSiraOwner } from '@/lib/system/bootstrap';
 import { createRefreshToken, setRefreshTokenCookie, setAccessTokenCookie } from '@/lib/core/auth/refreshToken';
 import { saveSessionState, restoreSessionState } from '@/lib/core/auth/sessionRestore';
+import type { SubscriptionContract } from '@/lib/core/models/Subscription';
 
 export const dynamic = 'force-dynamic';
 
@@ -215,7 +216,6 @@ export async function POST(request: NextRequest) {
         
         const contractsCollection = await getPlatformCollection('subscription_contracts');
         const { v4: uuidv4 } = await import('uuid');
-        const { SubscriptionContract } = await import('@/lib/core/models/Subscription');
         
         const now = new Date();
         const oneYearFromNow = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
