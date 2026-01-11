@@ -82,7 +82,8 @@ export async function POST(request: NextRequest) {
             // For test tenants or expired/blocked tenants, use getTenantClient directly
             let tenantDb;
             const isTestTenant = tId.startsWith('test-tenant-');
-            const isExpiredOrBlocked = tenant.status === 'expired' || tenant.status === 'blocked';
+            const tenantStatus = tenant.status as 'active' | 'blocked' | 'expired';
+            const isExpiredOrBlocked = tenantStatus === 'expired' || tenantStatus === 'blocked';
             
             if (process.env.SYRA_TEST_MODE === 'true' || isTestTenant || isExpiredOrBlocked) {
               const { getTenantClient } = await import('@/lib/db/mongo');
