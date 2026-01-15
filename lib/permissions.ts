@@ -179,6 +179,12 @@ export const PERMISSIONS: Permission[] = [
   { key: 'policies.delete', label: 'Delete Policy', category: 'Policy System' },
   
   { key: 'policies.conflicts.view', label: 'View Policy Conflicts & Issues', category: 'Policy System' },
+  { key: 'policies.conflicts.analyze', label: 'Analyze Policy Conflicts', category: 'Policy System' },
+  { key: 'policies.conflicts.resolve', label: 'Resolve Policy Conflicts', category: 'Policy System' },
+  
+  // SAM Policy Engine permissions
+  { key: 'sam.policy-engine.conflicts', label: 'SAM Policy Engine Conflicts', category: 'Policy System' },
+  { key: 'sam.policy-engine.conflicts.resolve', label: 'SAM Policy Engine Resolve Conflicts', category: 'Policy System' },
   
   { key: 'policies.assistant.view', label: 'View Policy Assistant', category: 'Policy System' },
   { key: 'policies.assistant.create', label: 'Create Policy Assistant', category: 'Policy System' },
@@ -204,6 +210,11 @@ export const PERMISSIONS: Permission[] = [
   { key: 'policies.tag-review.create', label: 'Create Tag Review Queue', category: 'Policy System' },
   { key: 'policies.tag-review.edit', label: 'Edit Tag Review Queue', category: 'Policy System' },
   { key: 'policies.tag-review.delete', label: 'Delete Tag Review Queue', category: 'Policy System' },
+  
+  { key: 'policies.builder.view', label: 'View Policy Builder', category: 'Policy System' },
+  { key: 'policies.builder.create', label: 'Create Policy Builder', category: 'Policy System' },
+  { key: 'policies.builder.edit', label: 'Edit Policy Builder', category: 'Policy System' },
+  { key: 'policies.builder.delete', label: 'Delete Policy Builder', category: 'Policy System' },
   
   // Admin
   { key: 'admin.data-admin.view', label: 'View Data Admin', category: 'Admin' },
@@ -292,6 +303,7 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   '/policies/create': 'policies.create.view',
   '/policies/risk-detector': 'policies.risk-detector.view',
   '/policies/tag-review-queue': 'policies.tag-review.view',
+  '/policies/policy-builder': 'policies.builder.view',
   '/ai/policy-assistant': 'policies.assistant.view',
   '/ai/new-policy-from-scratch': 'policies.new-creator.view',
   '/ai/policy-harmonization': 'policies.harmonization.view',
@@ -380,7 +392,14 @@ export function getDefaultPermissionsForRole(role: string): string[] {
       'nursing.scheduling',
       'nursing.operations',
       'policies.view',
+      'policies.upload.create',
+      'policies.delete',
       'policies.conflicts.view',
+      'policies.conflicts.analyze',
+      'policies.conflicts.resolve',
+      'sam.policy-engine.conflicts',
+      'sam.policy-engine.conflicts.resolve',
+      'policies.builder.view',
       'account.view',
       'account.edit',
     ],
@@ -398,6 +417,7 @@ export function getDefaultPermissionsForRole(role: string): string[] {
       'equipment.ipd.checklist',
       'policies.view',
       'policies.conflicts.view',
+      'policies.builder.view',
       'account.view',
       'account.edit',
     ],

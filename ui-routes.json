@@ -1,0 +1,680 @@
+[
+  {
+    "path": "/",
+    "url": "/",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:public"
+    ]
+  },
+  {
+    "path": "/account",
+    "url": "/account",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/admin",
+    "url": "/admin",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:admin"
+    ]
+  },
+  {
+    "path": "/admin/admin",
+    "url": "/admin/admin",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:admin"
+    ]
+  },
+  {
+    "path": "/admin/data-admin",
+    "url": "/admin/data-admin",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:admin"
+    ]
+  },
+  {
+    "path": "/admin/delete-sample-data",
+    "url": "/admin/delete-sample-data",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:admin"
+    ]
+  },
+  {
+    "path": "/admin/entitlements",
+    "url": "/admin/entitlements",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:admin"
+    ]
+  },
+  {
+    "path": "/admin/groups-hospitals",
+    "url": "/admin/groups-hospitals",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:admin"
+    ]
+  },
+  {
+    "path": "/admin/integrations",
+    "url": "/admin/integrations",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:admin"
+    ]
+  },
+  {
+    "path": "/admin/platform-access",
+    "url": "/admin/platform-access",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:admin"
+    ]
+  },
+  {
+    "path": "/admin/quotas",
+    "url": "/admin/quotas",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:admin"
+    ]
+  },
+  {
+    "path": "/admin/structure-management",
+    "url": "/admin/structure-management",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:admin"
+    ]
+  },
+  {
+    "path": "/admin/users",
+    "url": "/admin/users",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:admin"
+    ]
+  },
+  {
+    "path": "/ai/new-policy-from-scratch",
+    "url": "/ai/new-policy-from-scratch",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/ai/policy-assistant",
+    "url": "/ai/policy-assistant",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/ai/policy-harmonization",
+    "url": "/ai/policy-harmonization",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/dashboard",
+    "url": "/dashboard",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/demo-limit",
+    "url": "/demo-limit",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/equipment/master",
+    "url": "/equipment/master",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/er/disposition",
+    "url": "/er/disposition",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:health",
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/er/progress-note",
+    "url": "/er/progress-note",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:health",
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/er/register",
+    "url": "/er/register",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:health",
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/er/triage",
+    "url": "/er/triage",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:health",
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/ipd/live-beds",
+    "url": "/ipd/live-beds",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/login",
+    "url": "/login",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:public"
+    ]
+  },
+  {
+    "path": "/notifications",
+    "url": "/notifications",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/nursing/operations",
+    "url": "/nursing/operations",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:health",
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/opd/clinic-daily-census",
+    "url": "/opd/clinic-daily-census",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:health",
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/opd/clinic-utilization",
+    "url": "/opd/clinic-utilization",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:health",
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/opd/daily-data-entry",
+    "url": "/opd/daily-data-entry",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:health",
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/opd/dashboard",
+    "url": "/opd/dashboard",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:health",
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/opd/dept-view",
+    "url": "/opd/dept-view",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:health",
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/opd/import-data",
+    "url": "/opd/import-data",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:health",
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/opd/manpower",
+    "url": "/opd/manpower",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:health",
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/opd/manpower-edit",
+    "url": "/opd/manpower-edit",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:health",
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/opd/manpower-overview",
+    "url": "/opd/manpower-overview",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:health",
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/opd/manpower-overview-new",
+    "url": "/opd/manpower-overview-new",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:health",
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/opd/nursing-scheduling",
+    "url": "/opd/nursing-scheduling",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:health",
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/owner",
+    "url": "/owner",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:owner"
+    ]
+  },
+  {
+    "path": "/owner/setup",
+    "url": "/owner/setup",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:owner"
+    ]
+  },
+  {
+    "path": "/owner/tenants",
+    "url": "/owner/tenants",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:owner"
+    ]
+  },
+  {
+    "path": "/owner/users",
+    "url": "/owner/users",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:owner"
+    ]
+  },
+  {
+    "path": "/patient-experience",
+    "url": "/patient-experience",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/patient-experience/analytics",
+    "url": "/patient-experience/analytics",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/patient-experience/cases",
+    "url": "/patient-experience/cases",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/patient-experience/dashboard",
+    "url": "/patient-experience/dashboard",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/patient-experience/delete-all-data",
+    "url": "/patient-experience/delete-all-data",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/patient-experience/reports",
+    "url": "/patient-experience/reports",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/patient-experience/seed-data",
+    "url": "/patient-experience/seed-data",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/patient-experience/setup",
+    "url": "/patient-experience/setup",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/patient-experience/visit",
+    "url": "/patient-experience/visit",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/patient-experience/visits",
+    "url": "/patient-experience/visits",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/platforms",
+    "url": "/platforms",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:public"
+    ]
+  },
+  {
+    "path": "/platforms/sam",
+    "url": "/platforms/sam",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:sam",
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/platforms/syra-health",
+    "url": "/platforms/syra-health",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/policies",
+    "url": "/policies",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/policies/conflicts",
+    "url": "/policies/conflicts",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/policies/create",
+    "url": "/policies/create",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/policies/policy-builder",
+    "url": "/policies/policy-builder",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/policies/risk-detector",
+    "url": "/policies/risk-detector",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/policies/tag-review-queue",
+    "url": "/policies/tag-review-queue",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/sam/ai/new-policy-from-scratch",
+    "url": "/sam/ai/new-policy-from-scratch",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:sam",
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/sam/ai/policy-assistant",
+    "url": "/sam/ai/policy-assistant",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:sam",
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/sam/ai/policy-harmonization",
+    "url": "/sam/ai/policy-harmonization",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:sam",
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/sam/policies",
+    "url": "/sam/policies",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:sam",
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/sam/policies/conflicts",
+    "url": "/sam/policies/conflicts",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:sam",
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/sam/policies/create",
+    "url": "/sam/policies/create",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:sam",
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/sam/policies/risk-detector",
+    "url": "/sam/policies/risk-detector",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:sam",
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/sam/policies/tag-review-queue",
+    "url": "/sam/policies/tag-review-queue",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:sam",
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/subscription-error",
+    "url": "/subscription-error",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ]
+  },
+  {
+    "path": "/welcome",
+    "url": "/welcome",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:public"
+    ]
+  },
+  {
+    "path": "/owner/tenants/[tenantId]",
+    "url": "/owner/tenants/test-tenant-a",
+    "isDynamic": true,
+    "dynamicParams": [
+      "tenantId"
+    ],
+    "placeholders": {
+      "tenantId": "test-tenant-a"
+    },
+    "tags": [
+      "access:owner"
+    ]
+  }
+]

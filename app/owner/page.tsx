@@ -197,6 +197,23 @@ export default function OwnerDashboardPage() {
             </p>
           </CardContent>
         </Card>
+
+        <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => router.push('/owner/setup')}>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-primary" />
+              <CardTitle>Owner Development Tenant</CardTitle>
+            </div>
+            <CardDescription>
+              Setup dedicated tenant for development and testing
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Create a tenant with all platforms enabled for independent development
+            </p>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

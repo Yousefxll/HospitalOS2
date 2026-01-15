@@ -4,6 +4,13 @@ import { requireTenantId } from '@/lib/tenant';
 import { requireAuthContext } from '@/lib/auth/requireAuthContext';
 import { getTenantDbName } from '@/lib/db/dbNameHelper';
 import { getPlatformClient, getTenantClient } from './mongo';
+import { 
+  getPlatformKeyFromRequest, 
+  SHARED_COLLECTIONS, 
+  normalizePlatformKeyForPrefix,
+  type PlatformKey 
+} from './platformKey';
+import { assertTenantDatabase } from './tenantGuard';
 
 /**
  * Get Tenant Database by tenantKey
@@ -90,6 +97,15 @@ export async function getTenantDbFromRequest(
     // Get dbName from tenant record (preferred) or generate short name
     const dbName = getTenantDbName(tenant, tenantKey);
 
+    // HARD GUARD: Assert dbName starts with "syra_tenant__"
+    if (!dbName.startsWith('syra_tenant__')) {
+      console.error(`❌ [HARD_GUARD] Invalid tenant DB name: ${dbName}. Must start with "syra_tenant__"`);
+      return NextResponse.json(
+        { error: 'Internal server error', message: `Invalid tenant database name: ${dbName}` },
+        { status: 500 }
+      );
+    }
+
     // Get tenant DB (reuse cached tenant client if available)
     const { db } = await getTenantClient(tenantKey, dbName);
 
@@ -112,22 +128,50 @@ export async function getTenantDbFromRequest(
 }
 
 /**
- * Get a collection from Tenant DB (session-based)
+ * Get a collection from Tenant DB (session-based) with platform-aware naming
  * 
- * Convenience wrapper that gets tenant DB from request and returns collection.
+ * Platform-aware collection naming:
+ * - SHARED collections (org_nodes, structure_floors, users, etc.): No prefix
+ * - PLATFORM-SCOPED collections: Prefixed with platform key (e.g., sam_policy_documents)
+ * 
+ * Examples:
+ * - getTenantCollection(req, 'org_nodes') => 'org_nodes' (shared)
+ * - getTenantCollection(req, 'policy_documents', 'sam') => 'sam_policy_documents' (platform-scoped)
  * 
  * @param request - Next.js request object
- * @param collectionName - Name of collection to retrieve
+ * @param baseCollectionName - Base collection name (without platform prefix)
+ * @param platformKey - Optional platform key. If not provided, reads from request cookie/header
  * @returns Collection instance or NextResponse error
  */
 export async function getTenantCollection(
   request: NextRequest,
-  collectionName: string
+  baseCollectionName: string,
+  platformKey?: PlatformKey
 ): Promise<ReturnType<Db['collection']> | NextResponse> {
   const ctx = await getTenantDbFromRequest(request);
   if (ctx instanceof NextResponse) {
     return ctx;
   }
+  
+  // Check if this is a shared collection (no prefix)
+  if (SHARED_COLLECTIONS.has(baseCollectionName)) {
+    return ctx.db.collection(baseCollectionName);
+  }
+  
+  // Platform-scoped collection: need platform key
+  const resolvedPlatformKey = platformKey || getPlatformKeyFromRequest(request);
+  if (!resolvedPlatformKey) {
+    console.error(`[getTenantCollection] Platform key required for collection: ${baseCollectionName}. Provide platformKey parameter or set 'syra-platform' cookie/header.`);
+    return NextResponse.json(
+      { error: 'Bad Request', message: `Platform key required for collection: ${baseCollectionName}` },
+      { status: 400 }
+    );
+  }
+  
+  // Normalize platform key (e.g., 'syra-health' => 'syra_health')
+  const prefix = normalizePlatformKeyForPrefix(resolvedPlatformKey);
+  const collectionName = `${prefix}_${baseCollectionName}`;
+  
   return ctx.db.collection(collectionName);
 }
 

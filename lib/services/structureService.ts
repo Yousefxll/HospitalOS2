@@ -160,21 +160,30 @@ export async function updateFloor(
   } as Floor;
 }
 
-export async function deleteFloor(id: string, updatedBy: string): Promise<boolean> {
+export async function deleteFloor(id: string, updatedBy: string, hardDelete: boolean = true): Promise<boolean> {
   const floorsCollection = await getCollection('floors');
   
-  const result = await floorsCollection.updateOne(
-    { id, active: true },
-    {
-      $set: {
-        active: false,
-        updatedAt: new Date(),
-        updatedBy,
-      },
-    }
-  );
+  // Build query - include inactive/deleted for hard delete
+  const query: any = { id };
   
-  return result.modifiedCount > 0;
+  if (hardDelete) {
+    // HARD DELETE: Remove from database completely
+    const result = await floorsCollection.deleteOne(query);
+    return result.deletedCount > 0;
+  } else {
+    // SOFT DELETE: Mark as inactive (legacy behavior)
+    const result = await floorsCollection.updateOne(
+      { ...query, active: true },
+      {
+        $set: {
+          active: false,
+          updatedAt: new Date(),
+          updatedBy,
+        },
+      }
+    );
+    return result.modifiedCount > 0;
+  }
 }
 
 // ============================================================================
@@ -256,8 +265,8 @@ export async function getDepartmentsByFloor(floorKey: string, tenantId?: string)
 }
 
 export async function createDepartment(data: {
-  floorId: string;
-  floorKey: string;
+  floorId?: string; // CRITICAL: Floor is now optional
+  floorKey?: string; // CRITICAL: Floor is now optional
   departmentId?: string;
   departmentKey: string;
   departmentName?: string;
@@ -275,8 +284,8 @@ export async function createDepartment(data: {
   
   const department: FloorDepartment = {
     id: deptId,
-    floorId: data.floorId,
-    floorKey: data.floorKey,
+    floorId: data.floorId || '', // CRITICAL: Use empty string if floor not provided
+    floorKey: data.floorKey || '', // CRITICAL: Use empty string if floor not provided
     departmentId: data.departmentId || deptId,
     departmentKey: data.departmentKey,
     departmentName: data.departmentName,
@@ -304,7 +313,9 @@ export async function updateDepartment(
     label_en: string;
     label_ar: string;
     updatedBy: string;
-  }>
+    tenantId?: string;
+  }>,
+  tenantId?: string
 ): Promise<FloorDepartment | null> {
   const departmentsCollection = await getCollection('floor_departments');
   
@@ -317,8 +328,21 @@ export async function updateDepartment(
     updateData.updatedBy = data.updatedBy;
   }
   
+  // Build query with tenant isolation
+  const query: any = { id, active: true };
+  const effectiveTenantId = data.tenantId || tenantId;
+  if (effectiveTenantId) {
+    // Backward compatibility: include documents without tenantId until migration is run
+    query.$or = [
+      { tenantId: effectiveTenantId },
+      { tenantId: { $exists: false } },
+      { tenantId: null },
+      { tenantId: '' },
+    ];
+  }
+  
   const result = await departmentsCollection.findOneAndUpdate(
-    { id, active: true },
+    query,
     { $set: updateData },
     { returnDocument: 'after' }
   ) as any as { value: FloorDepartment | null };
@@ -345,21 +369,40 @@ export async function updateDepartment(
   } as FloorDepartment;
 }
 
-export async function deleteDepartment(id: string, updatedBy: string): Promise<boolean> {
+export async function deleteDepartment(id: string, updatedBy: string, tenantId?: string, hardDelete: boolean = true): Promise<boolean> {
   const departmentsCollection = await getCollection('floor_departments');
   
-  const result = await departmentsCollection.updateOne(
-    { id, active: true },
-    {
-      $set: {
-        active: false,
-        updatedAt: new Date(),
-        updatedBy,
-      },
-    }
-  );
+  // Build query with tenant isolation
+  // CRITICAL: Include inactive/deleted departments for hard delete
+  const query: any = { id };
+  if (tenantId) {
+    // Backward compatibility: include documents without tenantId until migration is run
+    query.$or = [
+      { tenantId: tenantId },
+      { tenantId: { $exists: false } },
+      { tenantId: null },
+      { tenantId: '' },
+    ];
+  }
   
-  return result.modifiedCount > 0;
+  if (hardDelete) {
+    // HARD DELETE: Remove from database completely
+    const result = await departmentsCollection.deleteOne(query);
+    return result.deletedCount > 0;
+  } else {
+    // SOFT DELETE: Mark as inactive (legacy behavior)
+    const result = await departmentsCollection.updateOne(
+      query,
+      {
+        $set: {
+          active: false,
+          updatedAt: new Date(),
+          updatedBy,
+        },
+      }
+    );
+    return result.modifiedCount > 0;
+  }
 }
 
 // ============================================================================

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 import { getCollection } from '@/lib/db';
-import { requireAuth } from '@/lib/security/auth';
-import { requireRole } from '@/lib/security/auth';
 import { v4 as uuidv4 } from 'uuid';
 import ExcelJS from 'exceljs';
 import { z } from 'zod';
@@ -49,21 +48,14 @@ const dailyDataRowSchema = z.object({
   ivf: z.number().min(0).default(0),
 });
 
-export async function POST(request: NextRequest) {
+export const POST = withAuthTenant(async (req, { user, tenantId, userId, role, permissions }) => {
   try {
-    // Authenticate
-    const auth = await requireAuth(request);
-    if (auth instanceof NextResponse) {
-      return auth;
+    // Authorization check - admin, supervisor, or staff
+    if (!['admin', 'supervisor', 'staff'].includes(role) && !permissions.includes('opd.import-data')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Check role: admin, supervisor, or staff
-    const roleCheck = await requireRole(request, ['admin', 'supervisor', 'staff'], auth);
-    if (roleCheck instanceof NextResponse) {
-      return roleCheck;
-    }
-
-    const formData = await request.formData();
+    const formData = await req.formData();
     const file = formData.get('file') as File;
 
     if (!file) {
@@ -257,26 +249,29 @@ export async function POST(request: NextRequest) {
           validatedData = validationResult.data;
         }
 
-        // Verify department exists
-        const department = await departmentsCollection.findOne<Department>({ id: validatedData.departmentId });
+        // Verify department exists with tenant isolation
+        const departmentQuery = createTenantQuery({ id: validatedData.departmentId }, tenantId);
+        const department = await departmentsCollection.findOne<Department>(departmentQuery);
         if (!department) {
           errors.push(`Row ${rowNumber}: Department ID "${validatedData.departmentId}" not found`);
           continue;
         }
 
-        // Verify doctor exists
-        const doctor = await doctorsCollection.findOne<Doctor>({ id: validatedData.doctorId });
+        // Verify doctor exists with tenant isolation
+        const doctorQuery = createTenantQuery({ id: validatedData.doctorId }, tenantId);
+        const doctor = await doctorsCollection.findOne<Doctor>(doctorQuery);
         if (!doctor) {
           errors.push(`Row ${rowNumber}: Doctor ID "${validatedData.doctorId}" not found`);
           continue;
         }
 
-        // Process rooms
+        // Process rooms with tenant isolation
         const rooms: Array<{ roomId: string; roomName: string; roomNumber: string; departmentId: string }> = [];
         if (validatedData.roomIds) {
           const roomIdArray = validatedData.roomIds.split(',').map(id => id.trim()).filter(id => id);
           for (const roomId of roomIdArray) {
-            const room = await roomsCollection.findOne<FloorRoom>({ id: roomId });
+            const roomQuery = createTenantQuery({ id: roomId }, tenantId);
+            const room = await roomsCollection.findOne<FloorRoom>(roomQuery);
             if (room) {
               rooms.push({
                 roomId: room.id,
@@ -288,14 +283,18 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // Check if data already exists
+        // Check if data already exists with tenant isolation
         const dateObj = new Date(validatedData.date);
         dateObj.setHours(0, 0, 0, 0);
         
-        const existing = await dailyDataCollection.findOne<OPDDailyData>({
-          doctorId: validatedData.doctorId,
-          date: dateObj,
-        });
+        const existingQuery = createTenantQuery(
+          {
+            doctorId: validatedData.doctorId,
+            date: dateObj,
+          },
+          tenantId
+        );
+        const existing = await dailyDataCollection.findOne<OPDDailyData>(existingQuery);
 
         const dailyData = {
           id: existing?.id || uuidv4(),
@@ -335,13 +334,14 @@ export async function POST(request: NextRequest) {
           ivf: validatedData.ivf,
           createdAt: existing?.createdAt || new Date(),
           updatedAt: new Date(),
-          createdBy: existing?.createdBy || auth.userId || 'system',
-          updatedBy: auth.userId || 'system',
+          createdBy: existing?.createdBy || userId || 'system',
+          updatedBy: userId || 'system',
+          tenantId, // CRITICAL: Always include tenantId for tenant isolation
         };
 
         if (existing) {
           await dailyDataCollection.updateOne(
-            { id: dailyData.id },
+            existingQuery,
             { $set: dailyData }
           );
           updated++;
@@ -374,4 +374,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'opd.import-data' });

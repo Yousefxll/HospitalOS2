@@ -62,44 +62,40 @@ export default function PlatformsClient({ userName, hospitalName, entitlements }
     // SYRA Health platform name
     const siraHealthPlatformName = language === 'ar' ? 'سِيرَه صِحة' : 'SYRA Health';
     
-    return [
-    {
-      id: 'sam',
-      name: samPlatformName, // "SAM" or "سَم"
-      tagline: 'From Policy to Compliance',
-      logo: '/brand/sam.png',
-      route: '/welcome',
-      enabled: entitlements.sam,
-      status: entitlements.sam ? 'available' : 'coming-soon',
-    },
-    {
-      id: 'siraHealth',
-      name: siraHealthPlatformName, // "SYRA Health" or "سِيرَه صِحة"
-      tagline: 'One Platform, Total Care',
-      logo: '/branding/SYRA-Health.png',
-      route: '/welcome',
-      enabled: entitlements.siraHealth,
-      status: entitlements.siraHealth ? 'available' : 'coming-soon',
-    },
-    {
-      id: 'edrac',
-      name: 'EDRAC',
-      tagline: 'Think Deeper, Research Smarter',
-      logo: '/brand/edrac.png',
-      route: '#',
-      enabled: entitlements.edrac,
-      status: 'coming-soon',
-    },
-    {
-      id: 'cvision',
-      name: 'CVision',
-      tagline: 'See Clearly',
-      logo: '/brand/cvision.png',
-      route: '#',
-      enabled: entitlements.cvision,
-      status: 'coming-soon',
-    },
-    ];
+    // SERVER-SIDE FILTERING: Only include platforms user is entitled to
+    // This prevents unauthorized platforms from ever rendering (no flicker)
+    const platformList: Platform[] = [];
+    
+    // Only add SAM if user is entitled
+    if (entitlements.sam) {
+      platformList.push({
+        id: 'sam',
+        name: samPlatformName,
+        tagline: 'From Policy to Compliance',
+        logo: '/brand/sam.png',
+        route: '/platforms/sam',
+        enabled: true,
+        status: 'available',
+      });
+    }
+    
+    // Only add SYRA Health if user is entitled
+    if (entitlements.siraHealth) {
+      platformList.push({
+        id: 'siraHealth',
+        name: siraHealthPlatformName,
+        tagline: 'One Platform, Total Care',
+        logo: '/branding/SYRA-Health.png',
+        route: '/platforms/syra-health',
+        enabled: true,
+        status: 'available',
+      });
+    }
+    
+    // Never include edrac or cvision (always coming-soon, filtered out)
+    // If user is entitled to them in future, they will be added here
+    
+    return platformList;
   }, [language, entitlements]);
 
   const handlePlatformClick = async (platform: Platform) => {
@@ -288,6 +284,9 @@ export default function PlatformsClient({ userName, hospitalName, entitlements }
                   transition: { duration: 0.2 },
                 } : {}}
                 className="relative"
+                data-platform={platform.id}
+                data-enabled={platform.enabled}
+                data-testid={`platform-tile-${platform.id}`}
               >
                 <div
                   onClick={() => {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireRoleAsync } from '@/lib/auth/requireRole';
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 import { getCollection } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import { pxComplaintTaxonomySeed } from '@/lib/seed/pxComplaintTaxonomySeed';
@@ -19,18 +19,17 @@ import type { ComplaintType } from '@/lib/models/ComplaintType';
  * 
  * Returns: { inserted, updated, skipped, errors }
  */
-export async function POST(request: NextRequest) {
+export const POST = withAuthTenant(async (req, { user, tenantId, userId, role, permissions }) => {
   try {
     // RBAC: admin only (seed import is admin-only)
-    const authResult = await requireRoleAsync(request, ['admin']);
-    if (authResult instanceof NextResponse) {
-      return authResult; // Returns 401 or 403
+    if (!['admin'].includes(role) && !permissions.includes('patient-experience.complaints.seed')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     // Get seed data from request body or use default
     let seedData: typeof pxComplaintTaxonomySeed;
     try {
-      const body = await request.json();
+      const body = await req.json();
       seedData = body.domains || body.classes || body.subclasses 
         ? { 
             domains: body.domains || pxComplaintTaxonomySeed.domains,
@@ -62,37 +61,39 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        const existing = await domainsCollection.findOne({ key: domain.key });
+        const domainQuery = createTenantQuery({ key: domain.key }, tenantId);
+        const existing = await domainsCollection.findOne(domainQuery);
         const now = new Date();
 
         if (existing) {
-          // Update existing
+          // Update existing with tenant isolation
           await domainsCollection.updateOne(
-            { key: domain.key },
+            domainQuery,
             {
               $set: {
                 label_en: domain.label_en,
                 label_ar: domain.label_ar,
                 active: true,
                 updatedAt: now,
-                updatedBy: authResult.userId,
+                updatedBy: userId,
                 ...(domain.sortOrder !== undefined && { sortOrder: domain.sortOrder }),
               },
             }
           );
           stats.domains.updated++;
         } else {
-          // Insert new
+          // Insert new with tenant isolation
           await domainsCollection.insertOne({
             id: uuidv4(),
             key: domain.key,
             label_en: domain.label_en,
             label_ar: domain.label_ar,
             active: true,
+            tenantId, // CRITICAL: Always include tenantId for tenant isolation
             createdAt: now,
             updatedAt: now,
-            createdBy: authResult.userId,
-            updatedBy: authResult.userId,
+            createdBy: userId,
+            updatedBy: userId,
             ...(domain.sortOrder !== undefined && { sortOrder: domain.sortOrder }),
           } as any);
           stats.domains.inserted++;
@@ -110,23 +111,25 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Verify domain exists
-        const domainExists = await domainsCollection.findOne({ 
+        // Verify domain exists with tenant isolation
+        const domainQuery = createTenantQuery({ 
           key: classItem.domainKey, 
           active: true 
-        });
+        }, tenantId);
+        const domainExists = await domainsCollection.findOne(domainQuery);
         if (!domainExists) {
           stats.classes.errors.push(`Class ${classItem.key}: Domain ${classItem.domainKey} not found`);
           continue;
         }
 
-        const existing = await classesCollection.findOne({ key: classItem.key });
+        const classQuery = createTenantQuery({ key: classItem.key }, tenantId);
+        const existing = await classesCollection.findOne(classQuery);
         const now = new Date();
 
         if (existing) {
-          // Update existing
+          // Update existing with tenant isolation
           await classesCollection.updateOne(
-            { key: classItem.key },
+            classQuery,
             {
               $set: {
                 domainKey: classItem.domainKey,
@@ -134,7 +137,7 @@ export async function POST(request: NextRequest) {
                 label_ar: classItem.label_ar,
                 active: true,
                 updatedAt: now,
-                updatedBy: authResult.userId,
+                updatedBy: userId,
                 ...((classItem as any).defaultSeverity && { defaultSeverity: (classItem as any).defaultSeverity }),
                 ...(classItem.sortOrder !== undefined && { sortOrder: classItem.sortOrder }),
               },
@@ -142,7 +145,7 @@ export async function POST(request: NextRequest) {
           );
           stats.classes.updated++;
         } else {
-          // Insert new
+          // Insert new with tenant isolation
           await classesCollection.insertOne({
             id: uuidv4(),
             key: classItem.key,
@@ -151,10 +154,11 @@ export async function POST(request: NextRequest) {
             label_ar: classItem.label_ar,
             defaultSeverity: (classItem as any).defaultSeverity || undefined,
             active: true,
+            tenantId, // CRITICAL: Always include tenantId for tenant isolation
             createdAt: now,
             updatedAt: now,
-            createdBy: authResult.userId,
-            updatedBy: authResult.userId,
+            createdBy: userId,
+            updatedBy: userId,
             ...(classItem.sortOrder !== undefined && { sortOrder: classItem.sortOrder }),
           } as ComplaintType);
           stats.classes.inserted++;
@@ -172,17 +176,19 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Verify class exists and get its domainKey
-        const classExists = await classesCollection.findOne<ComplaintType>({ 
+        // Verify class exists and get its domainKey with tenant isolation
+        const classQuery = createTenantQuery({ 
           key: subclass.classKey, 
           active: true 
-        });
+        }, tenantId);
+        const classExists = await classesCollection.findOne<ComplaintType>(classQuery);
         if (!classExists) {
           stats.subclasses.errors.push(`Subclass ${subclass.key}: Class ${subclass.classKey} not found`);
           continue;
         }
 
-        const existing = await subclassesCollection.findOne({ key: subclass.key });
+        const subclassQuery = createTenantQuery({ key: subclass.key }, tenantId);
+        const existing = await subclassesCollection.findOne(subclassQuery);
         const now = new Date();
 
         // Map type if provided
@@ -206,9 +212,9 @@ export async function POST(request: NextRequest) {
         const typeKey = typeKeyMap[type] || 'OTHER';
 
         if (existing) {
-          // Update existing
+          // Update existing with tenant isolation
           await subclassesCollection.updateOne(
-            { key: subclass.key },
+            subclassQuery,
             {
               $set: {
                 complaintTypeKey: subclass.classKey, // Link to parent class
@@ -216,7 +222,7 @@ export async function POST(request: NextRequest) {
                 label_ar: subclass.label_ar,
                 active: true,
                 updatedAt: now,
-                updatedBy: authResult.userId,
+                updatedBy: userId,
                 ...(type && { type, typeKey: typeKey as string }),
                 ...(subclass.sortOrder !== undefined && { sortOrder: subclass.sortOrder }),
               },
@@ -224,7 +230,7 @@ export async function POST(request: NextRequest) {
           );
           stats.subclasses.updated++;
         } else {
-          // Insert new
+          // Insert new with tenant isolation
           await subclassesCollection.insertOne({
             id: uuidv4(),
             key: subclass.key,
@@ -233,13 +239,14 @@ export async function POST(request: NextRequest) {
             type,
             typeKey,
             name: subclass.label_en, // For backward compatibility
+            tenantId, // CRITICAL: Always include tenantId for tenant isolation
             label_en: subclass.label_en,
             label_ar: subclass.label_ar,
             active: true,
             createdAt: now,
             updatedAt: now,
-            createdBy: authResult.userId,
-            updatedBy: authResult.userId,
+            createdBy: userId,
+            updatedBy: userId,
             ...(subclass.sortOrder !== undefined && { sortOrder: subclass.sortOrder }),
           } as ComplaintType);
           stats.subclasses.inserted++;
@@ -293,4 +300,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'patient-experience.complaints.seed' });

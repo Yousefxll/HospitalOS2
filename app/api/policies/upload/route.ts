@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
-import { requireRole } from '@/lib/rbac';
-import { requireAuth } from '@/lib/auth/requireAuth';
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 import fs from 'fs';
@@ -155,26 +154,12 @@ const uploadSchema = z.object({
   expiryDate: z.string().optional(),
 });
 
-export async function POST(request: NextRequest) {
+export const POST = withAuthTenant(async (req, { user, tenantId, userId, role }) => {
   try {
     console.log('Policy upload request received');
-    
-    // Authentication and tenant isolation
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
-    const { userId, userRole, tenantId } = authResult;
+    console.log('User role:', role, 'User ID:', userId, 'Tenant ID:', tenantId);
 
-    console.log('User role:', userRole, 'User ID:', userId, 'Tenant ID:', tenantId);
-
-    // Authorization check
-    if (!requireRole(userRole, ['admin', 'supervisor'])) {
-      console.log('Access denied - insufficient permissions');
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
-    const formData = await request.formData();
+    const formData = await req.formData();
     const file = formData.get('file') as File;
     console.log('File received:', file?.name, file?.size, 'bytes');
     const title = formData.get('title') as string;
@@ -217,9 +202,10 @@ export async function POST(request: NextRequest) {
     // Calculate hash
     const fileHash = calculateFileHash(buffer);
 
-    // Check for duplicate
+    // Check for duplicate (with tenant isolation)
     const policiesCollection = await getCollection('policy_documents');
-    const existing = await policiesCollection.findOne<PolicyDocument>({ fileHash, isActive: true });
+    const duplicateQuery = createTenantQuery({ fileHash, isActive: true }, tenantId);
+    const existing = await policiesCollection.findOne<PolicyDocument>(duplicateQuery);
 
     if (existing) {
       return NextResponse.json(
@@ -339,6 +325,7 @@ export async function POST(request: NextRequest) {
         chunk.isActive = true;
         chunk.updatedAt = new Date();
         chunk.hospital = hospital; // Add hospital to chunks
+        chunk.tenantId = tenantId; // CRITICAL: Always include tenantId for tenant isolation
         
         // Validate chunk has required fields
         if (!chunk.text || !chunk.documentId || !chunk.policyId) {
@@ -516,5 +503,5 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'policies.upload' });
 

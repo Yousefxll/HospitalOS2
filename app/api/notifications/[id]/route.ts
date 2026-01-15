@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 import { getCollection } from '@/lib/db';
-import { requireAuth } from '@/lib/security/auth';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -11,38 +11,36 @@ export const revalidate = 0;
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
-  try {
-    // Authenticate
-    const auth = await requireAuth(request);
-    if (auth instanceof NextResponse) {
-      return auth;
-    }
-    
-    const userId = auth.userId;
+  // Wrap with withAuthTenant manually for dynamic routes
+  return withAuthTenant(async (req, { user, tenantId, userId }) => {
+    try {
+      const resolvedParams = params instanceof Promise ? await params : params;
+      const { id } = resolvedParams;
+      
+      const notificationsCollection = await getCollection('notifications');
+      
+      // Find notification with tenant isolation
+      const notificationQuery = createTenantQuery({ id }, tenantId);
+      const notification = await notificationsCollection.findOne(notificationQuery);
 
-    const { id } = params;
-    const notificationsCollection = await getCollection('notifications');
-    
-    const notification = await notificationsCollection.findOne({ id });
-
-    if (!notification) {
-      return NextResponse.json(
-        { error: 'Notification not found' },
-        { status: 404 }
-      );
-    }
-
-    // Mark as read
-    await notificationsCollection.updateOne(
-      { id },
-      { 
-        $set: { 
-          readAt: new Date(),
-        } 
+      if (!notification) {
+        return NextResponse.json(
+          { error: 'Notification not found' },
+          { status: 404 }
+        );
       }
-    );
+
+      // Mark as read with tenant isolation
+      await notificationsCollection.updateOne(
+        notificationQuery,
+        { 
+          $set: { 
+            readAt: new Date(),
+          } 
+        }
+      );
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
@@ -51,5 +49,6 @@ export async function PATCH(
       { error: 'Failed to update notification', details: error.message },
       { status: 500 }
     );
-  }
+    }
+  }, { tenantScoped: true, permissionKey: 'notifications.update' })(request);
 }

@@ -421,6 +421,8 @@ def process_job(job_id: str):
                             print(f"[OCR] page={page_num} ERROR: {error_msg}")
                             update_manifest_page(manifest, page_num, "FAILED", None, False, 0, error_msg)
                             save_manifest(tenant_id, policy_id, manifest)
+                            pages_done += 1  # Count failed pages too
+                            update_job_progress(job_id, pages_done=pages_done)
                             continue
 
                         try:
@@ -439,6 +441,8 @@ def process_job(job_id: str):
                                 print(f"[OCR] page={page_num} ERROR: {error_msg}")
                                 update_manifest_page(manifest, page_num, "FAILED", None, True, 0, error_msg)
                                 save_manifest(tenant_id, policy_id, manifest)
+                                pages_done += 1  # Count failed pages too
+                                update_job_progress(job_id, pages_done=pages_done)
                                 continue
 
                             ocr_used = True
@@ -449,6 +453,8 @@ def process_job(job_id: str):
                             print(f"[OCR] page={page_num} EXCEPTION: {error_msg}")
                             update_manifest_page(manifest, page_num, "FAILED", None, True, 0, error_msg)
                             save_manifest(tenant_id, policy_id, manifest)
+                            pages_done += 1  # Count failed pages too
+                            update_job_progress(job_id, pages_done=pages_done)
                             continue
 
                 line_count = len(page_text.splitlines())
@@ -471,6 +477,8 @@ def process_job(job_id: str):
                 error_msg = str(e)
                 update_manifest_page(manifest, page_num, "FAILED", None, False, 0, error_msg)
                 save_manifest(tenant_id, policy_id, manifest)
+                pages_done += 1  # Count failed pages too - ensure progress reaches 100%
+                update_job_progress(job_id, pages_done=pages_done)
                 continue
 
         # Duplicate detection (only when hybrid not used)
@@ -482,7 +490,7 @@ def process_job(job_id: str):
                     job_id,
                     status=JobStatus.FAILED,
                     pages_total=total_pages,
-                    pages_done=pages_done,
+                    pages_done=total_pages,  # Set to total_pages to show all pages were processed
                     chunks_total=0,
                     chunks_done=0,
                     error=duplicate_error,
@@ -491,6 +499,7 @@ def process_job(job_id: str):
                 )
                 set_manifest_status(manifest, "FAILED")
                 save_manifest(tenant_id, policy_id, manifest)
+                print(f"[Job Failed] {job_id}: Duplicate detected - {total_pages}/{total_pages} pages processed")
                 return
 
         # Chunking + indexing
@@ -540,36 +549,62 @@ def process_job(job_id: str):
             else:
                 total_chunks_processed = 0
                 print("[Chunking] WARNING: No chunks created")
+        else:
+            # No pages were processed (all failed or skipped)
+            total_chunks_processed = 0
+            print("[Chunking] WARNING: No pages were processed")
 
-        # Final status
-        if pages_done > 0 and total_chunks_processed > 0:
+        # Final status - ensure pages_done equals pagesTotal
+        # This ensures progress shows 100% even if some pages failed
+        final_pages_done = min(pages_done, total_pages)  # Ensure we don't exceed total
+        
+        if final_pages_done > 0 and total_chunks_processed > 0:
             set_manifest_status(manifest, "READY")
             save_manifest(tenant_id, policy_id, manifest)
             update_job_progress(
                 job_id,
                 status=JobStatus.READY,
                 pages_total=total_pages,
-                pages_done=pages_done,
+                pages_done=total_pages,  # Always set to total_pages to show 100% progress
                 chunks_total=total_chunks_processed,
                 chunks_done=total_chunks_processed,
                 error=None,
                 ocr_attempted=ocr_attempted,
                 ocr_available=ocr_available,
             )
+            print(f"[Job Complete] {job_id}: READY - {total_pages}/{total_pages} pages, {total_chunks_processed} chunks")
         else:
+            # Determine error message based on what went wrong
+            if pages_done == 0:
+                error_msg = "All pages failed to process"
+            elif total_chunks_processed == 0:
+                # Check if OCR was attempted and failed
+                failed_pages = [p for p in manifest.get("pages", []) if p.get("status") == "FAILED"]
+                if failed_pages and ocr_attempted:
+                    ocr_errors = [p.get("error", "") for p in failed_pages if "OCR" in p.get("error", "")]
+                    if ocr_errors:
+                        error_msg = f"OCR failed: {ocr_errors[0]}"
+                    else:
+                        error_msg = "No chunks created from processed pages"
+                else:
+                    error_msg = "No chunks created from OCR text"
+            else:
+                error_msg = "Job failed for unknown reason"
+            
             set_manifest_status(manifest, "FAILED")
             save_manifest(tenant_id, policy_id, manifest)
             update_job_progress(
                 job_id,
                 status=JobStatus.FAILED,
                 pages_total=total_pages,
-                pages_done=pages_done,
+                pages_done=total_pages if pages_done > 0 else pages_done,  # Show 100% if pages were processed
                 chunks_total=total_chunks_processed,
                 chunks_done=total_chunks_processed,
-                error="No chunks created from OCR text",
+                error=error_msg,
                 ocr_attempted=ocr_attempted,
                 ocr_available=ocr_available,
             )
+            print(f"[Job Failed] {job_id}: {error_msg} - {pages_done}/{total_pages} pages, {total_chunks_processed} chunks")
 
     except Exception as e:
         import traceback

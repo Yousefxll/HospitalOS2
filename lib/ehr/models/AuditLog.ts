@@ -18,6 +18,7 @@ export interface AuditLog {
   // Actor
   userId: string; // User ID who performed the action
   userName?: string; // Denormalized user name
+  tenantId?: string; // CRITICAL: Tenant ID for multi-tenant isolation
   
   // Changes
   changes?: {

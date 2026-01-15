@@ -4,24 +4,22 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth/requireAuth';
 import { getCollection } from '@/lib/db';
 import { Patient } from '@/lib/ehr/models';
-
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
-  try {
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
-
-    const patientId = params.id;
+  // Wrap with withAuthTenant manually for dynamic routes
+  return withAuthTenant(async (req, { user, tenantId }, resolvedParams) => {
+    try {
+      // Resolve params if provided as Promise
+      const paramsObj = resolvedParams instanceof Promise ? await resolvedParams : resolvedParams;
+      const patientId = paramsObj?.id as string;
 
     if (!patientId) {
       return NextResponse.json(
@@ -31,7 +29,8 @@ export async function GET(
     }
 
     const patientsCollection = await getCollection('ehr_patients');
-    const patient = await patientsCollection.findOne({ id: patientId });
+    const patientQuery = createTenantQuery({ id: patientId }, tenantId);
+    const patient = await patientsCollection.findOne(patientQuery);
 
     if (!patient) {
       return NextResponse.json(
@@ -40,15 +39,16 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({
-      success: true,
-      patient: patient as Patient,
-    });
-  } catch (error: any) {
-    console.error('Get patient error:', error);
-    return NextResponse.json(
-      { error: 'Failed to get patient', details: error.message },
-      { status: 500 }
-    );
-  }
+      return NextResponse.json({
+        success: true,
+        patient: patient as Patient,
+      });
+    } catch (error: any) {
+      console.error('Get patient error:', error);
+      return NextResponse.json(
+        { error: 'Failed to get patient', details: error.message },
+        { status: 500 }
+      );
+    }
+  }, { tenantScoped: true, permissionKey: 'admin.ehr.patients.access' })(request, { params });
 }

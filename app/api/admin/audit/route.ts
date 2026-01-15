@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth/requireAuth';
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 import { getCollection } from '@/lib/db';
 import { AuditLog } from '@/lib/ehr/models';
 import { validateISOTimestamp, formatValidationErrors } from '@/lib/ehr/utils/validation';
@@ -12,14 +12,9 @@ import { validateISOTimestamp, formatValidationErrors } from '@/lib/ehr/utils/va
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export async function GET(request: NextRequest) {
+export const GET = withAuthTenant(async (req, { user, tenantId }) => {
   try {
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
-
-    const { searchParams } = new URL(request.url);
+    const { searchParams } = new URL(req.url);
     const userId = searchParams.get('userId');
     const resourceType = searchParams.get('resourceType');
     const resourceId = searchParams.get('resourceId');
@@ -43,34 +38,37 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(formatValidationErrors(validationErrors), { status: 400 });
     }
 
-    // Build query
-    const query: any = {};
+    // Build query with tenant isolation
+    const baseQuery: any = {};
     
     if (userId) {
-      query.userId = userId;
+      baseQuery.userId = userId;
     }
     
     if (resourceType) {
-      query.resourceType = resourceType;
+      baseQuery.resourceType = resourceType;
     }
     
     if (resourceId) {
-      query.resourceId = resourceId;
+      baseQuery.resourceId = resourceId;
     }
     
     if (patientId) {
-      query.patientId = patientId;
+      baseQuery.patientId = patientId;
     }
     
     if (startDate || endDate) {
-      query.timestamp = {};
+      baseQuery.timestamp = {};
       if (startDate) {
-        query.timestamp.$gte = startDate;
+        baseQuery.timestamp.$gte = startDate;
       }
       if (endDate) {
-        query.timestamp.$lte = endDate;
+        baseQuery.timestamp.$lte = endDate;
       }
     }
+
+    // Enforce tenant filtering - CRITICAL: all queries must be tenant-scoped
+    const query = createTenantQuery(baseQuery, tenantId);
 
     // Query audit logs
     const auditLogsCollection = await getCollection('ehr_audit_logs');
@@ -92,4 +90,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { permissionKey: 'admin.audit' });

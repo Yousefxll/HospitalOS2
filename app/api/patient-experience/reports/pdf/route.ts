@@ -244,7 +244,7 @@ export async function GET(request: NextRequest) {
     // Wait for PDF to be generated
     const pdfBuffer = await pdfPromise;
 
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(pdfBuffer as any, {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="patient-experience-${reportType}-${format(new Date(), 'yyyy-MM-dd')}.pdf"`,

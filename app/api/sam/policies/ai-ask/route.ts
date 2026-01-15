@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth/requireAuth';
+import { withAuthTenant } from '@/lib/core/guards/withAuthTenant';
 import { requireQuota } from '@/lib/quota/guard';
-import { requireTenantId } from '@/lib/tenant';
 import { env } from '@/lib/env';
 import { z } from 'zod';
 import OpenAI from 'openai';
@@ -25,21 +24,23 @@ const askSchema = z.object({
   category: z.string().optional(),
 });
 
-export async function POST(request: NextRequest) {
+export const POST = withAuthTenant(async (req, { user, tenantId, userId, role }) => {
   try {
-    // Authenticate
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
-
     // Check quota (policy.search - AI ask uses search functionality)
-    const quotaCheck = await requireQuota(authResult, 'policy.search');
+    const authContext = {
+      user,
+      tenantId,
+      userId,
+      userRole: role,
+      userEmail: user.email,
+      sessionId: '', // Not needed for quota check
+    } as any;
+    const quotaCheck = await requireQuota(authContext, 'policy.search');
     if (quotaCheck) {
       return quotaCheck;
     }
 
-    const body = await request.json();
+    const body = await req.json();
     const { question, limitDocs, limitChunks } = askSchema.parse(body);
 
     if (!env.OPENAI_API_KEY) {
@@ -48,13 +49,6 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-
-    // Get tenantId from session (SINGLE SOURCE OF TRUTH)
-    const tenantIdResult = await requireTenantId(request);
-    if (tenantIdResult instanceof NextResponse) {
-      return tenantIdResult;
-    }
-    const tenantId = tenantIdResult;
 
     // Step 1: Search using policy-engine with tenantId in request body
     const policyEngineUrl = `${env.POLICY_ENGINE_URL}/v1/search`;
@@ -270,4 +264,4 @@ ${contextText}`,
       { status: 500 }
     );
   }
-}
+}, { platformKey: 'sam', tenantScoped: true, permissionKey: 'sam.policies.ai-ask' });

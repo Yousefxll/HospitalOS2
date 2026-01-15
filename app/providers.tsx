@@ -1,6 +1,7 @@
 'use client';
 
 import { SWRConfig } from 'swr';
+import { PlatformProvider } from '@/contexts/PlatformContext';
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -12,7 +13,9 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         dedupingInterval: 60000,
       }}
     >
-      {children}
+      <PlatformProvider>
+        {children}
+      </PlatformProvider>
     </SWRConfig>
   );
 }

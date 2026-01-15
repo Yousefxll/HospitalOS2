@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, LogOut, LayoutDashboard, Users, Link2, Loader2, Plus, Edit, Trash2, Building2 } from 'lucide-react';
+import { ArrowLeft, LogOut, LayoutDashboard, Users, Link2, Loader2, Plus, Edit, Trash2, Building2, Database, Settings, FileText, Shield } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -603,58 +603,197 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* Quick Links */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => router.push('/admin/platform-access')}>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-primary" />
-              <CardTitle>User Platform Access</CardTitle>
-            </div>
-            <CardDescription>
-              Control which platforms each user can access
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Set per-user platform access within tenant entitlements
-            </p>
-          </CardContent>
-        </Card>
+      {/* Quick Links - All Admin Pages */}
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold mb-4">All Admin Pages</h2>
+          <p className="text-muted-foreground mb-4">
+            Access all administrative pages and settings
+          </p>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* User Management */}
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => router.push('/admin/users')}>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-primary" />
+                <CardTitle>Users</CardTitle>
+              </div>
+              <CardDescription>
+                Manage tenant users and permissions
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                View, create, edit, and delete users
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => router.push('/admin/integrations')}>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Link2 className="h-5 w-5 text-primary" />
-              <CardTitle>Integration Settings</CardTitle>
-            </div>
-            <CardDescription>
-              Configure SAM ↔ SYRA Health integration
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Enable/disable integration, auto-trigger, and severity thresholds
-            </p>
-          </CardContent>
-        </Card>
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => router.push('/admin/platform-access')}>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-primary" />
+                <CardTitle>User Platform Access</CardTitle>
+              </div>
+              <CardDescription>
+                Control which platforms each user can access
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Set per-user platform access within tenant entitlements
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => router.push('/admin/structure-management')}>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Building2 className="h-5 w-5 text-primary" />
-              <CardTitle>Structure Management</CardTitle>
-            </div>
-            <CardDescription>
-              Manage floors, departments, and rooms
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Add and organize floors, departments within floors, and rooms
-            </p>
-          </CardContent>
-        </Card>
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => router.push('/admin/admin')}>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Shield className="h-5 w-5 text-primary" />
+                <CardTitle>Admin Management</CardTitle>
+              </div>
+              <CardDescription>
+                Manage admin users and roles
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Configure admin users and their permissions
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Structure & Data */}
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => router.push('/admin/structure-management')}>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Building2 className="h-5 w-5 text-primary" />
+                <CardTitle>Structure Management</CardTitle>
+              </div>
+              <CardDescription>
+                Manage organizational structure
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Manage departments, rooms, floors, units, operations, functions, and risk domains
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => router.push('/admin/data-admin')}>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Database className="h-5 w-5 text-primary" />
+                <CardTitle>Data Admin</CardTitle>
+              </div>
+              <CardDescription>
+                Manage data imports and exports
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Import, export, and manage system data
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => router.push('/admin/groups-hospitals')}>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Building2 className="h-5 w-5 text-primary" />
+                <CardTitle>Groups & Hospitals</CardTitle>
+              </div>
+              <CardDescription>
+                Manage groups and hospitals
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Configure groups and hospital settings
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Integration & Settings */}
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => router.push('/admin/integrations')}>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Link2 className="h-5 w-5 text-primary" />
+                <CardTitle>Integration Settings</CardTitle>
+              </div>
+              <CardDescription>
+                Configure SAM ↔ SYRA Health integration
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Enable/disable integration, auto-trigger, and severity thresholds
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => router.push('/admin/quotas')}>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Settings className="h-5 w-5 text-primary" />
+                <CardTitle>Demo Quotas</CardTitle>
+              </div>
+              <CardDescription>
+                Manage demo quota limits
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Configure and view demo quota limits for features
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Data Management */}
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => router.push('/admin/delete-sample-data')}>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Trash2 className="h-5 w-5 text-primary" />
+                <CardTitle>Delete Sample Data</CardTitle>
+              </div>
+              <CardDescription>
+                Remove sample/test data
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Delete sample data and test records
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Entitlements (Info Only - redirects to owner) */}
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow border-dashed" onClick={() => {
+            toast({
+              title: 'Info',
+              description: 'Tenant entitlements can only be managed by SYRA Owner. Redirecting to Owner Console...',
+            });
+            router.push('/owner');
+          }}>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Shield className="h-5 w-5 text-muted-foreground" />
+                <CardTitle className="text-muted-foreground">Tenant Entitlements</CardTitle>
+              </div>
+              <CardDescription>
+                Platform access management (SYRA Owner only)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Only SYRA Owner can manage tenant entitlements. Click to go to Owner Console.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* User Management Section */}

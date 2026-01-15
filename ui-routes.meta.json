@@ -1,0 +1,824 @@
+[
+  {
+    "path": "/",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:public"
+    ],
+    "expectedAccess": "public",
+    "platform": "any"
+  },
+  {
+    "path": "/account",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/account/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "any"
+  },
+  {
+    "path": "/admin",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/admin/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:admin"
+    ],
+    "expectedAccess": "admin",
+    "platform": "any"
+  },
+  {
+    "path": "/admin/admin",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/admin/admin/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:admin"
+    ],
+    "expectedAccess": "admin",
+    "platform": "any"
+  },
+  {
+    "path": "/admin/data-admin",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/admin/data-admin/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:admin"
+    ],
+    "expectedAccess": "admin",
+    "platform": "any"
+  },
+  {
+    "path": "/admin/delete-sample-data",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/admin/delete-sample-data/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:admin"
+    ],
+    "expectedAccess": "admin",
+    "platform": "any"
+  },
+  {
+    "path": "/admin/entitlements",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/admin/entitlements/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:admin"
+    ],
+    "expectedAccess": "admin",
+    "platform": "any"
+  },
+  {
+    "path": "/admin/groups-hospitals",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/admin/groups-hospitals/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:admin"
+    ],
+    "expectedAccess": "admin",
+    "platform": "any"
+  },
+  {
+    "path": "/admin/integrations",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/admin/integrations/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:admin"
+    ],
+    "expectedAccess": "admin",
+    "platform": "any"
+  },
+  {
+    "path": "/admin/platform-access",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/admin/platform-access/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:admin"
+    ],
+    "expectedAccess": "admin",
+    "platform": "any"
+  },
+  {
+    "path": "/admin/quotas",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/admin/quotas/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:admin"
+    ],
+    "expectedAccess": "admin",
+    "platform": "any"
+  },
+  {
+    "path": "/admin/structure-management",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/admin/structure-management/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:admin"
+    ],
+    "expectedAccess": "admin",
+    "platform": "any"
+  },
+  {
+    "path": "/admin/users",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/admin/users/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:admin"
+    ],
+    "expectedAccess": "admin",
+    "platform": "any"
+  },
+  {
+    "path": "/ai/new-policy-from-scratch",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/ai/new-policy-from-scratch/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "any"
+  },
+  {
+    "path": "/ai/policy-assistant",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/ai/policy-assistant/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "any"
+  },
+  {
+    "path": "/ai/policy-harmonization",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/ai/policy-harmonization/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "any"
+  },
+  {
+    "path": "/dashboard",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/dashboard/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "any"
+  },
+  {
+    "path": "/demo-limit",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/demo-limit/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "any"
+  },
+  {
+    "path": "/equipment/master",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/equipment/master/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "any"
+  },
+  {
+    "path": "/er/disposition",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/er/disposition/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:health",
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "health"
+  },
+  {
+    "path": "/er/progress-note",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/er/progress-note/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:health",
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "health"
+  },
+  {
+    "path": "/er/register",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/er/register/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:health",
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "health"
+  },
+  {
+    "path": "/er/triage",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/er/triage/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:health",
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "health"
+  },
+  {
+    "path": "/ipd/live-beds",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/ipd/live-beds/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "any"
+  },
+  {
+    "path": "/login",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/login/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:public"
+    ],
+    "expectedAccess": "public",
+    "platform": "any"
+  },
+  {
+    "path": "/notifications",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/notifications/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "any"
+  },
+  {
+    "path": "/nursing/operations",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/nursing/operations/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:health",
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "health"
+  },
+  {
+    "path": "/opd/clinic-daily-census",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/opd/clinic-daily-census/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:health",
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "health"
+  },
+  {
+    "path": "/opd/clinic-utilization",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/opd/clinic-utilization/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:health",
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "health"
+  },
+  {
+    "path": "/opd/daily-data-entry",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/opd/daily-data-entry/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:health",
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "health"
+  },
+  {
+    "path": "/opd/dashboard",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/opd/dashboard/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:health",
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "health"
+  },
+  {
+    "path": "/opd/dept-view",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/opd/dept-view/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:health",
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "health"
+  },
+  {
+    "path": "/opd/import-data",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/opd/import-data/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:health",
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "health"
+  },
+  {
+    "path": "/opd/manpower",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/opd/manpower/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:health",
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "health"
+  },
+  {
+    "path": "/opd/manpower-edit",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/opd/manpower-edit/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:health",
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "health"
+  },
+  {
+    "path": "/opd/manpower-overview",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/opd/manpower-overview/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:health",
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "health"
+  },
+  {
+    "path": "/opd/manpower-overview-new",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/opd/manpower-overview-new/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:health",
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "health"
+  },
+  {
+    "path": "/opd/nursing-scheduling",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/opd/nursing-scheduling/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:health",
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "health"
+  },
+  {
+    "path": "/owner",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/owner/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:owner"
+    ],
+    "expectedAccess": "owner",
+    "platform": "any"
+  },
+  {
+    "path": "/owner/setup",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/owner/setup/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:owner"
+    ],
+    "expectedAccess": "owner",
+    "platform": "any"
+  },
+  {
+    "path": "/owner/tenants",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/owner/tenants/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:owner"
+    ],
+    "expectedAccess": "owner",
+    "platform": "any"
+  },
+  {
+    "path": "/owner/users",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/owner/users/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:owner"
+    ],
+    "expectedAccess": "owner",
+    "platform": "any"
+  },
+  {
+    "path": "/patient-experience",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/patient-experience/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "any"
+  },
+  {
+    "path": "/patient-experience/analytics",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/patient-experience/analytics/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "any"
+  },
+  {
+    "path": "/patient-experience/cases",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/patient-experience/cases/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "any"
+  },
+  {
+    "path": "/patient-experience/dashboard",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/patient-experience/dashboard/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "any"
+  },
+  {
+    "path": "/patient-experience/delete-all-data",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/patient-experience/delete-all-data/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "any"
+  },
+  {
+    "path": "/patient-experience/reports",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/patient-experience/reports/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "any"
+  },
+  {
+    "path": "/patient-experience/seed-data",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/patient-experience/seed-data/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "any"
+  },
+  {
+    "path": "/patient-experience/setup",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/patient-experience/setup/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "any"
+  },
+  {
+    "path": "/patient-experience/visit",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/patient-experience/visit/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "any"
+  },
+  {
+    "path": "/patient-experience/visits",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/patient-experience/visits/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "any"
+  },
+  {
+    "path": "/platforms",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/platforms/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:public"
+    ],
+    "expectedAccess": "public",
+    "platform": "any"
+  },
+  {
+    "path": "/platforms/sam",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/platforms/sam/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:sam",
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "sam"
+  },
+  {
+    "path": "/platforms/syra-health",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/platforms/syra-health/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "any"
+  },
+  {
+    "path": "/policies",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/policies/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "any"
+  },
+  {
+    "path": "/policies/conflicts",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/policies/conflicts/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "any"
+  },
+  {
+    "path": "/policies/create",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/policies/create/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "any"
+  },
+  {
+    "path": "/policies/policy-builder",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/policies/policy-builder/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "any"
+  },
+  {
+    "path": "/policies/risk-detector",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/policies/risk-detector/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "any"
+  },
+  {
+    "path": "/policies/tag-review-queue",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/policies/tag-review-queue/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "any"
+  },
+  {
+    "path": "/sam/ai/new-policy-from-scratch",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/sam/ai/new-policy-from-scratch/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:sam",
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "sam"
+  },
+  {
+    "path": "/sam/ai/policy-assistant",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/sam/ai/policy-assistant/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:sam",
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "sam"
+  },
+  {
+    "path": "/sam/ai/policy-harmonization",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/sam/ai/policy-harmonization/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:sam",
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "sam"
+  },
+  {
+    "path": "/sam/policies",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/sam/policies/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:sam",
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "sam"
+  },
+  {
+    "path": "/sam/policies/conflicts",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/sam/policies/conflicts/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:sam",
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "sam"
+  },
+  {
+    "path": "/sam/policies/create",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/sam/policies/create/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:sam",
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "sam"
+  },
+  {
+    "path": "/sam/policies/risk-detector",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/sam/policies/risk-detector/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:sam",
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "sam"
+  },
+  {
+    "path": "/sam/policies/tag-review-queue",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/sam/policies/tag-review-queue/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "platform:sam",
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "sam"
+  },
+  {
+    "path": "/subscription-error",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/subscription-error/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:authenticated"
+    ],
+    "expectedAccess": "authenticated",
+    "platform": "any"
+  },
+  {
+    "path": "/welcome",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/(dashboard)/welcome/page.tsx",
+    "isDynamic": false,
+    "dynamicParams": [],
+    "tags": [
+      "access:public"
+    ],
+    "expectedAccess": "public",
+    "platform": "any"
+  },
+  {
+    "path": "/owner/tenants/[tenantId]",
+    "filePath": "/Users/yousef/Desktop/SYRA 1/app/owner/tenants/[tenantId]/page.tsx",
+    "isDynamic": true,
+    "dynamicParams": [
+      "tenantId"
+    ],
+    "placeholders": {
+      "tenantId": "test-tenant-a"
+    },
+    "tags": [
+      "access:owner"
+    ],
+    "expectedAccess": "owner",
+    "platform": "any"
+  }
+]

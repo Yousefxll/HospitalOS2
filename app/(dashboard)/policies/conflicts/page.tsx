@@ -35,6 +35,9 @@ import {
 } from '@/components/ui/dialog';
 import { PolicyQuickNav } from '@/components/policies/PolicyQuickNav';
 import { useRoutePermission } from '@/lib/hooks/useRoutePermission';
+import { ConflictAnalysisPanel } from '@/components/policies/ConflictAnalysisPanel';
+import { DecisionScenariosPanel } from '@/components/policies/DecisionScenariosPanel';
+import type { Conflict, DecisionScenario } from '@/lib/models/ConflictAnalysis';
 
 interface Policy {
   policyId: string;
@@ -97,6 +100,11 @@ export default function PoliciesConflictsPage() {
   const [isAIDetailsOpen, setIsAIDetailsOpen] = useState(false);
   const [copiedRecommendation, setCopiedRecommendation] = useState<string | null>(null);
   const [serviceUnavailable, setServiceUnavailable] = useState(false);
+  
+  // Operational Integrity Analysis state
+  const [operationalConflicts, setOperationalConflicts] = useState<Conflict[]>([]);
+  const [operationalScenarios, setOperationalScenarios] = useState<DecisionScenario[]>([]);
+  const [activeTab, setActiveTab] = useState<'ai-review' | 'operational-integrity'>('ai-review');
 
   // AI Rewrite state
   const [isAIRewriteSelectorOpen, setIsAIRewriteSelectorOpen] = useState(false);
@@ -892,8 +900,16 @@ export default function PoliciesConflictsPage() {
         </p>
       </div>
 
-      {/* AI Review Section */}
-      <Card>
+      {/* Main Tabs */}
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="ai-review">AI Review</TabsTrigger>
+          <TabsTrigger value="operational-integrity">Operational Integrity</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="ai-review" className="space-y-6">
+          {/* AI Review Section */}
+          <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5" />
@@ -1416,7 +1432,31 @@ export default function PoliciesConflictsPage() {
           )}
         </DialogContent>
       </Dialog>
+        </TabsContent>
 
+        <TabsContent value="operational-integrity" className="space-y-6">
+          <ConflictAnalysisPanel
+            onAnalysisComplete={(conflicts) => {
+              setOperationalConflicts(conflicts);
+            }}
+            onScenariosGenerated={(scenarios) => {
+              setOperationalScenarios(scenarios);
+            }}
+          />
+          {operationalScenarios.length > 0 && (
+            <DecisionScenariosPanel
+              scenarios={operationalScenarios}
+              onResolve={(resolution) => {
+                console.log('Resolution applied:', resolution);
+                toast({
+                  title: 'Success',
+                  description: 'Resolution applied successfully',
+                });
+              }}
+            />
+          )}
+        </TabsContent>
+      </Tabs>
 
       {/* Rewritten Policy Preview Dialog */}
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
@@ -1431,24 +1471,44 @@ export default function PoliciesConflictsPage() {
           {Object.keys(rewrittenPolicies).length > 1 ? (
             // Pair mode: Show tabs for multiple policies
             <div className="mt-4">
-              <Tabs value={currentPreviewPolicyId || Object.keys(rewrittenPolicies)[0]} onValueChange={setCurrentPreviewPolicyId}>
-                <TabsList className="grid w-full grid-cols-2">
-                  {Object.values(rewrittenPolicies).map((policy) => (
-                    <TabsTrigger key={policy.policyId} value={policy.policyId}>
-                      {policy.filename}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
-                {Object.values(rewrittenPolicies).map((policy) => (
-                  <TabsContent key={policy.policyId} value={policy.policyId} className="mt-4">
-                    <div className="p-6 bg-muted rounded-lg max-h-[60vh] overflow-y-auto border">
-                      <div className="prose prose-sm max-w-none dark:prose-invert">
-                        {formatPolicyText(policy.text)}
-                      </div>
-                    </div>
-                  </TabsContent>
-                ))}
-              </Tabs>
+              {(() => {
+                // Sort policies by filename alphabetically (natural sort for numbers)
+                const sortedPolicies = Object.values(rewrittenPolicies).sort((a, b) => {
+                  const filenameA = (a.filename || '').toLowerCase().trim();
+                  const filenameB = (b.filename || '').toLowerCase().trim();
+                  // Use natural sort (handles numbers correctly)
+                  return filenameA.localeCompare(filenameB, undefined, { 
+                    numeric: true, 
+                    sensitivity: 'base' 
+                  });
+                });
+                const firstPolicyId = sortedPolicies[0]?.policyId || Object.keys(rewrittenPolicies)[0];
+                
+                return (
+                  <Tabs value={currentPreviewPolicyId || firstPolicyId} onValueChange={setCurrentPreviewPolicyId}>
+                    <TabsList className="flex flex-wrap w-full gap-1">
+                      {sortedPolicies.map((policy) => (
+                        <TabsTrigger 
+                          key={policy.policyId} 
+                          value={policy.policyId} 
+                          className="text-xs px-3 py-2 flex-1 min-w-0 truncate"
+                        >
+                          {policy.filename}
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+                    {sortedPolicies.map((policy) => (
+                      <TabsContent key={policy.policyId} value={policy.policyId} className="mt-4">
+                        <div className="p-6 bg-muted rounded-lg max-h-[60vh] overflow-y-auto border">
+                          <div className="prose prose-sm max-w-none dark:prose-invert">
+                            {formatPolicyText(policy.text)}
+                          </div>
+                        </div>
+                      </TabsContent>
+                    ))}
+                  </Tabs>
+                );
+              })()}
               <div className="mt-4 flex gap-2 justify-end">
                 <Button
                   variant="default"

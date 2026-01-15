@@ -42,6 +42,9 @@ export interface Note {
     content: string;
   }[];
   
+  // Tenant isolation
+  tenantId: string; // ALWAYS from session
+  
   // Audit
   createdAt: string; // ISO timestamp
   updatedAt: string; // ISO timestamp

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth/requireAuth';
 import { requireQuota } from '@/lib/quota/guard';
-import { requireTenantId } from '@/lib/tenant';
 import { env } from '@/lib/env';
+import { withAuthTenant } from '@/lib/core/guards/withAuthTenant';
 
 /**
 
@@ -26,22 +25,24 @@ export const revalidate = 0;
  *   results: Array<PolicySearchResult>
  * }
  */
-export async function POST(request: NextRequest) {
+export const POST = withAuthTenant(async (req, { user, tenantId, userId, role }) => {
   try {
-    // Authenticate
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
-
-    // Check quota (policy.search)
-    const quotaCheck = await requireQuota(authResult, 'policy.search');
+    // Check quota (policy.search) - requireQuota expects AuthenticatedUser format
+    const authContext = {
+      user,
+      tenantId,
+      userId,
+      userRole: role,
+      userEmail: user.email,
+      sessionId: '', // Not needed for quota check
+    } as any;
+    const quotaCheck = await requireQuota(authContext, 'policy.search');
     if (quotaCheck) {
       return quotaCheck;
     }
 
     // Get request body
-    const body = await request.json();
+    const body = await req.json();
     const { q: query, limit = 20, hospital, category } = body;
 
     if (!query || typeof query !== 'string' || query.trim().length === 0) {
@@ -50,13 +51,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    // Get tenantId from session (SINGLE SOURCE OF TRUTH)
-    const tenantIdResult = await requireTenantId(request);
-    if (tenantIdResult instanceof NextResponse) {
-      return tenantIdResult;
-    }
-    const tenantId = tenantIdResult;
 
     // Forward to policy-engine with tenantId in request body
     const policyEngineUrl = `${env.POLICY_ENGINE_URL}/v1/search`;
@@ -67,7 +61,7 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        tenantId: tenantId,
+        tenantId, // CRITICAL: Always include tenantId for tenant isolation in policy-engine
         query: query.trim(),
         topK: limit,
       }),
@@ -154,4 +148,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, platformKey: 'sam', permissionKey: 'sam.policies.search' });

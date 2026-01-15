@@ -6,6 +6,7 @@ import './globals.css';
 import { LanguageProvider } from '@/components/LanguageProvider';
 import { QueryProvider } from '@/components/providers/QueryProvider';
 import { ThemeProvider } from '@/components/ThemeProvider';
+import { SessionStateTracker } from '@/components/SessionStateTracker';
 import { appConfig } from '@/lib/config';
 import Providers from './providers';
 
@@ -55,7 +56,10 @@ export default async function RootLayout({
           <ThemeProvider>
             <QueryProvider>
               <LanguageProvider initialPlatform={initialPlatform}>
-                {children}
+                <div data-testid="page-ready">
+                  {children}
+                </div>
+                <SessionStateTracker />
               </LanguageProvider>
             </QueryProvider>
           </ThemeProvider>

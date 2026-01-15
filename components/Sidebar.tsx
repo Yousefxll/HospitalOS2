@@ -333,6 +333,11 @@ export default function Sidebar({ onLinkClick, sidebarOpen, setSidebarOpen }: Si
   const userPermissions = me?.user?.permissions || [];
   const platform = platformData?.platform === 'sam' || platformData?.platform === 'health' ? platformData.platform : null;
   
+  // Get effective entitlements to check SAM access
+  const effectiveEntitlements = me?.effectiveEntitlements;
+  const hasSAMAccess = effectiveEntitlements?.sam ?? false;
+  const hasHealthAccess = effectiveEntitlements?.health ?? false;
+  
   // Use default 'ar' translations until mounted to prevent hydration mismatch
   const safeT = mounted ? t : translations.ar;
   const safeIsRTL = mounted ? isRTL : true; // Default to RTL to match server
@@ -466,13 +471,30 @@ export default function Sidebar({ onLinkClick, sidebarOpen, setSidebarOpen }: Si
       if (platform) {
         // Check if item or any child belongs to current platform
         if (item.href) {
+          // Check entitlements first (server-side guard is source of truth, but hide from UI)
+          if (isRouteForPlatform(item.href, 'sam') && !hasSAMAccess) {
+            return null; // Hide SAM routes if user doesn't have SAM entitlement
+          }
+          if (isRouteForPlatform(item.href, 'health') && !hasHealthAccess) {
+            return null; // Hide Health routes if user doesn't have Health entitlement
+          }
+          
           if (!isRouteForPlatform(item.href, platform)) {
             return null; // Hide items not for current platform
           }
         } else if (item.children) {
-          // Check children
+          // Check children with entitlement checks
           const platformChildren = item.children.filter(child => {
             if (!child.href) return true;
+            
+            // Check entitlements first
+            if (isRouteForPlatform(child.href, 'sam') && !hasSAMAccess) {
+              return false; // Hide SAM routes if user doesn't have SAM entitlement
+            }
+            if (isRouteForPlatform(child.href, 'health') && !hasHealthAccess) {
+              return false; // Hide Health routes if user doesn't have Health entitlement
+            }
+            
             return isRouteForPlatform(child.href, platform);
           });
           

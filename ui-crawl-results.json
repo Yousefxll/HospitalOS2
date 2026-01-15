@@ -1,0 +1,870 @@
+{
+  "timestamp": "2026-01-11T17:21:35.140Z",
+  "totalRoutes": 72,
+  "passed": 76,
+  "failed": 0,
+  "skipped": 5,
+  "results": [
+    {
+      "route": "/",
+      "url": "/",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 656
+    },
+    {
+      "route": "/account",
+      "url": "/account",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 554
+    },
+    {
+      "route": "/admin",
+      "url": "/admin",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 558
+    },
+    {
+      "route": "/admin/admin",
+      "url": "/admin/admin",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [
+        "Failed to fetch users: TypeError: Failed to fetch\n    at eo (http://localhost:3000/_next/static/chunks/app/admin/page-b5efc104b5753f27.js:1:3041)\n    at http://localhost:3000/_next/static/chunks/app/admin/page-b5efc104b5753f27.js:1:6140\n    at aW (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:73244)\n    at oe (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:84685)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85323)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85303)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:86268)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)"
+      ],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 566
+    },
+    {
+      "route": "/admin/data-admin",
+      "url": "/admin/data-admin",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [
+        "Failed to fetch users: TypeError: Failed to fetch\n    at A (http://localhost:3000/_next/static/chunks/app/(dashboard)/admin/admin/page-8a16f390268c4d6c.js:1:773)\n    at http://localhost:3000/_next/static/chunks/app/(dashboard)/admin/admin/page-8a16f390268c4d6c.js:1:3212\n    at aW (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:73244)\n    at oe (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:84685)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85323)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85303)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:86268)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)"
+      ],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 568
+    },
+    {
+      "route": "/admin/delete-sample-data",
+      "url": "/admin/delete-sample-data",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 569
+    },
+    {
+      "route": "/admin/entitlements",
+      "url": "/admin/entitlements",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "blocked",
+      "loadTime": 568
+    },
+    {
+      "route": "/admin/groups-hospitals",
+      "url": "/admin/groups-hospitals",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 569
+    },
+    {
+      "route": "/admin/integrations",
+      "url": "/admin/integrations",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 556
+    },
+    {
+      "route": "/admin/platform-access",
+      "url": "/admin/platform-access",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 561
+    },
+    {
+      "route": "/admin/quotas",
+      "url": "/admin/quotas",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [
+        "Failed to fetch users: TypeError: Failed to fetch\n    at http://localhost:3000/_next/static/chunks/app/admin/platform-access/page-2151ae9c4011f182.js:1:1449\n    at http://localhost:3000/_next/static/chunks/app/admin/platform-access/page-2151ae9c4011f182.js:1:1869\n    at aW (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:73244)\n    at oe (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:84685)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85323)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85303)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:86268)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)"
+      ],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 567
+    },
+    {
+      "route": "/admin/structure-management",
+      "url": "/admin/structure-management",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [
+        "Failed to fetch users: TypeError: Failed to fetch\n    at M (http://localhost:3000/_next/static/chunks/app/(dashboard)/admin/quotas/page-25fe817a7c38769c.js:1:1078)\n    at http://localhost:3000/_next/static/chunks/app/(dashboard)/admin/quotas/page-25fe817a7c38769c.js:1:3929\n    at aW (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:73244)\n    at oe (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:84685)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85323)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85303)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:86268)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)"
+      ],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 563
+    },
+    {
+      "route": "/admin/users",
+      "url": "/admin/users",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [
+        "Failed to fetch nodes: TypeError: Failed to fetch\n    at _ (http://localhost:3000/_next/static/chunks/app/(dashboard)/admin/structure-management/page-2302ea3ea506ec84.js:1:1018)\n    at http://localhost:3000/_next/static/chunks/app/(dashboard)/admin/structure-management/page-2302ea3ea506ec84.js:1:2451\n    at aW (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:73244)\n    at oe (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:84685)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85323)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85303)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:86268)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)"
+      ],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 557
+    },
+    {
+      "route": "/ai/new-policy-from-scratch",
+      "url": "/ai/new-policy-from-scratch",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [
+        "Failed to fetch users: TypeError: Failed to fetch\n    at B (http://localhost:3000/_next/static/chunks/app/(dashboard)/admin/users/page-e281848e93831c68.js:1:1955)\n    at http://localhost:3000/_next/static/chunks/app/(dashboard)/admin/users/page-e281848e93831c68.js:1:4183\n    at aW (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:73244)\n    at oe (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:84685)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85323)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85303)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:86268)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)"
+      ],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 560
+    },
+    {
+      "route": "/ai/policy-assistant",
+      "url": "/ai/policy-assistant",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 548
+    },
+    {
+      "route": "/ai/policy-harmonization",
+      "url": "/ai/policy-harmonization",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 564
+    },
+    {
+      "route": "/dashboard",
+      "url": "/dashboard",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 560
+    },
+    {
+      "route": "/demo-limit",
+      "url": "/demo-limit",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [
+        "Failed to fetch dashboard stats: TypeError: Failed to fetch\n    at window.fetch (http://localhost:3000/_next/static/chunks/app/(dashboard)/layout-43a92b56f88447df.js:1:551)\n    at D (http://localhost:3000/_next/static/chunks/app/(dashboard)/dashboard/page-411933eca9f66933.js:1:2798)\n    at http://localhost:3000/_next/static/chunks/app/(dashboard)/dashboard/page-411933eca9f66933.js:1:3157\n    at aW (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:73244)\n    at oe (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:84685)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85323)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85303)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:86268)"
+      ],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 553
+    },
+    {
+      "route": "/equipment/master",
+      "url": "/equipment/master",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 556
+    },
+    {
+      "route": "/er/disposition",
+      "url": "/er/disposition",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [
+        "Failed to fetch equipment: TypeError: Failed to fetch\n    at R (http://localhost:3000/_next/static/chunks/app/(dashboard)/equipment/master/page-2b0c11eeb6c659a1.js:1:707)\n    at http://localhost:3000/_next/static/chunks/app/(dashboard)/equipment/master/page-2b0c11eeb6c659a1.js:1:1380\n    at aW (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:73244)\n    at oe (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:84685)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85323)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85303)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:86268)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)"
+      ],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 558
+    },
+    {
+      "route": "/er/progress-note",
+      "url": "/er/progress-note",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 547
+    },
+    {
+      "route": "/er/register",
+      "url": "/er/register",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 561
+    },
+    {
+      "route": "/er/triage",
+      "url": "/er/triage",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 558
+    },
+    {
+      "route": "/ipd/live-beds",
+      "url": "/ipd/live-beds",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 564
+    },
+    {
+      "route": "/login",
+      "url": "/login",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "blocked",
+      "loadTime": 550
+    },
+    {
+      "route": "/notifications",
+      "url": "/notifications",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 566
+    },
+    {
+      "route": "/nursing/operations",
+      "url": "/nursing/operations",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 566
+    },
+    {
+      "route": "/opd/clinic-daily-census",
+      "url": "/opd/clinic-daily-census",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [
+        "Failed to check integration settings: TypeError: Failed to fetch\n    at http://localhost:3000/_next/static/chunks/app/nursing/operations/page-b9162e19ea26c2fc.js:1:6619\n    at aW (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:73244)\n    at oe (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:84685)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85323)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85303)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:86268)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:86268)"
+      ],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 555
+    },
+    {
+      "route": "/opd/clinic-utilization",
+      "url": "/opd/clinic-utilization",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [
+        "Failed to fetch departments: TypeError: Failed to fetch\n    at D (http://localhost:3000/_next/static/chunks/app/(dashboard)/opd/clinic-daily-census/page-8d4e964d1b61933f.js:1:787)\n    at http://localhost:3000/_next/static/chunks/app/(dashboard)/opd/clinic-daily-census/page-8d4e964d1b61933f.js:1:1765\n    at aW (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:73244)\n    at oe (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:84685)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85323)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85303)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:86268)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)"
+      ],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 560
+    },
+    {
+      "route": "/opd/daily-data-entry",
+      "url": "/opd/daily-data-entry",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 573
+    },
+    {
+      "route": "/opd/dashboard",
+      "url": "/opd/dashboard",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 553
+    },
+    {
+      "route": "/opd/dept-view",
+      "url": "/opd/dept-view",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 551
+    },
+    {
+      "route": "/opd/import-data",
+      "url": "/opd/import-data",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [
+        "Failed to fetch departments: TypeError: Failed to fetch\n    at X (http://localhost:3000/_next/static/chunks/app/(dashboard)/opd/dept-view/page-5567f7c33230daff.js:1:1122)\n    at http://localhost:3000/_next/static/chunks/app/(dashboard)/opd/dept-view/page-5567f7c33230daff.js:1:2295\n    at aW (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:73244)\n    at oe (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:84685)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85323)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85303)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:86268)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)"
+      ],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 552
+    },
+    {
+      "route": "/opd/manpower",
+      "url": "/opd/manpower",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 565
+    },
+    {
+      "route": "/opd/manpower-edit",
+      "url": "/opd/manpower-edit",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 573
+    },
+    {
+      "route": "/opd/manpower-overview",
+      "url": "/opd/manpower-overview",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 556
+    },
+    {
+      "route": "/opd/manpower-overview-new",
+      "url": "/opd/manpower-overview-new",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 554
+    },
+    {
+      "route": "/opd/nursing-scheduling",
+      "url": "/opd/nursing-scheduling",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 566
+    },
+    {
+      "route": "/owner",
+      "url": "/owner",
+      "user": "test-a@example.com",
+      "status": "skipped",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "blocked"
+    },
+    {
+      "route": "/owner/setup",
+      "url": "/owner/setup",
+      "user": "test-a@example.com",
+      "status": "skipped",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "blocked"
+    },
+    {
+      "route": "/owner/tenants",
+      "url": "/owner/tenants",
+      "user": "test-a@example.com",
+      "status": "skipped",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "blocked"
+    },
+    {
+      "route": "/owner/users",
+      "url": "/owner/users",
+      "user": "test-a@example.com",
+      "status": "skipped",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "blocked"
+    },
+    {
+      "route": "/patient-experience",
+      "url": "/patient-experience",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 569
+    },
+    {
+      "route": "/patient-experience/analytics",
+      "url": "/patient-experience/analytics",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [
+        "Error loading departments: TypeError: Failed to fetch\n    at em (http://localhost:3000/_next/static/chunks/app/(dashboard)/patient-experience/page-7c9334b85442120e.js:1:2051)\n    at http://localhost:3000/_next/static/chunks/app/(dashboard)/patient-experience/page-7c9334b85442120e.js:1:10317\n    at aW (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:73244)\n    at oe (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:84685)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85323)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85303)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:86268)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)"
+      ],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 566
+    },
+    {
+      "route": "/patient-experience/cases",
+      "url": "/patient-experience/cases",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [
+        "Failed to fetch RSC payload for http://localhost:3000/account. Falling back to browser navigation. TypeError: Failed to fetch\n    at window.fetch (http://localhost:3000/_next/static/chunks/app/(dashboard)/layout-43a92b56f88447df.js:1:551)\n    at s (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:45405)\n    at http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:58954\n    at Object.u [as task] (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:31792)\n    at c.s (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:32497)\n    at c.enqueue (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:31922)\n    at s (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:58917)\n    at i (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:58457)\n    at a (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:65277)\n    at f (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:75104)",
+        "Failed to fetch analytics data: TypeError: Failed to fetch\n    at window.fetch (http://localhost:3000/_next/static/chunks/app/(dashboard)/layout-43a92b56f88447df.js:1:551)\n    at eC (http://localhost:3000/_next/static/chunks/app/(dashboard)/patient-experience/analytics/page-045a2cb19ccb29f4.js:1:6614)\n    at http://localhost:3000/_next/static/chunks/app/(dashboard)/patient-experience/analytics/page-045a2cb19ccb29f4.js:1:10817\n    at aW (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:73244)\n    at oe (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:84685)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85323)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85303)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:86268)"
+      ],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 1368
+    },
+    {
+      "route": "/patient-experience/dashboard",
+      "url": "/patient-experience/dashboard",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [
+        "Failed to fetch cases: TypeError: Failed to fetch\n    at eR (http://localhost:3000/_next/static/chunks/app/(dashboard)/patient-experience/cases/page-ca602f3e903eb5b5.js:1:1937)\n    at http://localhost:3000/_next/static/chunks/app/(dashboard)/patient-experience/cases/page-ca602f3e903eb5b5.js:1:5097\n    at aW (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:73244)\n    at oe (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:84685)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85323)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85303)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:86268)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)",
+        "Failed to fetch cases: TypeError: Failed to fetch\n    at eR (http://localhost:3000/_next/static/chunks/app/(dashboard)/patient-experience/cases/page-ca602f3e903eb5b5.js:1:1937)\n    at http://localhost:3000/_next/static/chunks/app/(dashboard)/patient-experience/cases/page-ca602f3e903eb5b5.js:1:5128\n    at aW (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:73244)\n    at oe (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:84685)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85323)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85303)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:86268)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)"
+      ],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 575
+    },
+    {
+      "route": "/patient-experience/delete-all-data",
+      "url": "/patient-experience/delete-all-data",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [
+        "Failed to fetch data: TypeError: Failed to fetch\n    at window.fetch (http://localhost:3000/_next/static/chunks/app/(dashboard)/layout-43a92b56f88447df.js:1:551)\n    at ev (http://localhost:3000/_next/static/chunks/app/(dashboard)/patient-experience/dashboard/page-e2c426e1accea7f3.js:1:2641)\n    at http://localhost:3000/_next/static/chunks/app/(dashboard)/patient-experience/dashboard/page-e2c426e1accea7f3.js:1:4543\n    at aW (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:73244)\n    at oe (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:84685)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85323)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85303)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:86268)"
+      ],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 565
+    },
+    {
+      "route": "/patient-experience/reports",
+      "url": "/patient-experience/reports",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 568
+    },
+    {
+      "route": "/patient-experience/seed-data",
+      "url": "/patient-experience/seed-data",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 554
+    },
+    {
+      "route": "/patient-experience/setup",
+      "url": "/patient-experience/setup",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 569
+    },
+    {
+      "route": "/patient-experience/visit",
+      "url": "/patient-experience/visit",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 558
+    },
+    {
+      "route": "/patient-experience/visits",
+      "url": "/patient-experience/visits",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [
+        "Error loading all departments: TypeError: Failed to fetch\n    at eO (http://localhost:3000/_next/static/chunks/app/(dashboard)/patient-experience/visit/page-2c8ed0253fde0b2f.js:1:4271)\n    at http://localhost:3000/_next/static/chunks/app/(dashboard)/patient-experience/visit/page-2c8ed0253fde0b2f.js:1:14325\n    at aW (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:73244)\n    at oe (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:84685)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85323)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85303)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:86268)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)"
+      ],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 568
+    },
+    {
+      "route": "/platforms",
+      "url": "/platforms",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [
+        "Failed to fetch visits: TypeError: Failed to fetch\n    at eh (http://localhost:3000/_next/static/chunks/app/(dashboard)/patient-experience/visits/page-5f5fdd0296dd494f.js:1:2530)\n    at http://localhost:3000/_next/static/chunks/app/(dashboard)/patient-experience/visits/page-5f5fdd0296dd494f.js:1:4890\n    at aW (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:73244)\n    at oe (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:84685)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85323)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85303)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:86268)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)"
+      ],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 559
+    },
+    {
+      "route": "/platforms/sam",
+      "url": "/platforms/sam",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "redirected",
+      "loadTime": 593
+    },
+    {
+      "route": "/platforms/syra-health",
+      "url": "/platforms/syra-health",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "redirected",
+      "loadTime": 568
+    },
+    {
+      "route": "/policies",
+      "url": "/policies",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 563
+    },
+    {
+      "route": "/policies/conflicts",
+      "url": "/policies/conflicts",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 566
+    },
+    {
+      "route": "/policies/create",
+      "url": "/policies/create",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 565
+    },
+    {
+      "route": "/policies/policy-builder",
+      "url": "/policies/policy-builder",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 569
+    },
+    {
+      "route": "/policies/risk-detector",
+      "url": "/policies/risk-detector",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 555
+    },
+    {
+      "route": "/policies/tag-review-queue",
+      "url": "/policies/tag-review-queue",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 563
+    },
+    {
+      "route": "/sam/ai/new-policy-from-scratch",
+      "url": "/sam/ai/new-policy-from-scratch",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 668
+    },
+    {
+      "route": "/sam/ai/policy-assistant",
+      "url": "/sam/ai/policy-assistant",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 690
+    },
+    {
+      "route": "/sam/ai/policy-harmonization",
+      "url": "/sam/ai/policy-harmonization",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 698
+    },
+    {
+      "route": "/sam/policies",
+      "url": "/sam/policies",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 687
+    },
+    {
+      "route": "/sam/policies/conflicts",
+      "url": "/sam/policies/conflicts",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [
+        "Failed to fetch RSC payload for http://localhost:3000/policies. Falling back to browser navigation. TypeError: Failed to fetch\n    at window.fetch (http://localhost:3000/_next/static/chunks/app/(dashboard)/layout-43a92b56f88447df.js:1:551)\n    at s (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:45405)\n    at http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:58954\n    at Object.u [as task] (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:31792)\n    at c.s (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:32497)\n    at c.enqueue (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:31922)\n    at s (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:58917)\n    at i (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:58457)\n    at a (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:65277)\n    at f (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:75104)",
+        "Failed to fetch RSC payload for http://localhost:3000/ai/policy-assistant. Falling back to browser navigation. TypeError: Failed to fetch\n    at window.fetch (http://localhost:3000/_next/static/chunks/app/(dashboard)/layout-43a92b56f88447df.js:1:551)\n    at s (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:45405)\n    at http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:58954\n    at Object.u [as task] (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:31792)\n    at c.s (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:32497)\n    at c.enqueue (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:31922)\n    at s (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:58917)\n    at i (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:58457)\n    at a (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:65277)\n    at f (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:75104)",
+        "Failed to fetch RSC payload for http://localhost:3000/ai/new-policy-from-scratch. Falling back to browser navigation. TypeError: Failed to fetch\n    at window.fetch (http://localhost:3000/_next/static/chunks/app/(dashboard)/layout-43a92b56f88447df.js:1:551)\n    at s (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:45405)\n    at http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:58954\n    at Object.u [as task] (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:31792)\n    at c.s (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:32497)\n    at c.enqueue (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:31922)\n    at s (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:58917)\n    at i (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:58457)\n    at a (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:65277)\n    at f (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:75104)",
+        "Failed to fetch RSC payload for http://localhost:3000/policies/conflicts. Falling back to browser navigation. TypeError: Failed to fetch\n    at window.fetch (http://localhost:3000/_next/static/chunks/app/(dashboard)/layout-43a92b56f88447df.js:1:551)\n    at s (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:45405)\n    at http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:58954\n    at Object.u [as task] (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:31792)\n    at c.s (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:32497)\n    at c.enqueue (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:31922)\n    at s (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:58917)\n    at i (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:58457)\n    at a (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:65277)\n    at f (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:75104)",
+        "Failed to fetch RSC payload for http://localhost:3000/account. Falling back to browser navigation. TypeError: Failed to fetch\n    at window.fetch (http://localhost:3000/_next/static/chunks/app/(dashboard)/layout-43a92b56f88447df.js:1:551)\n    at s (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:45405)\n    at http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:58954\n    at Object.u [as task] (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:31792)\n    at c.s (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:32497)\n    at c.enqueue (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:31922)\n    at s (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:58917)\n    at i (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:58457)\n    at a (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:65277)\n    at f (http://localhost:3000/_next/static/chunks/7023-553322c9a53cb4c2.js:1:75104)"
+      ],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 710
+    },
+    {
+      "route": "/sam/policies/create",
+      "url": "/sam/policies/create",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 701
+    },
+    {
+      "route": "/sam/policies/risk-detector",
+      "url": "/sam/policies/risk-detector",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 678
+    },
+    {
+      "route": "/sam/policies/tag-review-queue",
+      "url": "/sam/policies/tag-review-queue",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 697
+    },
+    {
+      "route": "/subscription-error",
+      "url": "/subscription-error",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 566
+    },
+    {
+      "route": "/welcome",
+      "url": "/welcome",
+      "user": "test-a@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "allowed",
+      "loadTime": 554
+    },
+    {
+      "route": "/owner/tenants/[tenantId]",
+      "url": "/owner/tenants/test-tenant-a",
+      "user": "test-a@example.com",
+      "status": "skipped",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "blocked"
+    },
+    {
+      "route": "/platforms/sam",
+      "url": "/platforms/sam",
+      "user": "nosam@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "blocked",
+      "loadTime": 561
+    },
+    {
+      "route": "/sam/ai/new-policy-from-scratch",
+      "url": "/sam/ai/new-policy-from-scratch",
+      "user": "nosam@example.com",
+      "status": "passed",
+      "consoleErrors": [
+        "[platforms] Error setting platform cookie: TypeError: Failed to fetch\n    at http://localhost:3000/_next/static/chunks/app/platforms/page-0c99fa90204d24d9.js:1:8769\n    at http://localhost:3000/_next/static/chunks/app/platforms/page-0c99fa90204d24d9.js:1:9114\n    at aW (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:73244)\n    at oe (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:84685)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85323)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85303)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:86268)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)"
+      ],
+      "pageErrors": [],
+      "accessStatus": "blocked",
+      "loadTime": 728
+    },
+    {
+      "route": "/sam/ai/policy-assistant",
+      "url": "/sam/ai/policy-assistant",
+      "user": "nosam@example.com",
+      "status": "passed",
+      "consoleErrors": [
+        "[platforms] Error setting platform cookie: TypeError: Failed to fetch\n    at http://localhost:3000/_next/static/chunks/app/platforms/page-0c99fa90204d24d9.js:1:8769\n    at http://localhost:3000/_next/static/chunks/app/platforms/page-0c99fa90204d24d9.js:1:9114\n    at aW (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:73244)\n    at oe (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:84685)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85323)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85303)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:86268)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)"
+      ],
+      "pageErrors": [],
+      "accessStatus": "blocked",
+      "loadTime": 706
+    },
+    {
+      "route": "/sam/ai/policy-harmonization",
+      "url": "/sam/ai/policy-harmonization",
+      "user": "nosam@example.com",
+      "status": "passed",
+      "consoleErrors": [
+        "[platforms] Error setting platform cookie: TypeError: Failed to fetch\n    at http://localhost:3000/_next/static/chunks/app/platforms/page-0c99fa90204d24d9.js:1:8769\n    at http://localhost:3000/_next/static/chunks/app/platforms/page-0c99fa90204d24d9.js:1:9114\n    at aW (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:73244)\n    at oe (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:84685)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85323)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85303)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:86268)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)"
+      ],
+      "pageErrors": [],
+      "accessStatus": "blocked",
+      "loadTime": 709
+    },
+    {
+      "route": "/sam/policies",
+      "url": "/sam/policies",
+      "user": "nosam@example.com",
+      "status": "passed",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "accessStatus": "blocked",
+      "loadTime": 685
+    },
+    {
+      "route": "/sam/policies/conflicts",
+      "url": "/sam/policies/conflicts",
+      "user": "nosam@example.com",
+      "status": "passed",
+      "consoleErrors": [
+        "[platforms] Error setting platform cookie: TypeError: Failed to fetch\n    at http://localhost:3000/_next/static/chunks/app/platforms/page-0c99fa90204d24d9.js:1:8769\n    at http://localhost:3000/_next/static/chunks/app/platforms/page-0c99fa90204d24d9.js:1:9114\n    at aW (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:73244)\n    at oe (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:84685)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85323)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85303)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:86268)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)"
+      ],
+      "pageErrors": [],
+      "accessStatus": "blocked",
+      "loadTime": 692
+    },
+    {
+      "route": "/sam/policies/create",
+      "url": "/sam/policies/create",
+      "user": "nosam@example.com",
+      "status": "passed",
+      "consoleErrors": [
+        "[platforms] Error setting platform cookie: TypeError: Failed to fetch\n    at http://localhost:3000/_next/static/chunks/app/platforms/page-0c99fa90204d24d9.js:1:8769\n    at http://localhost:3000/_next/static/chunks/app/platforms/page-0c99fa90204d24d9.js:1:9114\n    at aW (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:73244)\n    at oe (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:84685)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85323)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85303)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:86268)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)"
+      ],
+      "pageErrors": [],
+      "accessStatus": "blocked",
+      "loadTime": 676
+    },
+    {
+      "route": "/sam/policies/risk-detector",
+      "url": "/sam/policies/risk-detector",
+      "user": "nosam@example.com",
+      "status": "passed",
+      "consoleErrors": [
+        "[platforms] Error setting platform cookie: TypeError: Failed to fetch\n    at http://localhost:3000/_next/static/chunks/app/platforms/page-0c99fa90204d24d9.js:1:8769\n    at http://localhost:3000/_next/static/chunks/app/platforms/page-0c99fa90204d24d9.js:1:9114\n    at aW (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:73244)\n    at oe (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:84685)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85323)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85303)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:86268)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)"
+      ],
+      "pageErrors": [],
+      "accessStatus": "blocked",
+      "loadTime": 697
+    },
+    {
+      "route": "/sam/policies/tag-review-queue",
+      "url": "/sam/policies/tag-review-queue",
+      "user": "nosam@example.com",
+      "status": "passed",
+      "consoleErrors": [
+        "[platforms] Error setting platform cookie: TypeError: Failed to fetch\n    at http://localhost:3000/_next/static/chunks/app/platforms/page-0c99fa90204d24d9.js:1:8769\n    at http://localhost:3000/_next/static/chunks/app/platforms/page-0c99fa90204d24d9.js:1:9114\n    at aW (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:73244)\n    at oe (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:84685)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85323)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85303)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)\n    at ol (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:86268)\n    at or (http://localhost:3000/_next/static/chunks/fd9d1056-4d94a897db6971dd.js:1:85207)"
+      ],
+      "pageErrors": [],
+      "accessStatus": "blocked",
+      "loadTime": 701
+    }
+  ]
+}

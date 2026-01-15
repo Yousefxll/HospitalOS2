@@ -229,7 +229,7 @@ function LoginPageContent() {
         <CardContent>
           {step === 'identify' ? (
             // Step 1: Identify user
-            <form onSubmit={handleIdentify} className="space-y-4">
+            <form onSubmit={handleIdentify} className="space-y-4" data-testid="login-form">
               {error && (
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
@@ -258,7 +258,7 @@ function LoginPageContent() {
             </form>
           ) : (
             // Step 2: Login with password and tenant
-            <form onSubmit={handleLogin} className="space-y-4">
+            <form onSubmit={handleLogin} className="space-y-4" data-testid="login-form">
               {error && (
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />

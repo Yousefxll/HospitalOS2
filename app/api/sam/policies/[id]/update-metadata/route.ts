@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth/requireAuth';
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 import { getCollection } from '@/lib/db';
 import { z } from 'zod';
 
@@ -16,68 +16,59 @@ const updateMetadataSchema = z.object({
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
-  try {
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
-    const { tenantId } = authResult;
+  // Wrap with withAuthTenant manually for dynamic routes
+  return withAuthTenant(async (req, { user, tenantId }) => {
+    try {
+      const resolvedParams = params instanceof Promise ? await params : params;
+      const policyId = resolvedParams.id;
+      const body = await req.json();
 
-    const policyId = params.id;
-    const body = await request.json();
+      // Validate request body
+      const validated = updateMetadataSchema.parse(body);
 
-    // Validate request body
-    const validated = updateMetadataSchema.parse(body);
+      // Get policy document with tenant isolation
+      const policiesCollection = await getCollection('policy_documents');
+      const policyQuery = createTenantQuery({ id: policyId, isActive: true }, tenantId);
+      const policy = await policiesCollection.findOne(policyQuery);
 
-    // Get policy document
-    const policiesCollection = await getCollection('policy_documents');
-    const policy = await policiesCollection.findOne({
-      id: policyId,
-      tenantId,
-      isActive: true,
-    });
+      if (!policy) {
+        return NextResponse.json(
+          { error: 'Policy not found' },
+          { status: 404 }
+        );
+      }
 
-    if (!policy) {
-      return NextResponse.json(
-        { error: 'Policy not found' },
-        { status: 404 }
+      // Build update object
+      const updateData: any = {
+        updatedAt: new Date(),
+      };
+
+      if (validated.departmentIds !== undefined) {
+        updateData.departmentIds = validated.departmentIds;
+      }
+      if (validated.setting !== undefined) {
+        updateData.setting = validated.setting;
+      }
+      if (validated.policyType !== undefined) {
+        updateData.policyType = validated.policyType;
+      }
+      if (validated.scope !== undefined) {
+        updateData.scope = validated.scope;
+      }
+      if (validated.tagsStatus !== undefined) {
+        updateData.tagsStatus = validated.tagsStatus;
+      }
+
+      // Update policy with tenant isolation
+      await policiesCollection.updateOne(
+        policyQuery,
+        { $set: updateData }
       );
-    }
 
-    // Build update object
-    const update: any = {
-      updatedAt: new Date(),
-    };
-
-    if (validated.departmentIds !== undefined) {
-      update.departmentIds = validated.departmentIds;
-    }
-    if (validated.setting !== undefined) {
-      update.setting = validated.setting;
-    }
-    if (validated.policyType !== undefined) {
-      update.policyType = validated.policyType;
-    }
-    if (validated.scope !== undefined) {
-      update.scope = validated.scope;
-    }
-    if (validated.tagsStatus !== undefined) {
-      update.tagsStatus = validated.tagsStatus;
-    }
-
-    // Update policy
-    await policiesCollection.updateOne(
-      { id: policyId, tenantId },
-      { $set: update }
-    );
-
-    // Fetch updated policy
-    const updatedPolicy = await policiesCollection.findOne({
-      id: policyId,
-      tenantId,
-    });
+      // Fetch updated policy
+      const updatedPolicy = await policiesCollection.findOne(policyQuery);
 
     return NextResponse.json({
       success: true,
@@ -98,4 +89,5 @@ export async function PATCH(
       { status: 500 }
     );
   }
+  }, { platformKey: 'sam', tenantScoped: true, permissionKey: 'sam.policies.update-metadata' })(request);
 }

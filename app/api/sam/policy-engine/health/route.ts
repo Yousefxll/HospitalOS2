@@ -4,10 +4,11 @@ import { env } from '@/lib/env';
 export const dynamic = 'force-dynamic';
 
 /**
- * GET /api/policy-engine/health
+ * GET /api/sam/policy-engine/health
  * 
  * Public health check endpoint that proxies to the policy-engine backend.
  * This endpoint does NOT require authentication as it's used for liveness checks.
+ * However, since it's under /sam/, we should still mark it as public.
  * 
  * Response:
  * {

@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCollection } from '@/lib/db';
-import { requireAuth } from '@/lib/auth/requireAuth';
 import { Hospital } from '@/lib/models/Hospital';
 import { createAuditLog } from '@/lib/utils/audit';
-
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -23,53 +22,53 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
-  try {
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
+  // Wrap with withAuthTenant manually for dynamic routes
+  return withAuthTenant(async (req, { user, tenantId, role }, resolvedParams) => {
+    try {
+      const paramsObj = resolvedParams instanceof Promise ? await resolvedParams : resolvedParams;
+      const { id } = paramsObj as { id: string };
 
-    const { tenantId, user } = authResult;
-    const resolvedParams = params instanceof Promise ? await params : params;
-    const { id } = resolvedParams;
+      const hospitalsCollection = await getCollection('hospitals');
 
-    const hospitalsCollection = await getCollection('hospitals');
+      // Build query with access control and tenant isolation
+      let baseQuery: any = { id };
 
-    // Build query with access control
-    let query: any = { id, tenantId };
-
-    if (authResult.userRole === 'hospital-admin' && user.hospitalId) {
-      // Hospital Admin can only see their own hospital
-      if (id !== user.hospitalId) {
+      if (role === 'hospital-admin' && user.hospitalId) {
+        // Hospital Admin can only see their own hospital
+        if (id !== user.hospitalId) {
+          return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+      } else if (role === 'group-admin' && user.groupId) {
+        // Group Admin can see hospitals in their group
+        baseQuery.groupId = user.groupId;
+      } else if (role !== 'admin') {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
-    } else if (authResult.userRole === 'group-admin' && user.groupId) {
-      // Group Admin can see hospitals in their group
-      query.groupId = user.groupId;
-    } else if (authResult.userRole !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
 
-    const hospital = await hospitalsCollection.findOne<Hospital>(
-      query,
-      { projection: { _id: 0 } }
-    );
+      // Apply tenant filtering to query
+      const query = createTenantQuery(baseQuery, tenantId);
 
-    if (!hospital) {
+      const hospital = await hospitalsCollection.findOne<Hospital>(
+        query,
+        { projection: { _id: 0 } }
+      );
+
+      if (!hospital) {
+        return NextResponse.json(
+          { error: 'Hospital not found' },
+          { status: 404 }
+        );
+      }
+
+      return NextResponse.json({ hospital });
+    } catch (error) {
+      console.error('Get hospital error:', error);
       return NextResponse.json(
-        { error: 'Hospital not found' },
-        { status: 404 }
+        { error: 'Internal server error' },
+        { status: 500 }
       );
     }
-
-    return NextResponse.json({ hospital });
-  } catch (error) {
-    console.error('Get hospital error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
-  }
+  }, { tenantScoped: true, permissionKey: 'admin.hospitals.access' })(request, { params });
 }
 
 /**
@@ -80,127 +79,122 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
-  try {
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
+  // Wrap with withAuthTenant manually for dynamic routes
+  return withAuthTenant(async (req, { user, tenantId, userId, role }, resolvedParams) => {
+    try {
+      // Only admin and group-admin can update hospitals
+      if (!['admin', 'group-admin'].includes(role)) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
 
-    // Only admin and group-admin can update hospitals
-    if (!['admin', 'group-admin'].includes(authResult.userRole)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+      const paramsObj = resolvedParams instanceof Promise ? await resolvedParams : resolvedParams;
+      const { id } = paramsObj as { id: string };
 
-    const { tenantId, userId, user } = authResult;
-    const resolvedParams = params instanceof Promise ? await params : params;
-    const { id } = resolvedParams;
+      const body = await req.json();
+      const data = updateHospitalSchema.parse(body);
 
-    const body = await request.json();
-    const data = updateHospitalSchema.parse(body);
-
-    const hospitalsCollection = await getCollection('hospitals');
-
-    // Build query with access control
-    let query: any = { id, tenantId };
-
-    if (authResult.userRole === 'group-admin' && user.groupId) {
-      query.groupId = user.groupId;
-    }
-
-    // Verify hospital exists and user has access
-    const existingHospital = await hospitalsCollection.findOne<Hospital>(query);
-
-    if (!existingHospital) {
-      return NextResponse.json(
-        { error: 'Hospital not found or access denied' },
-        { status: 404 }
-      );
-    }
-
-    // If groupId is being updated, verify it exists and belongs to tenant
-    const targetGroupId = data.groupId !== undefined ? data.groupId : existingHospital.groupId;
-    if (data.groupId !== undefined && data.groupId !== existingHospital.groupId) {
+      const hospitalsCollection = await getCollection('hospitals');
       const groupsCollection = await getCollection('groups');
-      const group = await groupsCollection.findOne({
-        id: data.groupId,
-        tenantId,
-      });
 
-      if (!group) {
+      // Build query with access control and tenant isolation
+      let baseQuery: any = { id };
+
+      if (role === 'group-admin' && user.groupId) {
+        baseQuery.groupId = user.groupId;
+      }
+
+      // Apply tenant filtering to query
+      const query = createTenantQuery(baseQuery, tenantId);
+
+      // Verify hospital exists and user has access
+      const existingHospital = await hospitalsCollection.findOne<Hospital>(query);
+
+      if (!existingHospital) {
         return NextResponse.json(
-          { error: 'Group not found or access denied' },
+          { error: 'Hospital not found or access denied' },
           { status: 404 }
         );
       }
-    }
 
-    // If code is being updated, check for duplicates within the target group
-    if (data.code && data.code !== existingHospital.code) {
-      const duplicateHospital = await hospitalsCollection.findOne({
-        code: data.code,
-        groupId: targetGroupId,
-        id: { $ne: id },
+      // If groupId is being updated, verify it exists and belongs to tenant (with tenant isolation)
+      const targetGroupId = data.groupId !== undefined ? data.groupId : existingHospital.groupId;
+      if (data.groupId !== undefined && data.groupId !== existingHospital.groupId) {
+        const groupQuery = createTenantQuery({ id: data.groupId }, tenantId);
+        const group = await groupsCollection.findOne(groupQuery);
+
+        if (!group) {
+          return NextResponse.json(
+            { error: 'Group not found or access denied' },
+            { status: 404 }
+          );
+        }
+      }
+
+      // If code is being updated, check for duplicates within the target group (with tenant isolation)
+      if (data.code && data.code !== existingHospital.code) {
+        const duplicateQuery = createTenantQuery({ code: data.code, groupId: targetGroupId, id: { $ne: id } }, tenantId);
+        const duplicateHospital = await hospitalsCollection.findOne(duplicateQuery);
+
+        if (duplicateHospital) {
+          return NextResponse.json(
+            { error: 'Hospital with this code already exists in this group' },
+            { status: 400 }
+          );
+        }
+      }
+
+      // Build update object
+      const updateData: Partial<Hospital> = {
+        updatedAt: new Date(),
+        updatedBy: userId,
+      };
+
+      if (data.name !== undefined) {
+        updateData.name = data.name;
+      }
+      if (data.code !== undefined) {
+        updateData.code = data.code;
+      }
+      if (data.groupId !== undefined) {
+        updateData.groupId = data.groupId;
+      }
+      if (data.isActive !== undefined) {
+        updateData.isActive = data.isActive;
+      }
+
+      await hospitalsCollection.updateOne(
+        query, // Uses tenantId + access control already via createTenantQuery
+        { $set: updateData }
+      );
+
+      const updatedHospital = await hospitalsCollection.findOne<Hospital>(
+        query,
+        { projection: { _id: 0 } }
+      );
+
+      // Create audit log - with tenant isolation
+      await createAuditLog('hospital', id, 'update', userId, user.email, updateData, tenantId);
+
+      return NextResponse.json({
+        success: true,
+        hospital: updatedHospital,
       });
+    } catch (error) {
+      console.error('Update hospital error:', error);
 
-      if (duplicateHospital) {
+      if (error instanceof z.ZodError) {
         return NextResponse.json(
-          { error: 'Hospital with this code already exists in this group' },
+          { error: 'Invalid request format', details: error.errors },
           { status: 400 }
         );
       }
-    }
 
-    // Build update object
-    const updateData: Partial<Hospital> = {
-      updatedAt: new Date(),
-      updatedBy: userId,
-    };
-
-    if (data.name !== undefined) {
-      updateData.name = data.name;
-    }
-    if (data.code !== undefined) {
-      updateData.code = data.code;
-    }
-    if (data.groupId !== undefined) {
-      updateData.groupId = data.groupId;
-    }
-    if (data.isActive !== undefined) {
-      updateData.isActive = data.isActive;
-    }
-
-    await hospitalsCollection.updateOne(
-      query, // Uses tenantId + access control already
-      { $set: updateData }
-    );
-
-    const updatedHospital = await hospitalsCollection.findOne<Hospital>(
-      query,
-      { projection: { _id: 0 } }
-    );
-
-    // Create audit log
-    await createAuditLog('hospital', id, 'update', userId, authResult.userEmail, updateData, tenantId);
-
-    return NextResponse.json({
-      success: true,
-      hospital: updatedHospital,
-    });
-  } catch (error) {
-    console.error('Update hospital error:', error);
-
-    if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Invalid request format', details: error.errors },
-        { status: 400 }
+        { error: 'Internal server error' },
+        { status: 500 }
       );
     }
-
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
-  }
+  }, { tenantScoped: true, permissionKey: 'admin.hospitals.access' })(request, { params });
 }
 
 /**
@@ -211,76 +205,74 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
-  try {
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
-
-    // Only admin and group-admin can delete hospitals
-    if (!['admin', 'group-admin'].includes(authResult.userRole)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
-    const { tenantId, userId, user } = authResult;
-    const resolvedParams = params instanceof Promise ? await params : params;
-    const { id } = resolvedParams;
-
-    const hospitalsCollection = await getCollection('hospitals');
-    const usersCollection = await getCollection('users');
-
-    // Build query with access control
-    let query: any = { id, tenantId };
-
-    if (authResult.userRole === 'group-admin' && user.groupId) {
-      query.groupId = user.groupId;
-    }
-
-    // Verify hospital exists and user has access
-    const existingHospital = await hospitalsCollection.findOne(query);
-
-    if (!existingHospital) {
-      return NextResponse.json(
-        { error: 'Hospital not found or access denied' },
-        { status: 404 }
-      );
-    }
-
-    // Check if hospital has active users
-    const activeUsers = await usersCollection.countDocuments({
-      hospitalId: id,
-      isActive: true,
-    });
-
-    if (activeUsers > 0) {
-      return NextResponse.json(
-        { error: 'Cannot delete hospital with active users' },
-        { status: 400 }
-      );
-    }
-
-    // Soft delete: set isActive=false
-    await hospitalsCollection.updateOne(
-      query,
-      {
-        $set: {
-          isActive: false,
-          updatedAt: new Date(),
-          updatedBy: userId,
-        },
+  // Wrap with withAuthTenant manually for dynamic routes
+  return withAuthTenant(async (req, { user, tenantId, userId, role }, resolvedParams) => {
+    try {
+      // Only admin and group-admin can delete hospitals
+      if (!['admin', 'group-admin'].includes(role)) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
-    );
 
-    // Create audit log
-    await createAuditLog('hospital', id, 'delete', userId, authResult.userEmail, { isActive: false }, tenantId);
+      const paramsObj = resolvedParams instanceof Promise ? await resolvedParams : resolvedParams;
+      const { id } = paramsObj as { id: string };
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Delete hospital error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
-  }
+      const hospitalsCollection = await getCollection('hospitals');
+      const usersCollection = await getCollection('users');
+
+      // Build query with access control and tenant isolation
+      let baseQuery: any = { id };
+
+      if (role === 'group-admin' && user.groupId) {
+        baseQuery.groupId = user.groupId;
+      }
+
+      // Apply tenant filtering to query
+      const query = createTenantQuery(baseQuery, tenantId);
+
+      // Verify hospital exists and user has access
+      const existingHospital = await hospitalsCollection.findOne(query);
+
+      if (!existingHospital) {
+        return NextResponse.json(
+          { error: 'Hospital not found or access denied' },
+          { status: 404 }
+        );
+      }
+
+      // Check if hospital has active users (with tenant isolation)
+      const userQuery = createTenantQuery({ hospitalId: id, isActive: true }, tenantId);
+      const activeUsers = await usersCollection.countDocuments(userQuery);
+
+      if (activeUsers > 0) {
+        return NextResponse.json(
+          { error: 'Cannot delete hospital with active users' },
+          { status: 400 }
+        );
+      }
+
+      // Soft delete: set isActive=false (with tenant isolation)
+      await hospitalsCollection.updateOne(
+        query, // Uses tenantId + access control already via createTenantQuery
+        {
+          $set: {
+            isActive: false,
+            updatedAt: new Date(),
+            updatedBy: userId,
+          },
+        }
+      );
+
+      // Create audit log - with tenant isolation
+      await createAuditLog('hospital', id, 'delete', userId, user.email, { isActive: false }, tenantId);
+
+      return NextResponse.json({ success: true });
+    } catch (error) {
+      console.error('Delete hospital error:', error);
+      return NextResponse.json(
+        { error: 'Internal server error' },
+        { status: 500 }
+      );
+    }
+  }, { tenantScoped: true, permissionKey: 'admin.hospitals.access' })(request, { params });
 }
 

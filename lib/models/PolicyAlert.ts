@@ -1,52 +1,32 @@
-import { ObjectId } from 'mongodb';
-
 /**
  * Policy Alert Model
- * 
- * Represents a policy alert generated from checking a clinical event
- * against SAM policy-engine.
  */
+import type { ObjectId } from 'mongodb';
+
 export interface PolicyAlert {
   _id?: ObjectId;
   id: string; // UUID
-  
-  // Tenant isolation
-  tenantId: string; // ALWAYS from session
-  
-  // Link to source event
-  eventId: string; // Reference to ClinicalEvent.id
-  
-  // Alert details
+  tenantId: string;
+  eventId: string;
   severity: 'low' | 'medium' | 'high' | 'critical';
-  summary: string; // Brief summary of the alert
-  recommendations: string[]; // Array of recommendation strings
-  
-  // Policy IDs that matched (for quick reference)
-  policyIds?: string[];
-  
-  // Detailed evidence (extended structure)
-  evidence?: {
-    policyId?: string;
-    policyTitle?: string; // More descriptive than policyName
-    policyName?: string; // Filename (backward compatibility)
-    snippet?: string;
-    pageNumber?: number;
-    score?: number; // Relevance score
-    relevanceScore?: number; // Alias for backward compatibility
-    source?: string; // e.g. "CBAHI", "JCI", "Internal"
-    lineStart?: number;
-    lineEnd?: number;
-  }[];
-  
-  // Traceability information
+  summary: string;
+  recommendations: string[];
+  policyIds: string[];
+  evidence: Array<{
+    policyId: string;
+    policyTitle: string;
+    snippet: string;
+    relevance: number;
+  }>;
   trace?: {
     eventId: string;
-    engineCallId?: string; // If available from policy-engine
+    engineCallId?: string;
     checkedAt: Date;
-    processingTimeMs?: number;
+    processingTimeMs: number;
   };
-  
-  // Timestamps
   createdAt: Date;
+  updatedAt?: Date;
+  acknowledgedAt?: Date;
+  acknowledgedBy?: string;
+  status?: 'active' | 'acknowledged' | 'resolved';
 }
-

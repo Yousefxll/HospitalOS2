@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCollection } from '@/lib/db';
-import { requireAuth } from '@/lib/auth/requireAuth';
 import { Hospital } from '@/lib/models/Hospital';
 import { v4 as uuidv4 } from 'uuid';
 import { createAuditLog } from '@/lib/utils/audit';
-
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -24,40 +23,37 @@ const createHospitalSchema = z.object({
  * - Group Admin: can view hospitals in their group
  * - Hospital Admin: can view only their hospital
  */
-export async function GET(request: NextRequest) {
+export const GET = withAuthTenant(async (req, { user, tenantId, role }) => {
   try {
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
-
-    const { tenantId, user } = authResult;
-    const { searchParams } = new URL(request.url);
+    const { searchParams } = new URL(req.url);
     const groupId = searchParams.get('groupId');
 
     const hospitalsCollection = await getCollection('hospitals');
 
-    // Build query based on user role
-    let query: any = { tenantId }; // Always filter by tenant
+    // Build query based on user role with tenant isolation
+    let baseQuery: any = {}; // Will be wrapped with createTenantQuery
 
-    if (authResult.userRole === 'hospital-admin' && user.hospitalId) {
+    if (role === 'hospital-admin' && user.hospitalId) {
       // Hospital Admin can only see their own hospital
-      query.id = user.hospitalId;
-    } else if (authResult.userRole === 'group-admin' && user.groupId) {
+      baseQuery.id = user.hospitalId;
+    } else if (role === 'group-admin' && user.groupId) {
       // Group Admin can see all hospitals in their group
-      query.groupId = user.groupId;
+      baseQuery.groupId = user.groupId;
       if (groupId && groupId !== user.groupId) {
         // Cannot access other groups
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
-    } else if (authResult.userRole === 'admin') {
+    } else if (role === 'admin') {
       // Admin can see all hospitals, optionally filtered by groupId
       if (groupId) {
-        query.groupId = groupId;
+        baseQuery.groupId = groupId;
       }
     } else {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
+
+    // Apply tenant filtering to query
+    const query = createTenantQuery(baseQuery, tenantId);
 
     const hospitals = await hospitalsCollection
       .find(query, { projection: { _id: 0 } })
@@ -72,37 +68,29 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'admin.hospitals.access' });
 
 /**
  * POST /api/admin/hospitals
  * Create a new hospital
  * Access control: Only admin and group-admin can create hospitals
  */
-export async function POST(request: NextRequest) {
+export const POST = withAuthTenant(async (req, { user, tenantId, userId, role }) => {
   try {
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
-
     // Only admin and group-admin can create hospitals
-    if (!['admin', 'group-admin'].includes(authResult.userRole)) {
+    if (!['admin', 'group-admin'].includes(role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { tenantId, userId, user } = authResult;
-    const body = await request.json();
+    const body = await req.json();
     const data = createHospitalSchema.parse(body);
 
     const groupsCollection = await getCollection('groups');
     const hospitalsCollection = await getCollection('hospitals');
 
-    // Verify group exists and belongs to tenant (strict server-side check)
-    const group = await groupsCollection.findOne({
-      id: data.groupId,
-      tenantId, // Always check tenant
-    });
+    // Verify group exists and belongs to tenant (strict server-side check with tenant isolation)
+    const groupQuery = createTenantQuery({ id: data.groupId }, tenantId);
+    const group = await groupsCollection.findOne(groupQuery);
 
     if (!group) {
       return NextResponse.json(
@@ -112,18 +100,16 @@ export async function POST(request: NextRequest) {
     }
 
     // If group-admin, verify they can only create hospitals in their group
-    if (authResult.userRole === 'group-admin' && user.groupId !== data.groupId) {
+    if (role === 'group-admin' && user.groupId !== data.groupId) {
       return NextResponse.json(
         { error: 'Cannot create hospital in another group' },
         { status: 403 }
       );
     }
 
-    // Check if code already exists for this group
-    const existingHospital = await hospitalsCollection.findOne({
-      code: data.code,
-      groupId: data.groupId,
-    });
+    // Check if code already exists for this group (with tenant isolation)
+    const hospitalQuery = createTenantQuery({ code: data.code, groupId: data.groupId }, tenantId);
+    const existingHospital = await hospitalsCollection.findOne(hospitalQuery);
 
     if (existingHospital) {
       return NextResponse.json(
@@ -139,7 +125,7 @@ export async function POST(request: NextRequest) {
       code: data.code,
       groupId: data.groupId,
       isActive: data.isActive ?? true,
-      tenantId, // Always from session
+      tenantId, // CRITICAL: Always include tenantId for tenant isolation
       createdAt: new Date(),
       updatedAt: new Date(),
       createdBy: userId,
@@ -148,8 +134,8 @@ export async function POST(request: NextRequest) {
 
     await hospitalsCollection.insertOne(newHospital);
 
-    // Create audit log
-    await createAuditLog('hospital', newHospital.id, 'create', userId, authResult.userEmail, undefined, tenantId);
+    // Create audit log - with tenant isolation
+    await createAuditLog('hospital', newHospital.id, 'create', userId, user.email, undefined, tenantId);
 
     return NextResponse.json({
       success: true,
@@ -170,5 +156,5 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'admin.hospitals.access' });
 

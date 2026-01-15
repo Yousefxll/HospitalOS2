@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 import { getCollection } from '@/lib/db';
-import { requireAuth } from '@/lib/security/auth';
-import { requireRole } from '@/lib/security/auth';
 import { v4 as uuidv4 } from 'uuid';
 
 
@@ -23,30 +22,22 @@ const addTaskSchema = z.object({
   }),
 });
 
-export async function POST(request: NextRequest) {
+export const POST = withAuthTenant(async (req, { user, tenantId, userId, role, permissions }) => {
   try {
-    // Authenticate
-    const auth = await requireAuth(request);
-    if (auth instanceof NextResponse) {
-      return auth;
+    // Authorization check - admin or supervisor
+    if (!['admin', 'supervisor'].includes(role) && !permissions.includes('nursing.scheduling.task')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Check role: admin or supervisor
-    const roleCheck = await requireRole(request, ['admin', 'supervisor'], auth);
-    if (roleCheck instanceof NextResponse) {
-      return roleCheck;
-    }
-    
-    const userId = auth.userId;
-
-    const body = await request.json();
+    const body = await req.json();
     const data = addTaskSchema.parse(body);
 
-    // Get doctor name if covering doctor
+    // Get doctor name if covering doctor with tenant isolation
     let doctorName;
     if (data.task.doctorId) {
       const doctorsCollection = await getCollection('doctors');
-      const doctor = await doctorsCollection.findOne({ id: data.task.doctorId }) as any;
+      const doctorQuery = createTenantQuery({ id: data.task.doctorId }, tenantId);
+      const doctor = await doctorsCollection.findOne(doctorQuery) as any;
       doctorName = doctor?.name;
     }
 
@@ -61,14 +52,18 @@ export async function POST(request: NextRequest) {
     const [endHour, endMin] = data.task.endTime.split(':').map(Number);
     const hours = (endHour * 60 + endMin - (startHour * 60 + startMin)) / 60;
 
-    // Update schedule in database - match weekStartDate as STRING
+    // Update schedule in database - match weekStartDate as STRING with tenant isolation
     const schedulesCollection = await getCollection('nursing_assignments');
-    
-    const result = await schedulesCollection.updateOne(
+    const scheduleQuery = createTenantQuery(
       {
         nurseId: data.nurseId,
         weekStartDate: data.weekStart, // Match as string
       },
+      tenantId
+    );
+    
+    const result = await schedulesCollection.updateOne(
+      scheduleQuery,
       {
         $push: {
           [`assignments.$[elem].tasks`]: taskBlock,
@@ -94,11 +89,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Recalculate overtime/undertime
-    const schedule = await schedulesCollection.findOne({
-      nurseId: data.nurseId,
-      weekStartDate: data.weekStart,
-    }) as any;
+    // Recalculate overtime/undertime with tenant isolation
+    const schedule = await schedulesCollection.findOne(scheduleQuery) as any;
 
     if (schedule) {
       const overtime = Math.max(0, schedule.totalWeeklyHours - schedule.targetWeeklyHours);
@@ -131,4 +123,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'nursing.scheduling.task' });

@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 import { getCollection } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 
-
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-export async function POST(request: NextRequest) {
+
+export const POST = withAuthTenant(async (req, { user, tenantId, userId }) => {
   try {
-    const body = await request.json();
+    const body = await req.json();
     const {
       nationalId,
       iqama,
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
     // Generate unique ER Visit ID
     const erVisitId = `ER-${Date.now()}-${uuidv4().substring(0, 8).toUpperCase()}`;
 
-    // Save ER registration
+    // Save ER registration with tenant isolation
     const erRegistrationsCollection = await getCollection('er_registrations');
     const registration = {
       id: uuidv4(),
@@ -65,8 +66,11 @@ export async function POST(request: NextRequest) {
       registrationDate: new Date(),
       status: 'registered', // registered -> triaged -> in-progress -> completed
       isActive: true,
+      tenantId, // CRITICAL: Always include tenantId for tenant isolation
       createdAt: new Date(),
       updatedAt: new Date(),
+      createdBy: userId,
+      updatedBy: userId,
     };
 
     await erRegistrationsCollection.insertOne(registration);
@@ -90,11 +94,11 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'er.register' });
 
-export async function GET(request: NextRequest) {
+export const GET = withAuthTenant(async (req, { user, tenantId }) => {
   try {
-    const { searchParams } = new URL(request.url);
+    const { searchParams } = new URL(req.url);
     const erVisitId = searchParams.get('erVisitId');
 
     if (!erVisitId) {
@@ -105,7 +109,8 @@ export async function GET(request: NextRequest) {
     }
 
     const erRegistrationsCollection = await getCollection('er_registrations');
-    const registration = await erRegistrationsCollection.findOne({ erVisitId });
+    const query = createTenantQuery({ erVisitId }, tenantId);
+    const registration = await erRegistrationsCollection.findOne(query);
 
     if (!registration) {
       return NextResponse.json(
@@ -122,4 +127,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'er.register.read' });

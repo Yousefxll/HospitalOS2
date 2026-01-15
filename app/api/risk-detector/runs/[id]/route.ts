@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth/requireAuth';
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 import { getCollection } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -8,22 +8,16 @@ export const revalidate = 0;
 // GET - Get risk run
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
-  try {
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
-    const { tenantId } = authResult;
+  return withAuthTenant(async (req, { user, tenantId }) => {
+    try {
+      const resolvedParams = params instanceof Promise ? await params : params;
+      const runId = resolvedParams.id;
+      const riskRunsCollection = await getCollection('risk_runs');
 
-    const runId = params.id;
-    const riskRunsCollection = await getCollection('risk_runs');
-
-    const riskRun = await riskRunsCollection.findOne({
-      id: runId,
-      tenantId,
-    });
+      const query = createTenantQuery({ id: runId }, tenantId);
+      const riskRun = await riskRunsCollection.findOne(query);
 
     if (!riskRun) {
       return NextResponse.json(
@@ -43,5 +37,6 @@ export async function GET(
       { error: 'Internal server error', details: errorMessage },
       { status: 500 }
     );
-  }
+    }
+  }, { tenantScoped: true, permissionKey: 'risk-detector.runs.read' })(request);
 }

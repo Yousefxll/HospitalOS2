@@ -4,25 +4,18 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth/requireAuth';
 import { getCollection } from '@/lib/db';
 import { Privilege } from '@/lib/ehr/models';
 import { v4 as uuidv4 } from 'uuid';
 import { getISOTimestamp, createAuditLog } from '@/lib/ehr/utils/audit';
 import { validateRequired, validateISOTimestamp, formatValidationErrors } from '@/lib/ehr/utils/validation';
-
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-export async function POST(request: NextRequest) {
+export const POST = withAuthTenant(async (req, { user, tenantId }) => {
   try {
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
-
-    const user = authResult.user;
-    const body = await request.json();
+    const body = await req.json();
 
     // Validation
     const requiredFields = ['userId', 'resource', 'action'];
@@ -52,26 +45,28 @@ export async function POST(request: NextRequest) {
       updatedAt: now,
       createdBy: user.id,
       updatedBy: user.id,
+      tenantId, // CRITICAL: Always include tenantId for tenant isolation
     };
 
     const privilegesCollection = await getCollection('ehr_privileges');
     await privilegesCollection.insertOne(privilege);
 
-    // Audit log
+    // Audit log - with tenant isolation
     await createAuditLog({
       action: 'GRANT_PRIVILEGE',
       resourceType: 'privilege',
       resourceId: privilege.id,
       userId: user.id,
       userName: `${user.firstName} ${user.lastName}`,
+      tenantId, // CRITICAL: Always include tenantId for tenant isolation
       changes: [
         { field: 'userId', newValue: body.userId },
         { field: 'resource', newValue: body.resource },
         { field: 'action', newValue: body.action },
       ],
       success: true,
-      ipAddress: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined,
-      userAgent: request.headers.get('user-agent') || undefined,
+      ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || undefined,
+      userAgent: req.headers.get('user-agent') || undefined,
     });
 
     return NextResponse.json(
@@ -80,19 +75,17 @@ export async function POST(request: NextRequest) {
     );
   } catch (error: any) {
     console.error('Grant privilege error:', error);
-    
-    // Audit log for failure
+
+    // Audit log for failure - user is available from context
     try {
-      const authResult = await requireAuth(request);
-      if (!(authResult instanceof NextResponse)) {
-        await createAuditLog({
-          action: 'GRANT_PRIVILEGE',
-          resourceType: 'privilege',
-          userId: authResult.user.id,
-          success: false,
-          errorMessage: error.message,
-        });
-      }
+      await createAuditLog({
+        action: 'GRANT_PRIVILEGE',
+        resourceType: 'privilege',
+        userId: user.id,
+        tenantId, // CRITICAL: Always include tenantId for tenant isolation
+        success: false,
+        errorMessage: error.message,
+      });
     } catch {}
 
     return NextResponse.json(
@@ -100,4 +93,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'admin.ehr.privileges.access' });

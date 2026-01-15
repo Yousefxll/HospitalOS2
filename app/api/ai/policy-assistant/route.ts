@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 import { getCollection } from '@/lib/db';
 import OpenAI from 'openai';
 import { env } from '@/lib/env';
@@ -24,11 +25,12 @@ interface Policy {
   source?: string;
   createdAt?: Date;
   updatedAt?: Date;
+  tenantId?: string;
 }
 
-export async function POST(request: NextRequest) {
+export const POST = withAuthTenant(async (req, { user, tenantId }) => {
   try {
-    const { question } = await request.json();
+    const { question } = await req.json();
 
     if (!question || question.trim().length === 0) {
       return NextResponse.json(
@@ -37,10 +39,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch all policies from database
+    // Fetch all policies from database with tenant isolation
     // Prioritize page-level policies (more specific) over full document policies
     const policiesCollection = await getCollection('policies');
-    const allPolicies = await policiesCollection.find({ isActive: true }).toArray();
+    const policiesQuery = createTenantQuery({ isActive: true }, tenantId);
+    const allPolicies = await policiesCollection.find(policiesQuery).toArray();
     
     // Filter: prefer page-level policies (have pageNumber) over full document policies
     const pagePolicies = allPolicies.filter((p: any) => p.pageNumber);
@@ -154,7 +157,7 @@ ${contextString}`,
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'ai.policy-assistant' });
 
 function extractRelevantExcerpt(content: string, question: string, maxLength: number = 200): string {
   const questionWords = question.toLowerCase().split(/\s+/);

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth/requireAuth';
-import { requireRole } from '@/lib/rbac';
-import { getCollection } from '@/lib/db';
+import { withAuthTenant } from '@/lib/core/guards/withAuthTenant';
+import { getTenantCollection } from '@/lib/db/tenantDb';
 import { env } from '@/lib/env';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
@@ -28,20 +27,12 @@ function sanitizeFileName(fileName: string): string {
     .substring(0, 255);
 }
 
-export async function POST(request: NextRequest) {
+export const POST = withAuthTenant(async (req, { user, tenantId, userId, role }) => {
   try {
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
-    const { userId, userRole, tenantId } = authResult;
+    console.log('Bulk upload request received');
+    console.log('User role:', role, 'User ID:', userId, 'Tenant ID:', tenantId);
 
-    // Authorization check
-    if (!requireRole(userRole, ['admin', 'supervisor'])) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
-    const formData = await request.formData();
+    const formData = await req.formData();
     const files = formData.getAll('files') as File[];
 
     if (!files || files.length === 0) {
@@ -51,7 +42,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const policiesCollection = await getCollection('policy_documents');
+    // CRITICAL: Use getTenantCollection with platform-aware naming
+    // policy_documents → sam_policy_documents (platform-scoped)
+    const policiesCollectionResult = await getTenantCollection(req, 'policy_documents', 'sam');
+    if (policiesCollectionResult instanceof NextResponse) {
+      return policiesCollectionResult;
+    }
+    const policiesCollection = policiesCollectionResult;
+    
     const uploadedPolicies: Array<{
       id: string;
       documentId: string;
@@ -60,6 +58,7 @@ export async function POST(request: NextRequest) {
       aiTags?: any;
       tagsStatus?: string;
     }> = [];
+    const allJobIds: string[] = []; // Collect all job IDs from ingest calls
 
     // Process each file
     for (const file of files) {
@@ -84,12 +83,13 @@ export async function POST(request: NextRequest) {
         // Calculate hash
         const fileHash = calculateFileHash(buffer);
 
-        // Check for duplicate
-        const existing = await policiesCollection.findOne({
+        // Check for duplicate (with tenant isolation)
+        const duplicateQuery = {
           fileHash,
-          tenantId,
           isActive: true,
-        });
+          tenantId: tenantId, // Explicit tenantId
+        };
+        const existing = await policiesCollection.findOne(duplicateQuery);
 
         if (existing) {
           console.warn(`Duplicate file skipped: ${file.name}`);
@@ -117,7 +117,9 @@ export async function POST(request: NextRequest) {
         // Extract title from filename
         const policyTitle = file.name.replace('.pdf', '').replace(/_/g, ' ');
 
+        // NO filename inference - entityType must come from Step 4 resolvedContext
         // Create document record (minimal - will be processed by policy-engine)
+        // entityType will be set by ingest route from body.entityType (from Step 4)
         const document: PolicyDocument = {
           id: policyId,
           documentId,
@@ -137,6 +139,7 @@ export async function POST(request: NextRequest) {
           tenantId,
           isActive: true,
           tagsStatus: 'needs-review', // Default until AI tagging runs
+          // entityType will be set by ingest route from body.entityType (from Step 4 resolvedContext)
         };
 
         await policiesCollection.insertOne(document as any);
@@ -155,10 +158,10 @@ export async function POST(request: NextRequest) {
             proxyFormData.append('tenantId', tenantId);
             proxyFormData.append('uploaderUserId', userId || 'system');
 
-            const ingestResponse = await fetch(`${request.nextUrl.origin}/api/policy-engine/ingest`, {
+            const ingestResponse = await fetch(`${req.nextUrl.origin}/api/sam/policy-engine/ingest`, {
               method: 'POST',
               headers: {
-                'Cookie': request.headers.get('Cookie') || '',
+                'Cookie': req.headers.get('Cookie') || '',
               },
               body: proxyFormData,
             });
@@ -179,10 +182,11 @@ export async function POST(request: NextRequest) {
 
           // Trigger AI tagging in background (async, non-blocking)
           // This uses MongoDB policyId for metadata updates (tags, classification)
-          fetch(`${request.nextUrl.origin}/api/policies/${policyId}/suggest-tags`, {
+          // CRITICAL: Use SAM endpoint, not legacy /api/policies/
+          fetch(`${req.nextUrl.origin}/api/sam/policies/${policyId}/suggest-tags`, {
             method: 'POST',
             headers: {
-              'Cookie': request.headers.get('Cookie') || '',
+              'Cookie': req.headers.get('Cookie') || '',
             },
           }).catch(err => {
             console.error(`Failed to trigger AI tagging for ${policyId}:`, err);
@@ -206,6 +210,7 @@ export async function POST(request: NextRequest) {
       success: true,
       policies: uploadedPolicies,
       reviewQueueCount: uploadedPolicies.filter(p => p.tagsStatus === 'needs-review').length,
+      jobs: allJobIds.map(jobId => ({ jobId })), // Include job IDs for polling
     });
   } catch (error) {
     console.error('Bulk upload error:', error);
@@ -215,4 +220,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { platformKey: 'sam', tenantScoped: true, permissionKey: 'sam.policies.bulk-upload' });

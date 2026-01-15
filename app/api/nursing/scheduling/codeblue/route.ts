@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 import { getCollection } from '@/lib/db';
-import { requireAuth } from '@/lib/security/auth';
-import { requireRole } from '@/lib/security/auth';
 
 
 export const dynamic = 'force-dynamic';
@@ -18,33 +17,28 @@ const addCodeBlueSchema = z.object({
   }),
 });
 
-export async function POST(request: NextRequest) {
+export const POST = withAuthTenant(async (req, { user, tenantId, userId, role, permissions }) => {
   try {
-    // Authenticate
-    const auth = await requireAuth(request);
-    if (auth instanceof NextResponse) {
-      return auth;
+    // Authorization check - admin or supervisor
+    if (!['admin', 'supervisor'].includes(role) && !permissions.includes('nursing.scheduling.codeblue')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Check role: admin or supervisor
-    const roleCheck = await requireRole(request, ['admin', 'supervisor'], auth);
-    if (roleCheck instanceof NextResponse) {
-      return roleCheck;
-    }
-    
-    const userId = auth.userId;
-
-    const body = await request.json();
+    const body = await req.json();
     const data = addCodeBlueSchema.parse(body);
 
-    // Update schedule in database - match weekStartDate as STRING
+    // Update schedule in database - match weekStartDate as STRING with tenant isolation
     const schedulesCollection = await getCollection('nursing_assignments');
-    
-    const result = await schedulesCollection.updateOne(
+    const scheduleQuery = createTenantQuery(
       {
         nurseId: data.nurseId,
         weekStartDate: data.weekStart, // Match as string
       },
+      tenantId
+    );
+    
+    const result = await schedulesCollection.updateOne(
+      scheduleQuery,
       {
         $push: {
           [`assignments.$[elem].codeBlue`]: data.codeBlue,
@@ -82,4 +76,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'nursing.scheduling.codeblue' });

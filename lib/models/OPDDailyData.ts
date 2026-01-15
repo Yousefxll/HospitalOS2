@@ -59,6 +59,9 @@ export interface OPDDailyData {
   deliveriesSC?: number; // Only for OB/GYN doctors (SC = Cesarean)
   ivf?: number; // Only for OB/GYN doctors
   
+  // Tenant isolation
+  tenantId: string; // ALWAYS from session
+  
   // Audit
   createdAt: Date;
   updatedAt: Date;

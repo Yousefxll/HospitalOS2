@@ -1,30 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import ExcelJS from 'exceljs';
-import { getCollection } from '@/lib/db';
-import { requireAuth } from '@/lib/security/auth';
-import { requireRole } from '@/lib/security/auth';
+import { getTenantCollection } from '@/lib/db-tenant';
 import { v4 as uuidv4 } from 'uuid';
-
+import { withAuthTenant } from '@/lib/core/guards/withAuthTenant';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-export async function POST(request: NextRequest) {
+export const POST = withAuthTenant(async (req, { user, tenantId, userId, role }) => {
   try {
-    // Authenticate
-    const auth = await requireAuth(request);
-    if (auth instanceof NextResponse) {
-      return auth;
+    // Authorization: Only admin or supervisor can import data
+    if (!['admin', 'supervisor'].includes(role)) {
+      return NextResponse.json(
+        { error: 'Forbidden', message: 'Only admin or supervisor can import data' },
+        { status: 403 }
+      );
     }
 
-    // Check role: admin or supervisor
-    const roleCheck = await requireRole(request, ['admin', 'supervisor'], auth);
-    if (roleCheck instanceof NextResponse) {
-      return roleCheck;
-    }
-    
-    const userId = auth.userId;
-
-    const formData = await request.formData();
+    const formData = await req.formData();
     const file = formData.get('file') as File;
     const collection = formData.get('collection') as string;
 
@@ -52,6 +44,7 @@ export async function POST(request: NextRequest) {
       } else {
         const doc: any = {
           id: uuidv4(),
+          tenantId, // CRITICAL: Always include tenantId for tenant isolation
           createdAt: new Date(),
           updatedAt: new Date(),
           createdBy: userId,
@@ -74,8 +67,8 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // Insert into MongoDB
-    const targetCollection = await getCollection(collection);
+    // Insert into MongoDB with tenant isolation
+    const targetCollection = await getTenantCollection(collection, tenantId, 'admin/data-import');
     if (documents.length > 0) {
       await targetCollection.insertMany(documents);
     }
@@ -87,8 +80,8 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Import error:', error);
     return NextResponse.json(
-      { error: 'Failed to import data' },
+      { error: 'Failed to import data', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'admin.data.import' });

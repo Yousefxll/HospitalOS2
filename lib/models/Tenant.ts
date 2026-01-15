@@ -31,10 +31,15 @@ export interface Tenant {
   };
   
   // Tenant lifecycle management
-  status: 'active' | 'blocked'; // Tenant status
-  planType: 'demo' | 'paid'; // Subscription plan type
+  status: 'active' | 'blocked' | 'expired'; // Tenant status (matches SubscriptionStatus)
+  planType: 'demo' | 'trial' | 'paid' | 'enterprise'; // Subscription plan type
   subscriptionEndsAt?: Date; // When subscription expires
+  gracePeriodEndsAt?: Date; // Grace period end date
+  gracePeriodEnabled: boolean; // Read-only mode during grace period
   maxUsers: number; // Maximum number of users allowed
+  
+  // Subscription contract reference
+  subscriptionContractId?: string; // Reference to SubscriptionContract
   
   // Audit fields
   createdAt: Date;

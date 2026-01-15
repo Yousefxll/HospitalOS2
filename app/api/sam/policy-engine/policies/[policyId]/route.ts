@@ -1,33 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth/requireAuth';
-import { requireTenantId } from '@/lib/tenant';
+import { withAuthTenant } from '@/lib/core/guards/withAuthTenant';
 import { env } from '@/lib/env';
-
-
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ policyId: string }> | { policyId: string } }
 ) {
-  try {
-    // Authenticate
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
-
-    // Handle params - in Next.js 15+ params is a Promise, in earlier versions it's an object
-    const resolvedParams = params instanceof Promise ? await params : params;
-    const { policyId } = resolvedParams;
-
-    // Get tenantId from session (SINGLE SOURCE OF TRUTH)
-    const tenantIdResult = await requireTenantId(request);
-    if (tenantIdResult instanceof NextResponse) {
-      return tenantIdResult;
-    }
-    const tenantId = tenantIdResult;
+  // Wrap with withAuthTenant manually for dynamic routes
+  return withAuthTenant(async (req, { user, tenantId }) => {
+    try {
+      // Handle params - in Next.js 15+ params is a Promise, in earlier versions it's an object
+      const resolvedParams = params instanceof Promise ? await params : params;
+      const { policyId } = resolvedParams;
 
     // Forward to policy-engine with tenantId as a query parameter
     const policyEngineUrl = `${env.POLICY_ENGINE_URL}/v1/policies/${policyId}?tenantId=${tenantId}`;
@@ -56,5 +43,6 @@ export async function DELETE(
       { error: 'Internal server error' },
       { status: 500 }
     );
-  }
+    }
+  }, { platformKey: 'sam', tenantScoped: true, permissionKey: 'policies.delete' })(request);
 }

@@ -43,10 +43,27 @@ export async function getOrgNodes(
   const { db, tenantKey } = tenantDbResult;
   const collection = db.collection<OrgNode>(ORG_NODES_COLLECTION);
 
+  console.log(`[getOrgNodes] 🔍 Fetching org nodes for tenantKey: ${tenantKey}`);
+  console.log(`[getOrgNodes] 🔍 Collection: ${ORG_NODES_COLLECTION}, DB: ${db.databaseName}`);
+  
   const nodes = await collection
     .find({ tenantId: tenantKey })
     .sort({ level: 1, name: 1 })
     .toArray();
+  
+  console.log(`[getOrgNodes] ✅ Found ${nodes.length} org nodes for tenantKey: ${tenantKey}`);
+  if (nodes.length > 0) {
+    console.log(`[getOrgNodes] Sample nodes:`, nodes.slice(0, 5).map((n: any) => ({ id: n.id, name: n.name, type: n.type, tenantId: n.tenantId })));
+  } else {
+    console.warn(`[getOrgNodes] ⚠️ No org nodes found for tenantKey: ${tenantKey}`);
+    // Debug: Check if there are any nodes with different tenantId
+    const allNodes = await collection.find({}).toArray();
+    console.log(`[getOrgNodes] 🔍 Total nodes in collection: ${allNodes.length}`);
+    if (allNodes.length > 0) {
+      const tenantIds = [...new Set(allNodes.map((n: any) => n.tenantId))];
+      console.log(`[getOrgNodes] 🔍 Found tenantIds in collection:`, tenantIds);
+    }
+  }
 
   // Build paths for all nodes
   return nodes.map(node => ({
@@ -108,18 +125,26 @@ export async function createOrgNode(
     metadata?: { [key: string]: any };
   }
 ): Promise<OrgNode | NextResponse> {
+  console.log(`[createOrgNode] 🔍 Starting org node creation: type=${data.type}, name=${data.name}, parentId=${data.parentId || 'none'}`);
+  
   const authResult = await requireAuth(request);
   if (authResult instanceof NextResponse) {
+    console.error(`[createOrgNode] ❌ Auth failed: status ${authResult.status}`);
     return authResult;
   }
+  console.log(`[createOrgNode] ✅ Auth passed: userId=${authResult.userId}`);
 
   const tenantDbResult = await getTenantDbFromRequest(request);
   if (tenantDbResult instanceof NextResponse) {
+    console.error(`[createOrgNode] ❌ Tenant DB failed: status ${tenantDbResult.status}`);
     return tenantDbResult;
   }
 
   const { db, tenantKey, userEmail } = tenantDbResult;
+  console.log(`[createOrgNode] ✅ Tenant DB resolved: tenantKey=${tenantKey}, userEmail=${userEmail}`);
+  
   const collection = db.collection<OrgNode>(ORG_NODES_COLLECTION);
+  console.log(`[createOrgNode] ✅ Collection ready: ${ORG_NODES_COLLECTION}`);
 
   // Calculate level and hierarchy
   let level = 0;
@@ -192,18 +217,42 @@ export async function createOrgNode(
     createdBy: userEmail,
   };
 
-  await collection.insertOne(node);
+  console.log(`[createOrgNode] 📝 Inserting org node: id=${nodeId}, name=${node.name}, tenantId=${tenantKey}`);
+  console.log(`[createOrgNode] 📝 Full node data:`, JSON.stringify({
+    id: node.id,
+    tenantId: node.tenantId,
+    type: node.type,
+    name: node.name,
+    code: node.code,
+    parentId: node.parentId,
+    level: node.level,
+    isActive: node.isActive,
+  }, null, 2));
+  
+  const insertResult = await collection.insertOne(node);
+  console.log(`[createOrgNode] ✅ Org node inserted: insertedId=${insertResult.insertedId}, id=${nodeId}`);
+  
+  // VERIFY: Immediately query to confirm it was saved
+  const verifyNode = await collection.findOne<OrgNode>({ id: nodeId, tenantId: tenantKey });
+  if (verifyNode) {
+    console.log(`[createOrgNode] ✅ VERIFIED: Org node exists in DB: id=${verifyNode.id}, name=${verifyNode.name}, tenantId=${verifyNode.tenantId}`);
+  } else {
+    console.error(`[createOrgNode] ❌ VERIFICATION FAILED: Org node NOT found in DB after insert! id=${nodeId}, tenantId=${tenantKey}`);
+  }
 
   // Update parent's children array
   if (data.parentId) {
-    await collection.updateOne(
+    console.log(`[createOrgNode] 🔄 Updating parent node: parentId=${data.parentId}`);
+    const updateResult = await collection.updateOne(
       { id: data.parentId, tenantId: tenantKey },
       {
         $addToSet: { children: nodeId },
       }
     );
+    console.log(`[createOrgNode] ✅ Parent updated: matched=${updateResult.matchedCount}, modified=${updateResult.modifiedCount}`);
   }
 
+  console.log(`[createOrgNode] ✅ Org node creation complete: id=${nodeId}, name=${node.name}`);
   return node;
 }
 
@@ -435,7 +484,8 @@ async function updateDescendants(
 export async function deleteOrgNode(
   request: NextRequest,
   nodeId: string,
-  reassignTo?: string
+  reassignTo?: string,
+  forceDelete: boolean = false
 ): Promise<{ success: boolean } | NextResponse> {
   const authResult = await requireAuth(request);
   if (authResult instanceof NextResponse) {
@@ -468,12 +518,17 @@ export async function deleteOrgNode(
   }
 
   // Check if node has active data (placeholder - implement based on your data model)
-  const hasActiveData = await checkNodeHasActiveData(nodeId, tenantKey, db);
-  if (hasActiveData && !reassignTo) {
-    return NextResponse.json(
-      { error: 'Cannot delete node with active data. Please reassign data first.' },
-      { status: 400 }
-    );
+  // Skip check if forceDelete is true
+  if (!forceDelete) {
+    const hasActiveData = await checkNodeHasActiveData(nodeId, tenantKey, db);
+    if (hasActiveData && !reassignTo) {
+      return NextResponse.json(
+        { error: 'Cannot delete node with active data. Please reassign data first or use force delete.' },
+        { status: 400 }
+      );
+    }
+  } else {
+    console.log(`[deleteOrgNode] ⚠️ Force delete enabled for node: ${nodeId} (${node.name})`);
   }
 
   // Reassign data if needed

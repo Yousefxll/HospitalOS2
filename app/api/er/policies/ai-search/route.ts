@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-export const dynamic = 'force-dynamic';
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 import { getCollection } from '@/lib/db';
 import OpenAI from 'openai';
 import { env } from '@/lib/env';
 import type { PolicyDocument, PolicyChunk } from '@/lib/models/Policy';
+
+export const dynamic = 'force-dynamic';
 
 function getOpenAIClient() {
   if (!env.OPENAI_API_KEY) {
@@ -15,9 +16,9 @@ function getOpenAIClient() {
   });
 }
 
-export async function POST(request: NextRequest) {
+export const POST = withAuthTenant(async (req, { user, tenantId }) => {
   try {
-    const { question } = await request.json();
+    const { question } = await req.json();
 
     if (!question || question.trim().length === 0) {
       return NextResponse.json(
@@ -26,14 +27,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Step 1: Search for relevant chunks using text search
+    // Step 1: Search for relevant chunks using text search with tenant isolation
     const policiesCollection = await getCollection('policy_documents');
     const chunksCollection = await getCollection('policy_chunks');
     
-    // Search in chunks using text index
-    const chunksQuery = {
+    // Search in chunks using text index with tenant isolation
+    const baseChunksQuery: any = {
       $text: { $search: question },
     };
+    const chunksQuery = createTenantQuery(baseChunksQuery, tenantId);
 
     // Find matching chunks
     const matchingChunks = await chunksCollection
@@ -42,13 +44,17 @@ export async function POST(request: NextRequest) {
       .toArray();
 
     if (matchingChunks.length === 0) {
-      // Fallback: search in document titles
-      const titleMatches = await policiesCollection
-        .find<PolicyDocument>({
+      // Fallback: search in document titles with tenant isolation
+      const titleQuery = createTenantQuery(
+        {
           isActive: true,
           processingStatus: 'completed',
           title: { $regex: question, $options: 'i' },
-        })
+        },
+        tenantId
+      );
+      const titleMatches = await policiesCollection
+        .find<PolicyDocument>(titleQuery)
         .limit(10)
         .toArray();
 
@@ -88,14 +94,18 @@ export async function POST(request: NextRequest) {
       chunksByDocument.get(chunk.documentId)!.push(chunk);
     }
 
-    // Step 3: Get document metadata
+    // Step 3: Get document metadata with tenant isolation
     const documentIds = Array.from(chunksByDocument.keys());
-    const documents = await policiesCollection
-      .find<PolicyDocument>({
+    const documentsQuery = createTenantQuery(
+      {
         isActive: true,
         processingStatus: 'completed',
         documentId: { $in: documentIds },
-      })
+      },
+      tenantId
+    );
+    const documents = await policiesCollection
+      .find<PolicyDocument>(documentsQuery)
       .toArray();
 
     // Step 4: Prepare context for AI (top chunks from top documents)
@@ -228,4 +238,4 @@ ${contextText}`,
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'er.policies.ai-search' });

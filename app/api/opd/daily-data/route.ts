@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 import { getCollection } from '@/lib/db';
-import { requireAuth } from '@/lib/security/auth';
-import { requireRole } from '@/lib/security/auth';
 import { v4 as uuidv4 } from 'uuid';
 import { OPDDailyData } from '@/lib/models/OPDDailyData';
 import type { OPDDailyData as OPDDailyDataType } from '@/lib/models/OPDDailyData';
@@ -52,30 +51,27 @@ const createDailyDataSchema = z.object({
   ivf: z.number().min(0).optional(),
 });
 
-export async function POST(request: NextRequest) {
+export const POST = withAuthTenant(async (req, { user, tenantId, userId, role, permissions }) => {
   try {
-    // Authenticate
-    const auth = await requireAuth(request);
-    if (auth instanceof NextResponse) {
-      return auth;
+    // Authorization check - admin, supervisor, or staff
+    if (!['admin', 'supervisor', 'staff'].includes(role) && !permissions.includes('opd.daily-data.create')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Check role: admin, supervisor, or staff
-    const roleCheck = await requireRole(request, ['admin', 'supervisor', 'staff'], auth);
-    if (roleCheck instanceof NextResponse) {
-      return roleCheck;
-    }
-
-    const body = await request.json();
+    const body = await req.json();
     const data = createDailyDataSchema.parse(body);
 
     const dailyDataCollection = await getCollection('opd_daily_data');
 
-    // Check if data already exists for this doctor on this date
-    const existing = await dailyDataCollection.findOne<OPDDailyDataType>({
-      doctorId: data.doctorId,
-      date: new Date(data.date),
-    });
+    // Check if data already exists for this doctor on this date with tenant isolation
+    const existingQuery = createTenantQuery(
+      {
+        doctorId: data.doctorId,
+        date: new Date(data.date),
+      },
+      tenantId
+    );
+    const existing = await dailyDataCollection.findOne<OPDDailyDataType>(existingQuery);
 
     const dailyData: OPDDailyData = {
       id: existing?.id || uuidv4(),
@@ -107,13 +103,14 @@ export async function POST(request: NextRequest) {
       ivf: data.ivf,
       createdAt: existing?.createdAt || new Date(),
       updatedAt: new Date(),
-      createdBy: existing?.createdBy || auth.userId || 'system',
-      updatedBy: auth.userId || 'system',
+      createdBy: existing?.createdBy || userId || 'system',
+      updatedBy: userId || 'system',
+      tenantId, // CRITICAL: Always include tenantId for tenant isolation
     };
 
     if (existing) {
       await dailyDataCollection.updateOne(
-        { id: dailyData.id },
+        existingQuery,
         { $set: dailyData }
       );
     } else {
@@ -139,32 +136,37 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'opd.daily-data.create' });
 
-export async function GET(request: NextRequest) {
+export const GET = withAuthTenant(async (req, { user, tenantId }) => {
   try {
-    const { searchParams } = new URL(request.url);
+    const { searchParams } = new URL(req.url);
     const date = searchParams.get('date');
     const departmentId = searchParams.get('departmentId');
     const doctorId = searchParams.get('doctorId');
 
     const dailyDataCollection = await getCollection('opd_daily_data');
-    const query: any = {};
+    
+    // Build base query
+    const baseQuery: any = {};
 
     if (date) {
       const dateObj = new Date(date);
       const startOfDay = new Date(dateObj.setHours(0, 0, 0, 0));
       const endOfDay = new Date(dateObj.setHours(23, 59, 59, 999));
-      query.date = { $gte: startOfDay, $lte: endOfDay };
+      baseQuery.date = { $gte: startOfDay, $lte: endOfDay };
     }
 
     if (departmentId) {
-      query.departmentId = departmentId;
+      baseQuery.departmentId = departmentId;
     }
 
     if (doctorId) {
-      query.doctorId = doctorId;
+      baseQuery.doctorId = doctorId;
     }
+    
+    // Add tenant isolation
+    const query = createTenantQuery(baseQuery, tenantId);
 
     const data = await dailyDataCollection.find<OPDDailyDataType>(query).sort({ date: -1 }).toArray();
 
@@ -176,7 +178,7 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'opd.daily-data.read' });
 
 
 

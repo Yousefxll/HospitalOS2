@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth/requireAuth';
-import { requireRole } from '@/lib/rbac';
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 import { getCollection } from '@/lib/db';
 import { env } from '@/lib/env';
 import { v4 as uuidv4 } from 'uuid';
@@ -28,20 +27,12 @@ function sanitizeFileName(fileName: string): string {
     .substring(0, 255);
 }
 
-export async function POST(request: NextRequest) {
+export const POST = withAuthTenant(async (req, { user, tenantId, userId, role }) => {
   try {
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
-    const { userId, userRole, tenantId } = authResult;
+    console.log('Bulk upload request received');
+    console.log('User role:', role, 'User ID:', userId, 'Tenant ID:', tenantId);
 
-    // Authorization check
-    if (!requireRole(userRole, ['admin', 'supervisor'])) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
-    const formData = await request.formData();
+    const formData = await req.formData();
     const files = formData.getAll('files') as File[];
 
     if (!files || files.length === 0) {
@@ -84,12 +75,9 @@ export async function POST(request: NextRequest) {
         // Calculate hash
         const fileHash = calculateFileHash(buffer);
 
-        // Check for duplicate
-        const existing = await policiesCollection.findOne({
-          fileHash,
-          tenantId,
-          isActive: true,
-        });
+        // Check for duplicate (with tenant isolation)
+        const duplicateQuery = createTenantQuery({ fileHash, isActive: true }, tenantId);
+        const existing = await policiesCollection.findOne(duplicateQuery);
 
         if (existing) {
           console.warn(`Duplicate file skipped: ${file.name}`);
@@ -155,10 +143,10 @@ export async function POST(request: NextRequest) {
             proxyFormData.append('tenantId', tenantId);
             proxyFormData.append('uploaderUserId', userId || 'system');
 
-            const ingestResponse = await fetch(`${request.nextUrl.origin}/api/policy-engine/ingest`, {
+            const ingestResponse = await fetch(`${req.nextUrl.origin}/api/sam/policy-engine/ingest`, {
               method: 'POST',
               headers: {
-                'Cookie': request.headers.get('Cookie') || '',
+                'Cookie': req.headers.get('Cookie') || '',
               },
               body: proxyFormData,
             });
@@ -179,10 +167,10 @@ export async function POST(request: NextRequest) {
 
           // Trigger AI tagging in background (async, non-blocking)
           // This uses MongoDB policyId for metadata updates (tags, classification)
-          fetch(`${request.nextUrl.origin}/api/policies/${policyId}/suggest-tags`, {
+          fetch(`${req.nextUrl.origin}/api/policies/${policyId}/suggest-tags`, {
             method: 'POST',
             headers: {
-              'Cookie': request.headers.get('Cookie') || '',
+              'Cookie': req.headers.get('Cookie') || '',
             },
           }).catch(err => {
             console.error(`Failed to trigger AI tagging for ${policyId}:`, err);
@@ -215,4 +203,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'policies.bulk-upload' });

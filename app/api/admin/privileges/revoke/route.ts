@@ -4,24 +4,17 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth/requireAuth';
 import { getCollection } from '@/lib/db';
 import { getISOTimestamp, createAuditLog } from '@/lib/ehr/utils/audit';
 import { validateRequired, formatValidationErrors } from '@/lib/ehr/utils/validation';
 import { Privilege } from '@/lib/ehr/models/Privilege';
-
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-export async function POST(request: NextRequest) {
+export const POST = withAuthTenant(async (req, { user, tenantId }) => {
   try {
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
-
-    const user = authResult.user;
-    const body = await request.json();
+    const body = await req.json();
 
     // Validation
     const requiredFields = ['privilegeId'];
@@ -31,9 +24,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(formatValidationErrors(validationErrors), { status: 400 });
     }
 
-    // Find and revoke privilege
+    // Find and revoke privilege (with tenant isolation)
     const privilegesCollection = await getCollection('ehr_privileges');
-    const privilege = await privilegesCollection.findOne<Privilege>({ id: body.privilegeId });
+    const privilegeQuery = createTenantQuery({ id: body.privilegeId }, tenantId);
+    const privilege = await privilegesCollection.findOne<Privilege>(privilegeQuery);
 
     if (!privilege) {
       return NextResponse.json(
@@ -49,10 +43,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update privilege
+    // Update privilege (with tenant isolation)
     const now = getISOTimestamp();
     await privilegesCollection.updateOne(
-      { id: body.privilegeId },
+      privilegeQuery, // Uses tenantId via createTenantQuery
       {
         $set: {
           isActive: false,
@@ -64,24 +58,25 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    // Audit log
+    // Audit log - with tenant isolation
     await createAuditLog({
       action: 'REVOKE_PRIVILEGE',
       resourceType: 'privilege',
       resourceId: body.privilegeId,
       userId: user.id,
       userName: `${user.firstName} ${user.lastName}`,
+      tenantId, // CRITICAL: Always include tenantId for tenant isolation
       changes: [
         { field: 'isActive', oldValue: true, newValue: false },
         { field: 'revokedAt', newValue: now },
         { field: 'revokedBy', newValue: user.id },
       ],
       success: true,
-      ipAddress: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined,
-      userAgent: request.headers.get('user-agent') || undefined,
+      ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || undefined,
+      userAgent: req.headers.get('user-agent') || undefined,
     });
 
-    const updatedPrivilege = await privilegesCollection.findOne<Privilege>({ id: body.privilegeId });
+    const updatedPrivilege = await privilegesCollection.findOne<Privilege>(privilegeQuery);
 
     return NextResponse.json({
       success: true,
@@ -89,19 +84,17 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: any) {
     console.error('Revoke privilege error:', error);
-    
-    // Audit log for failure
+
+    // Audit log for failure - user is available from context
     try {
-      const authResult = await requireAuth(request);
-      if (!(authResult instanceof NextResponse)) {
-        await createAuditLog({
-          action: 'REVOKE_PRIVILEGE',
-          resourceType: 'privilege',
-          userId: authResult.user.id,
-          success: false,
-          errorMessage: error.message,
-        });
-      }
+      await createAuditLog({
+        action: 'REVOKE_PRIVILEGE',
+        resourceType: 'privilege',
+        userId: user.id,
+        tenantId, // CRITICAL: Always include tenantId for tenant isolation
+        success: false,
+        errorMessage: error.message,
+      });
     } catch {}
 
     return NextResponse.json(
@@ -109,4 +102,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'admin.ehr.privileges.access' });

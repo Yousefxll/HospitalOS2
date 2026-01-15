@@ -1,18 +1,26 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 import { getCollection } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import type { Department } from '@/lib/models/Department';
 
-export async function POST() {
+export const POST = withAuthTenant(async (req, { user, tenantId, userId, role, permissions }) => {
   try {
+    // Authorization check - admin only for seed routes
+    if (!['admin'].includes(role) && !permissions.includes('opd.census.seed')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const departmentsCollection = await getCollection('departments');
     const doctorsCollection = await getCollection('doctors');
     const clinicsCollection = await getCollection('clinic_details');
     const censusCollection = await getCollection('opd_census');
 
-    // Get or create sample departments
-    let cardioDept = await departmentsCollection.findOne<Department>({ code: 'CARDIO' });
-    let orthoDept = await departmentsCollection.findOne<Department>({ code: 'ORTHO' });
+    // Get or create sample departments with tenant isolation
+    const cardioQuery = createTenantQuery({ code: 'CARDIO' }, tenantId);
+    const orthoQuery = createTenantQuery({ code: 'ORTHO' }, tenantId);
+    let cardioDept = await departmentsCollection.findOne<Department>(cardioQuery);
+    let orthoDept = await departmentsCollection.findOne<Department>(orthoQuery);
 
     if (!cardioDept) {
       cardioDept = {
@@ -21,6 +29,7 @@ export async function POST() {
         code: 'CARDIO',
         type: 'OPD',
         isActive: true,
+        tenantId, // CRITICAL: Always include tenantId for tenant isolation
         createdAt: new Date(),
         updatedAt: new Date(),
         createdBy: 'system',
@@ -36,6 +45,7 @@ export async function POST() {
         code: 'ORTHO',
         type: 'BOTH',
         isActive: true,
+        tenantId, // CRITICAL: Always include tenantId for tenant isolation
         createdAt: new Date(),
         updatedAt: new Date(),
         createdBy: 'system',
@@ -63,7 +73,8 @@ export async function POST() {
     const createdDoctors: any[] = [];
     
     for (const docData of doctorsToCreate) {
-      let doctor = await doctorsCollection.findOne({ employeeId: docData.employeeId });
+      const doctorQuery = createTenantQuery({ employeeId: docData.employeeId }, tenantId);
+      let doctor = await doctorsCollection.findOne(doctorQuery);
       
       if (!doctor) {
         const scheduleDays = docData.dept === cardioDept.id 
@@ -86,6 +97,7 @@ export async function POST() {
           assignedRooms: [],
           assignedNurses: [],
           isActive: true,
+          tenantId, // CRITICAL: Always include tenantId for tenant isolation
           createdAt: new Date(),
           updatedAt: new Date(),
           createdBy: 'system',
@@ -99,8 +111,9 @@ export async function POST() {
     const [doctor1, doctor2, doctor3, doctor4, doctor5, doctor6, doctor7, doctor8, doctor9, doctor10] = createdDoctors;
 
 
-    // Get or create clinic details
-    let clinic1 = await clinicsCollection.findOne({ clinicId: 'CLINIC1' });
+    // Get or create clinic details with tenant isolation
+    const clinic1Query = createTenantQuery({ clinicId: 'CLINIC1' }, tenantId);
+    let clinic1 = await clinicsCollection.findOne(clinic1Query);
     if (!clinic1) {
       clinic1 = {
         id: uuidv4(),
@@ -115,6 +128,7 @@ export async function POST() {
           startTime: '08:00',
           endTime: '16:00',
         },
+        tenantId, // CRITICAL: Always include tenantId for tenant isolation
         createdAt: new Date(),
         updatedAt: new Date(),
         createdBy: 'system',
@@ -123,7 +137,8 @@ export async function POST() {
       await clinicsCollection.insertOne(clinic1);
     }
 
-    let clinic2 = await clinicsCollection.findOne({ clinicId: 'CLINIC2' });
+    const clinic2Query = createTenantQuery({ clinicId: 'CLINIC2' }, tenantId);
+    let clinic2 = await clinicsCollection.findOne(clinic2Query);
     if (!clinic2) {
       clinic2 = {
         id: uuidv4(),
@@ -138,6 +153,7 @@ export async function POST() {
           startTime: '08:00',
           endTime: '16:00',
         },
+        tenantId, // CRITICAL: Always include tenantId for tenant isolation
         createdAt: new Date(),
         updatedAt: new Date(),
         createdBy: 'system',
@@ -146,7 +162,8 @@ export async function POST() {
       await clinicsCollection.insertOne(clinic2);
     }
 
-    let clinic3 = await clinicsCollection.findOne({ clinicId: 'CLINIC3' });
+    const clinic3Query = createTenantQuery({ clinicId: 'CLINIC3' }, tenantId);
+    let clinic3 = await clinicsCollection.findOne(clinic3Query);
     if (!clinic3) {
       clinic3 = {
         id: uuidv4(),
@@ -161,6 +178,7 @@ export async function POST() {
           startTime: '08:00',
           endTime: '16:00',
         },
+        tenantId, // CRITICAL: Always include tenantId for tenant isolation
         createdAt: new Date(),
         updatedAt: new Date(),
         createdBy: 'system',
@@ -212,6 +230,7 @@ export async function POST() {
             waiting: 6 + Math.floor(Math.random() * 5),
             procedures: 4 + Math.floor(Math.random() * 4),
             utilizationRate: 65 + Math.floor(Math.random() * 25),
+            tenantId, // CRITICAL: Always include tenantId for tenant isolation
             createdAt: new Date(),
             updatedAt: new Date(),
             createdBy: 'system',
@@ -241,6 +260,7 @@ export async function POST() {
             waiting: 8 + Math.floor(Math.random() * 5),
             procedures: 6 + Math.floor(Math.random() * 5),
             utilizationRate: 70 + Math.floor(Math.random() * 25),
+            tenantId, // CRITICAL: Always include tenantId for tenant isolation
             createdAt: new Date(),
             updatedAt: new Date(),
             createdBy: 'system',
@@ -250,13 +270,17 @@ export async function POST() {
       });
     }
 
-    // Check if data already exists for the date range
-    const existingData = await censusCollection.findOne({
-      date: {
-        $gte: new Date(startDate.setHours(0, 0, 0, 0)),
-        $lte: new Date(endDate.setHours(23, 59, 59, 999)),
+    // Check if data already exists for the date range with tenant isolation
+    const existingQuery = createTenantQuery(
+      {
+        date: {
+          $gte: new Date(startDate.setHours(0, 0, 0, 0)),
+          $lte: new Date(endDate.setHours(23, 59, 59, 999)),
+        },
       },
-    });
+      tenantId
+    );
+    const existingData = await censusCollection.findOne(existingQuery);
 
     if (!existingData) {
       await censusCollection.insertMany(sampleRecords);
@@ -278,5 +302,5 @@ export async function POST() {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'opd.census.seed' });
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { requireOwner } from '@/lib/security/requireOwner';
+import { requireOwner, getAllAggregatedTenantData } from '@/lib/core/owner/separation';
 import { requireAuthContext } from '@/lib/auth/requireAuthContext';
 import { getPlatformCollection } from '@/lib/db/platformDb';
 import { getTenantDbByKey } from '@/lib/db/tenantDb';
@@ -62,78 +62,31 @@ export async function GET(request: NextRequest) {
     const usersCollection = await getPlatformCollection('users');
 
     if (statsOnly) {
-      const tenants = await tenantsCollection.find({}).toArray() as Tenant[];
-      
-      // Calculate total users from all tenant DBs (not platform DB)
-      let totalUsers = 0;
-      for (const tenant of tenants) {
-        const tenantId = tenant.tenantId || (tenant as any).id || (tenant as any)._id?.toString();
-        if (tenantId) {
-          try {
-            const tenantDb = await getTenantDbByKey(tenantId);
-            const tenantUsersCollection = tenantDb.collection('users');
-            const userCount = await tenantUsersCollection.countDocuments({
-              role: { $ne: 'syra-owner' }, // Exclude syra-owner
-            });
-            totalUsers += userCount;
-          } catch (error) {
-            console.warn(`[owner/tenants] Failed to get user count for tenant ${tenantId}:`, error);
-            // Continue with other tenants
-          }
-        }
-      }
+      // Use aggregated tenant data (owner-only, no user names)
+      const aggregatedTenants = await getAllAggregatedTenantData();
       
       const stats = {
-        totalTenants: tenants.length,
-        activeTenants: tenants.filter(t => t.status === 'active').length,
-        blockedTenants: tenants.filter(t => t.status === 'blocked').length,
-        totalUsers,
+        totalTenants: aggregatedTenants.length,
+        activeTenants: aggregatedTenants.filter(t => t.status === 'active').length,
+        blockedTenants: aggregatedTenants.filter(t => t.status === 'blocked').length,
+        totalUsers: aggregatedTenants.reduce((sum, t) => sum + t.activeUsersCount, 0),
       };
       return NextResponse.json({ stats });
     }
 
-    const tenants = await tenantsCollection.find({}).sort({ createdAt: -1 }).toArray() as Tenant[];
+    // Get aggregated tenant data (owner-only, no user names)
+    const aggregatedTenants = await getAllAggregatedTenantData();
 
-    // Get user counts for each tenant from their respective tenant DBs
-    // Map tenants and ensure tenantId is present (use fallback if missing)
-    const tenantsWithStats = await Promise.all(
-      tenants.map(async (tenant) => {
-        // Use tenantId, fallback to id or _id if tenantId is missing
-        const tenantId = tenant.tenantId || (tenant as any).id || (tenant as any)._id?.toString() || null;
-        
-        if (!tenantId) {
-          console.warn(`[owner/tenants] Tenant missing all ID fields:`, tenant);
-          // Still return the tenant but with a warning
-        }
-        
-        // Get user count from tenant DB (not platform DB)
-        let userCount = 0;
-        if (tenantId) {
-          try {
-            // Get tenant DB
-            const tenantDb = await getTenantDbByKey(tenantId);
-            const tenantUsersCollection = tenantDb.collection('users');
-            
-            // Count users in tenant DB (excluding syra-owner)
-            userCount = await tenantUsersCollection.countDocuments({
-              role: { $ne: 'syra-owner' }, // Exclude syra-owner from count
-            });
-          } catch (error) {
-            console.warn(`[owner/tenants] Failed to get user count for tenant ${tenantId}:`, error);
-            // If tenant DB doesn't exist or connection fails, userCount remains 0
-            userCount = 0;
-          }
-        }
-        
-        return {
-          ...tenant,
-          tenantId: tenantId || tenant.tenantId || (tenant as any).id || (tenant as any)._id?.toString() || 'unknown',
-          userCount,
-        };
-      })
-    );
+    console.log(`[owner/tenants] Found ${aggregatedTenants.length} aggregated tenants`);
 
-    return NextResponse.json({ tenants: tenantsWithStats });
+    // Map to include userCount for frontend compatibility
+    const tenantsWithUserCount = aggregatedTenants.map((agg) => ({
+      ...agg,
+      userCount: agg.activeUsersCount, // Map activeUsersCount to userCount for frontend
+      planType: (agg.status === 'expired' || agg.status === 'blocked') ? 'demo' : 'paid', // Fallback planType
+    }));
+
+    return NextResponse.json({ tenants: tenantsWithUserCount });
   } catch (error) {
     console.error('List tenants error:', error);
     return NextResponse.json(
@@ -209,6 +162,7 @@ export async function POST(request: NextRequest) {
       planType: data.planType || 'demo',
       subscriptionEndsAt: data.subscriptionEndsAt ? new Date(data.subscriptionEndsAt) : undefined,
       maxUsers: data.maxUsers || 10,
+      gracePeriodEnabled: false, // Default to false
       createdAt: now,
       updatedAt: now,
       createdBy: userId,

@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withAuthTenant } from '@/lib/core/guards/withAuthTenant';
+
 import { z } from 'zod';
-import { requireAuth } from '@/lib/auth/requireAuth';
-import { requireRole } from '@/lib/security/auth';
-import { getCollection } from '@/lib/db';
-import { Tenant } from '@/lib/models/Tenant';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,7 +22,9 @@ const updateEntitlementsSchema = z.object({
  * 
  * Tenant admins should use /api/owner/tenants/[tenantId]/entitlements (owner-only).
  */
-export async function GET(request: NextRequest) {
+export const GET = withAuthTenant(async (req, { user, tenantId, role }) => {
+  // This endpoint is authenticated but always returns 403 for non-owner users
+  // Owner users should use /api/owner/tenants/[tenantId]/entitlements
   return NextResponse.json(
     { 
       error: 'Forbidden', 
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     },
     { status: 403 }
   );
-}
+}, { tenantScoped: false, permissionKey: 'admin.tenant-entitlements.access' });
 
 /**
  * PATCH /api/admin/tenant-entitlements
@@ -42,7 +42,9 @@ export async function GET(request: NextRequest) {
  * 
  * Tenant admins should use /api/owner/tenants/[tenantId]/entitlements (owner-only).
  */
-export async function PATCH(request: NextRequest) {
+export const PATCH = withAuthTenant(async (req, { user, tenantId, role }) => {
+  // This endpoint is authenticated but always returns 403 for non-owner users
+  // Owner users should use /api/owner/tenants/[tenantId]/entitlements
   return NextResponse.json(
     { 
       error: 'Forbidden', 
@@ -50,5 +52,5 @@ export async function PATCH(request: NextRequest) {
     },
     { status: 403 }
   );
-}
+}, { tenantScoped: false, permissionKey: 'admin.tenant-entitlements.access' });
 

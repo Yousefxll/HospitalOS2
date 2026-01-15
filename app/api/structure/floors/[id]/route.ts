@@ -45,25 +45,36 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const authResult = await getAuthContext(request);
-    if (!authResult) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Use requireRoleAsync which returns role directly from token/headers (no DB lookup needed)
+    const authResult = await requireRoleAsync(request, ['admin', 'supervisor', 'staff']);
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
 
-    // Check permission: admin.structure-management.edit
-    const { getCollection } = await import('@/lib/db');
-    const usersCollection = await getCollection('users');
-    const user = await usersCollection.findOne<User>({ id: authResult.userId });
-    const userPermissions = user?.permissions || [];
+    // authResult.userRole is already available from token/headers - no need to read from DB
+    const userRole = authResult.userRole;
+    const userId = authResult.userId;
 
-    if (
-      !userPermissions.includes('admin.structure-management.edit') &&
-      !userPermissions.includes('admin.users')
-    ) {
-      return NextResponse.json(
-        { error: 'Forbidden: Insufficient permissions' },
-        { status: 403 }
-      );
+    // Allow if user has admin role (admin role has full access)
+    // Note: requireRoleAsync already checked role, but we can be explicit here
+    if (userRole !== 'admin') {
+      // For non-admin roles, check permissions (if needed in future)
+      const { getCollection } = await import('@/lib/db');
+      const usersCollection = await getCollection('users');
+      const user = await usersCollection.findOne<User>({ id: userId });
+      const userPermissions = user?.permissions || [];
+      
+      const hasPermission = 
+        userPermissions.includes('admin.structure-management.edit') ||
+        userPermissions.includes('admin.users') ||
+        userPermissions.some(p => p.startsWith('admin.'));
+
+      if (!hasPermission) {
+        return NextResponse.json(
+          { error: 'Forbidden: Insufficient permissions. Admin role or admin.structure-management.edit permission required.' },
+          { status: 403 }
+        );
+      }
     }
 
     const body = await request.json();
@@ -71,7 +82,7 @@ export async function PUT(
 
     const floor = await structureService.updateFloor(params.id, {
       ...validatedData,
-      updatedBy: authResult.userId,
+      updatedBy: userId,
     });
 
     if (!floor) {
@@ -94,34 +105,62 @@ export async function PUT(
   }
 }
 
-// DELETE - Delete floor (soft delete)
+// DELETE - Delete floor (hard delete)
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const authResult = await getAuthContext(request);
-    if (!authResult) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Use requireRoleAsync which returns role directly from token/headers (no DB lookup needed)
+    const authResult = await requireRoleAsync(request, ['admin', 'supervisor', 'staff']);
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
 
-    // Check permission: admin.structure-management.delete
-    const { getCollection } = await import('@/lib/db');
-    const usersCollection = await getCollection('users');
-    const user = await usersCollection.findOne<User>({ id: authResult.userId });
-    const userPermissions = user?.permissions || [];
+    // authResult.userRole is already available from token/headers - no need to read from DB
+    const userRole = authResult.userRole;
+    const userId = authResult.userId;
 
-    if (
-      !userPermissions.includes('admin.structure-management.delete') &&
-      !userPermissions.includes('admin.users')
-    ) {
-      return NextResponse.json(
-        { error: 'Forbidden: Insufficient permissions' },
-        { status: 403 }
-      );
+    // Allow if user has admin role (admin role has full access)
+    // Note: requireRoleAsync already checked role, but we can be explicit here
+    if (userRole !== 'admin') {
+      // For non-admin roles, check permissions (if needed in future)
+      // For now, requireRoleAsync ensures only admin/supervisor/staff can reach here
+      // and admin role has full access
+      const { getCollection } = await import('@/lib/db');
+      const usersCollection = await getCollection('users');
+      const user = await usersCollection.findOne<User>({ id: userId });
+      const userPermissions = user?.permissions || [];
+      
+      const hasPermission = 
+        userPermissions.includes('admin.structure-management.delete') ||
+        userPermissions.includes('admin.users') ||
+        userPermissions.some(p => p.startsWith('admin.'));
+
+      if (!hasPermission) {
+        return NextResponse.json(
+          { error: 'Forbidden: Insufficient permissions. Admin role or admin.structure-management.delete permission required.' },
+          { status: 403 }
+        );
+      }
     }
 
-    const success = await structureService.deleteFloor(params.id, authResult.userId);
+    // CRITICAL: HARD DELETE (remove completely, not soft delete)
+    const success = await structureService.deleteFloor(params.id, userId, true); // hardDelete = true
+    
+    // Also try to delete from org_nodes if it exists there
+    try {
+      const { deleteOrgNode } = await import('@/lib/core/org/structure');
+      const deleteResult = await deleteOrgNode(request, params.id, undefined, true); // forceDelete = true
+      if (deleteResult instanceof NextResponse && deleteResult.status !== 200) {
+        console.warn(`[structure/floors] ⚠️ Failed to delete org node for floor ${params.id}:`, deleteResult.status);
+        // Don't fail the request - floor is already deleted from floors collection
+      }
+    } catch (orgError) {
+      console.error(`[structure/floors] ❌ Error deleting org node for floor ${params.id}:`, orgError);
+      // Don't fail the request - floor is already deleted from floors collection
+    }
+    
     if (!success) {
       return NextResponse.json({ error: 'Floor not found' }, { status: 404 });
     }

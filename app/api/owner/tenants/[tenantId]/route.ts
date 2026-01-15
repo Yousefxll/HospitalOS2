@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { requireOwner } from '@/lib/security/requireOwner';
+import { requireOwner, getAggregatedTenantData } from '@/lib/core/owner/separation';
 import { getPlatformCollection } from '@/lib/db/platformDb';
 import { getTenantDbByKey } from '@/lib/db/tenantDb';
 import { Tenant } from '@/lib/models/Tenant';
@@ -74,35 +74,45 @@ export async function GET(
     // Use the actual tenantId from the found tenant (important for subsequent queries)
     const tenantId = tenant.tenantId || tenantIdParam;
 
-    // Get users from tenant DB (not platform DB)
+    // Get aggregated tenant data (owner-only)
+    const aggregatedData = await getAggregatedTenantData(tenantId);
+    
+    if (!aggregatedData) {
+      return NextResponse.json(
+        { error: 'Tenant not found', message: `No tenant found with ID: ${tenantIdParam}` },
+        { status: 404 }
+      );
+    }
+
+    // Get users from tenant DB for management purposes
+    // Owner needs to see users to manage them (assign, delete, etc.)
     let userCount = 0;
     let assignedUsers: User[] = [];
     let availableUsers: User[] = [];
 
     try {
       const tenantDb = await getTenantDbByKey(tenantId);
-      const tenantUsersCollection = tenantDb.collection<User>('users');
+      const tenantUsersCollection = tenantDb.collection('users');
       
       // Get user count (excluding syra-owner)
       userCount = await tenantUsersCollection.countDocuments({ 
-        role: { $ne: 'syra-owner' }, // Exclude syra-owner
+        role: { $ne: 'syra-owner' },
       });
       
       // Get assigned users (excluding syra-owner)
-      assignedUsers = await tenantUsersCollection
-        .find<User>({ 
-          role: { $ne: 'syra-owner' }, // Exclude syra-owner
+      assignedUsers = (await tenantUsersCollection
+        .find({ 
+          role: { $ne: 'syra-owner' },
         })
+        .project({ password: 0 }) // Exclude password
         .limit(100)
-        .toArray();
+        .toArray()) as User[];
 
-      // Get available users from all tenant DBs (users that can be assigned to this tenant)
-      // For now, we'll get users from platform DB that don't have a tenantId or are in other tenants
-      // This is a simplified approach - in a real system, you might want to search across all tenant DBs
+      // Get available users from platform DB (users that can be assigned to this tenant)
       const platformUsersCollection = await getPlatformCollection('users');
-      availableUsers = await platformUsersCollection
-        .find<User>({
-          role: { $ne: 'syra-owner' }, // Exclude syra-owner
+      availableUsers = (await platformUsersCollection
+        .find({
+          role: { $ne: 'syra-owner' },
           $or: [
             { tenantId: { $exists: false } },
             { tenantId: null },
@@ -110,16 +120,17 @@ export async function GET(
             { tenantId: { $ne: tenantId } }, // Users in other tenants (can be moved)
           ],
         })
+        .project({ password: 0 }) // Exclude password
         .limit(100)
-        .toArray();
+        .toArray()) as User[];
     } catch (error) {
       console.warn(`[owner/tenants/[tenantId] GET] Error getting users for tenant ${tenantId}:`, error);
-      // Continue with empty arrays if tenant DB doesn't exist or connection fails
     }
 
+    // Return aggregated data with users for management
     return NextResponse.json({
       tenant: {
-        ...tenant,
+        ...aggregatedData,
         userCount,
         assignedUsers: assignedUsers.map(u => ({
           id: u.id,

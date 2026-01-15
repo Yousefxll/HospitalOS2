@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuthContext } from '@/lib/auth/requireAuthContext';
 import { getTenantCollection } from '@/lib/db-tenant';
-import { requireRoleAsync } from '@/lib/auth/requireRole';
-
+import { withAuthTenant } from '@/lib/core/guards/withAuthTenant';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -15,21 +13,17 @@ interface DeleteParams {
   deleteAllSample?: boolean; // Delete all data created by 'system'
 }
 
-export async function POST(request: NextRequest) {
+export const POST = withAuthTenant(async (req, { user, tenantId, role }) => {
   try {
-    const authResult = await requireRoleAsync(request, ['admin']);
-    if (authResult instanceof NextResponse) {
-      return authResult;
+    // Authorization: Only admin can delete sample data
+    if (role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Forbidden', message: 'Only admin can delete sample data' },
+        { status: 403 }
+      );
     }
 
-    // Get tenant context
-    const authContext = await requireAuthContext(request);
-    if (authContext instanceof NextResponse) {
-      return authContext;
-    }
-
-    const { tenantId } = authContext;
-    const body: DeleteParams = await request.json();
+    const body: DeleteParams = await req.json();
     const { dataType, fromDate, toDate, departmentId, doctorId, deleteAllSample } = body;
 
     let deletedCounts: { opd_census: number; opd_daily_data: number } = {
@@ -140,26 +134,22 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'admin.data.delete' });
 
 /**
  * GET endpoint to preview what will be deleted
  */
-export async function GET(request: NextRequest) {
+export const GET = withAuthTenant(async (req, { user, tenantId, role }) => {
   try {
-    const authResult = await requireRoleAsync(request, ['admin']);
-    if (authResult instanceof NextResponse) {
-      return authResult;
+    // Authorization: Only admin can preview delete operations
+    if (role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Forbidden', message: 'Only admin can preview delete operations' },
+        { status: 403 }
+      );
     }
 
-    // Get tenant context
-    const authContext = await requireAuthContext(request);
-    if (authContext instanceof NextResponse) {
-      return authContext;
-    }
-
-    const { tenantId } = authContext;
-    const { searchParams } = new URL(request.url);
+    const { searchParams } = new URL(req.url);
     const dataType = searchParams.get('dataType') as 'opd_census' | 'opd_daily_data' | 'both' || 'both';
     const fromDate = searchParams.get('fromDate') || undefined;
     const toDate = searchParams.get('toDate') || undefined;
@@ -243,4 +233,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'admin.data.delete' });

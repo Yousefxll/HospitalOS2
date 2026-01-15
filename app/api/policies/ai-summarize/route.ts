@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 import { getCollection } from '@/lib/db';
 import { z } from 'zod';
 import OpenAI from 'openai';
@@ -20,9 +21,9 @@ const summarizeSchema = z.object({
   documentId: z.string().min(1),
 });
 
-export async function POST(request: NextRequest) {
+export const POST = withAuthTenant(async (req, { user, tenantId }) => {
   try {
-    const body = await request.json();
+    const body = await req.json();
     const { documentId } = summarizeSchema.parse(body);
 
     if (!env.OPENAI_API_KEY) {
@@ -35,12 +36,16 @@ export async function POST(request: NextRequest) {
     const policiesCollection = await getCollection('policy_documents');
     const chunksCollection = await getCollection('policy_chunks');
 
-    // Get document
-    const document = await policiesCollection.findOne<PolicyDocument>({ 
-      documentId,
-      isActive: true,
-      deletedAt: { $exists: false },
-    });
+    // Get document with tenant isolation
+    const documentQuery = createTenantQuery(
+      {
+        documentId,
+        isActive: true,
+        deletedAt: { $exists: false },
+      },
+      tenantId
+    );
+    const document = await policiesCollection.findOne<PolicyDocument>(documentQuery);
 
     if (!document) {
       return NextResponse.json(
@@ -49,12 +54,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get all chunks for this document
-    const chunks = await chunksCollection
-      .find<PolicyChunk>({ 
+    // Get all chunks for this document with tenant isolation
+    const chunksQuery = createTenantQuery(
+      {
         documentId,
         isActive: true,
-      })
+      },
+      tenantId
+    );
+    const chunks = await chunksCollection
+      .find<PolicyChunk>(chunksQuery)
       .sort({ chunkIndex: 1 })
       .toArray();
 
@@ -118,7 +127,7 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'policies.ai-summarize' });
 
 
 

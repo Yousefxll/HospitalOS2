@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCollection } from '@/lib/db';
-import { requireAuth } from '@/lib/auth/requireAuth';
+import { getTenantCollection } from '@/lib/db/tenantDb';
+import { withAuthTenant } from '@/lib/core/guards/withAuthTenant';
 import { requireQuota } from '@/lib/quota/guard';
 import fs from 'fs';
 import path from 'path';
@@ -9,47 +9,48 @@ import type { PolicyDocument } from '@/lib/models/Policy';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
-  try {
-    // Authentication and tenant isolation
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
+  // Wrap with withAuthTenant manually for dynamic routes
+  return withAuthTenant(async (req, { user, tenantId, userId, role }) => {
+    try {
+      // Check quota (policy.view) - requireQuota expects AuthenticatedUser format
+      const authContext = {
+        user,
+        tenantId,
+        userId,
+        userRole: role,
+        userEmail: user.email,
+        sessionId: '', // Not needed for quota check
+      } as any;
+      const quotaCheck = await requireQuota(authContext, 'policy.view');
+      if (quotaCheck) {
+        return quotaCheck;
+      }
 
-    // Check quota (policy.view)
-    const quotaCheck = await requireQuota(authResult, 'policy.view');
-    if (quotaCheck) {
-      return quotaCheck;
-    }
+      const resolvedParams = params instanceof Promise ? await params : params;
+      const idParam = resolvedParams.id; // Accept id param (can be documentId or policy id)
 
-    const { tenantId } = authResult;
-    const idParam = params.id; // Accept id param (can be documentId or policy id)
-
-    const policiesCollection = await getCollection('policy_documents');
-    // Try to find by documentId first, then by id, with tenant isolation
-    const document = await policiesCollection.findOne<PolicyDocument>({
-      $and: [
-        {
-          $or: [
-            { documentId: idParam },
-            { id: idParam },
-          ],
-        },
-        {
-          $or: [
-            { tenantId: tenantId },
-            { tenantId: { $exists: false } }, // Backward compatibility
-            { tenantId: null },
-            { tenantId: '' },
-            ...(tenantId === 'default' ? [{ tenantId: 'default' }] : []),
-          ],
-        },
-      ],
-    });
+      // CRITICAL: Use getTenantCollection with platform-aware naming
+      // policy_documents → sam_policy_documents (platform-scoped)
+      const policiesCollectionResult = await getTenantCollection(req, 'policy_documents', 'sam');
+      if (policiesCollectionResult instanceof NextResponse) {
+        return policiesCollectionResult;
+      }
+      const policiesCollection = policiesCollectionResult;
+      
+      // Try to find by documentId first, then by id, with tenant isolation
+      const documentQuery = {
+        $or: [
+          { documentId: idParam },
+          { id: idParam },
+        ],
+        tenantId: tenantId, // Explicit tenantId (getTenantCollection ensures tenant DB)
+      };
+      const document = await policiesCollection.findOne<PolicyDocument>(documentQuery);
 
     if (!document) {
       return NextResponse.json(
@@ -83,5 +84,6 @@ export async function GET(
       { status: 500 }
     );
   }
+  }, { platformKey: 'sam', tenantScoped: true, permissionKey: 'sam.policies.view' })(request);
 }
 

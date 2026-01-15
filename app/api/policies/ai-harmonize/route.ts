@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 import { getCollection } from '@/lib/db';
 import { z } from 'zod';
 import OpenAI from 'openai';
@@ -21,9 +22,9 @@ const harmonizeSchema = z.object({
   topicQuery: z.string().optional(), // Optional topic to focus on
 });
 
-export async function POST(request: NextRequest) {
+export const POST = withAuthTenant(async (req, { user, tenantId }) => {
   try {
-    const body = await request.json();
+    const body = await req.json();
     const { documentIds, topicQuery } = harmonizeSchema.parse(body);
 
     if (!env.OPENAI_API_KEY) {
@@ -36,13 +37,17 @@ export async function POST(request: NextRequest) {
     const policiesCollection = await getCollection('policy_documents');
     const chunksCollection = await getCollection('policy_chunks');
 
-    // Get all documents
-    const documents = await policiesCollection
-      .find<PolicyDocument>({
+    // Get all documents with tenant isolation
+    const documentsQuery = createTenantQuery(
+      {
         documentId: { $in: documentIds },
         isActive: true,
         deletedAt: { $exists: false },
-      })
+      },
+      tenantId
+    );
+    const documents = await policiesCollection
+      .find<PolicyDocument>(documentsQuery)
       .toArray();
 
     if (documents.length < 2) {
@@ -52,12 +57,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get chunks for all documents
-    const allChunks = await chunksCollection
-      .find<PolicyChunk>({
+    // Get chunks for all documents with tenant isolation
+    const chunksQuery = createTenantQuery(
+      {
         documentId: { $in: documentIds },
         isActive: true,
-      })
+      },
+      tenantId
+    );
+    const allChunks = await chunksCollection
+      .find<PolicyChunk>(chunksQuery)
       .sort({ documentId: 1, chunkIndex: 1 })
       .toArray();
 
@@ -156,7 +165,7 @@ Format your response clearly with sections for each category.`;
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'policies.ai-harmonize' });
 
 
 

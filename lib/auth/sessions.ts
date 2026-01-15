@@ -134,11 +134,42 @@ export async function validateSession(
   sessionId: string
 ): Promise<{ valid: boolean; expired?: boolean; message?: string }> {
   // Sessions are stored in platform DB
-  const sessionsCollection = await getPlatformCollection('sessions');
-  const session = await sessionsCollection.findOne<Session>({
-    userId,
-    sessionId,
-  });
+  let sessionsCollection: any = null;
+  let session: Session | null = null;
+  
+  try {
+    sessionsCollection = await getPlatformCollection('sessions');
+    session = (await sessionsCollection.findOne({
+      userId,
+      sessionId,
+    })) as Session | null;
+  } catch (error) {
+    if (process.env.DEBUG_AUTH === '1') {
+      console.warn(`[validateSession] Failed to get session from platform DB:`, error);
+    }
+  }
+
+  // Fallback: try legacy DB if not found in platform DB
+  if (!session) {
+    try {
+      const legacySessionsCollection = await getCollection('sessions');
+      session = await legacySessionsCollection.findOne<Session>({
+        userId,
+        sessionId,
+      });
+      if (session) {
+        // Use legacy collection for subsequent operations
+        sessionsCollection = legacySessionsCollection;
+        if (process.env.DEBUG_AUTH === '1') {
+          console.log(`[validateSession] Found session in legacy DB`);
+        }
+      }
+    } catch (error) {
+      if (process.env.DEBUG_AUTH === '1') {
+        console.warn(`[validateSession] Failed to get session from legacy DB:`, error);
+      }
+    }
+  }
 
   if (!session) {
     return { valid: false, message: 'Session not found' };
@@ -147,7 +178,9 @@ export async function validateSession(
   // Check if session expired
   if (new Date() > session.expiresAt) {
     // Delete expired session
-    await sessionsCollection.deleteOne({ sessionId });
+    if (sessionsCollection) {
+      await sessionsCollection.deleteOne({ sessionId });
+    }
     return { valid: false, expired: true, message: 'Session expired' };
   }
 
@@ -173,7 +206,7 @@ export async function validateSession(
   if (!user) {
     try {
       const platformUsersCollection = await getPlatformCollection('users');
-      user = await platformUsersCollection.findOne<User>({ id: userId });
+      user = (await platformUsersCollection.findOne({ id: userId })) as User | null;
       if (user) {
         if (process.env.DEBUG_AUTH === '1') console.log(`[validateSession] Found user ${userId} in platform DB`);
       }
@@ -186,7 +219,7 @@ export async function validateSession(
   if (!user) {
     try {
       const usersCollection = await getCollection('users');
-      user = await usersCollection.findOne<User>({ id: userId });
+      user = (await usersCollection.findOne({ id: userId })) as User | null;
       if (user) {
         if (process.env.DEBUG_AUTH === '1') console.log(`[validateSession] Found user ${userId} in legacy DB`);
       }
@@ -209,10 +242,12 @@ export async function validateSession(
   }
 
   // Update lastSeenAt
-  await sessionsCollection.updateOne(
-    { sessionId },
-    { $set: { lastSeenAt: new Date() } }
-  );
+  if (sessionsCollection) {
+    await sessionsCollection.updateOne(
+      { sessionId },
+      { $set: { lastSeenAt: new Date() } }
+    );
+  }
 
   return { valid: true };
 }

@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCollection } from '@/lib/db';
-import { requireAuth } from '@/lib/auth/requireAuth';
 import { Group } from '@/lib/models/Group';
 import { v4 as uuidv4 } from 'uuid';
 import { createAuditLog } from '@/lib/utils/audit';
-
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -25,23 +24,18 @@ const updateGroupSchema = z.object({
  * GET /api/admin/groups
  * Get all groups for the current tenant
  */
-export async function GET(request: NextRequest) {
+export const GET = withAuthTenant(async (req, { user, tenantId, role }) => {
   try {
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
-
     // Only admin can view all groups
-    if (authResult.userRole !== 'admin') {
+    if (role !== 'admin') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { tenantId } = authResult;
     const groupsCollection = await getCollection('groups');
+    const groupQuery = createTenantQuery({}, tenantId);
 
     const groups = await groupsCollection
-      .find({ tenantId }, { projection: { _id: 0 } })
+      .find(groupQuery, { projection: { _id: 0 } })
       .sort({ name: 1 })
       .toArray();
 
@@ -53,35 +47,27 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'admin.groups.access' });
 
 /**
  * POST /api/admin/groups
  * Create a new group
  */
-export async function POST(request: NextRequest) {
+export const POST = withAuthTenant(async (req, { user, tenantId, userId, role }) => {
   try {
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
-
     // Only admin can create groups
-    if (authResult.userRole !== 'admin') {
+    if (role !== 'admin') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { tenantId, userId } = authResult;
-    const body = await request.json();
+    const body = await req.json();
     const data = createGroupSchema.parse(body);
 
     const groupsCollection = await getCollection('groups');
 
-    // Check if code already exists for this tenant
-    const existingGroup = await groupsCollection.findOne({
-      code: data.code,
-      tenantId,
-    });
+    // Check if code already exists for this tenant (with tenant isolation)
+    const codeQuery = createTenantQuery({ code: data.code }, tenantId);
+    const existingGroup = await groupsCollection.findOne(codeQuery);
 
     if (existingGroup) {
       return NextResponse.json(
@@ -96,7 +82,7 @@ export async function POST(request: NextRequest) {
       name: data.name,
       code: data.code,
       isActive: data.isActive ?? true,
-      tenantId, // Always from session
+      tenantId, // CRITICAL: Always include tenantId for tenant isolation
       createdAt: new Date(),
       updatedAt: new Date(),
       createdBy: userId,
@@ -106,7 +92,7 @@ export async function POST(request: NextRequest) {
     await groupsCollection.insertOne(newGroup);
 
     // Create audit log
-    await createAuditLog('group', newGroup.id, 'create', userId, authResult.userEmail, undefined, tenantId);
+    await createAuditLog('group', newGroup.id, 'create', userId, user.email, undefined, tenantId);
 
     return NextResponse.json({
       success: true,
@@ -127,5 +113,5 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'admin.groups.access' });
 

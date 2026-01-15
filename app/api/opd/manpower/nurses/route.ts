@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 import { getCollection } from '@/lib/db';
-import { requireAuth } from '@/lib/security/auth';
-import { requireRole } from '@/lib/security/auth';
 import { v4 as uuidv4 } from 'uuid';
 
 
@@ -20,9 +19,9 @@ const createNurseSchema = z.object({
   previousYearPerformance: z.enum(['Excellent', 'Good', 'Satisfactory', 'Needs Improvement']).optional(),
 });
 
-export async function GET(request: NextRequest) {
+export const GET = withAuthTenant(async (req, { user, tenantId }) => {
   try {
-    const { searchParams } = new URL(request.url);
+    const { searchParams } = new URL(req.url);
     const departmentId = searchParams.get('departmentId');
 
     if (!departmentId) {
@@ -33,9 +32,8 @@ export async function GET(request: NextRequest) {
     }
 
     const nursesCollection = await getCollection('nurses');
-    const nurses = await nursesCollection
-      .find({ departmentId })
-      .toArray();
+    const query = createTenantQuery({ departmentId }, tenantId);
+    const nurses = await nursesCollection.find(query).toArray();
 
     // Calculate length of service
     const nursesWithCalculations = nurses.map((nurse: any) => {
@@ -56,29 +54,23 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'opd.nurses.read' });
 
-export async function POST(request: NextRequest) {
+export const POST = withAuthTenant(async (req, { user, tenantId, userId, role, permissions }) => {
   try {
-    // Authenticate
-    const auth = await requireAuth(request);
-    if (auth instanceof NextResponse) {
-      return auth;
+    // Authorization check - admin or supervisor
+    if (!['admin', 'supervisor'].includes(role) && !permissions.includes('opd.nurses.create')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Check role: admin or supervisor
-    const roleCheck = await requireRole(request, ['admin', 'supervisor'], auth);
-    if (roleCheck instanceof NextResponse) {
-      return roleCheck;
-    }
-
-    const body = await request.json();
+    const body = await req.json();
     const data = createNurseSchema.parse(body);
 
     const nursesCollection = await getCollection('nurses');
 
-    // Check if employee ID already exists
-    const existing = await nursesCollection.findOne({ employeeId: data.employeeId });
+    // Check if employee ID already exists with tenant isolation
+    const existingQuery = createTenantQuery({ employeeId: data.employeeId }, tenantId);
+    const existing = await nursesCollection.findOne(existingQuery);
     if (existing) {
       return NextResponse.json(
         { error: 'Nurse with this employee ID already exists' },
@@ -90,12 +82,13 @@ export async function POST(request: NextRequest) {
       id: uuidv4(),
       ...data,
       hireDate: new Date(data.hireDate),
+      tenantId, // CRITICAL: Always include tenantId for tenant isolation
       isActive: true,
       transferHistory: [],
       createdAt: new Date(),
       updatedAt: new Date(),
-      createdBy: auth.userId,
-      updatedBy: auth.userId,
+      createdBy: userId,
+      updatedBy: userId,
     };
 
     await nursesCollection.insertOne(newNurse);
@@ -119,4 +112,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'opd.nurses.create' });

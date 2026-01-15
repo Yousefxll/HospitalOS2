@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 import { getCollection } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import type { ERTriage, ERRegistration } from '@/lib/cdo/repositories/ERRepository';
@@ -85,9 +86,9 @@ function determineSeverity(ctasLevel: number, vitalSigns: any, ageGroup: string)
   return { severity, color, routing };
 }
 
-export async function POST(request: NextRequest) {
+export const POST = withAuthTenant(async (req, { user, tenantId, userId }) => {
   try {
-    const triageData: TriageData = await request.json();
+    const triageData: TriageData = await req.json();
 
     // Validate required fields
     if (!triageData.erVisitId || !triageData.ctasLevel) {
@@ -97,11 +98,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get patient registration
+    // Get patient registration with tenant isolation
     const erRegistrationsCollection = await getCollection('er_registrations');
-    const registration = await erRegistrationsCollection.findOne<ERRegistration>({
-      erVisitId: triageData.erVisitId,
-    });
+    const registrationQuery = createTenantQuery({ erVisitId: triageData.erVisitId }, tenantId);
+    const registration = await erRegistrationsCollection.findOne<ERRegistration>(registrationQuery);
 
     if (!registration) {
       return NextResponse.json(
@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
       ageGroup
     );
 
-    // Save triage data
+    // Save triage data with tenant isolation
     const erTriageCollection = await getCollection('er_triage');
     const triage = {
       id: uuidv4(),
@@ -147,19 +147,23 @@ export async function POST(request: NextRequest) {
       routing,
       pregnancyStatus: triageData.pregnancyStatus || null,
       triageDate: new Date(),
+      tenantId, // CRITICAL: Always include tenantId for tenant isolation
       createdAt: new Date(),
       updatedAt: new Date(),
+      createdBy: userId,
+      updatedBy: userId,
     };
 
     await erTriageCollection.insertOne(triage);
 
-    // Update registration status
+    // Update registration status with tenant isolation
     await erRegistrationsCollection.updateOne(
-      { erVisitId: triageData.erVisitId },
+      registrationQuery,
       { 
         $set: { 
           status: 'triaged',
           updatedAt: new Date(),
+          updatedBy: userId,
         } 
       }
     );
@@ -183,11 +187,11 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'er.triage' });
 
-export async function GET(request: NextRequest) {
+export const GET = withAuthTenant(async (req, { user, tenantId }) => {
   try {
-    const { searchParams } = new URL(request.url);
+    const { searchParams } = new URL(req.url);
     const erVisitId = searchParams.get('erVisitId');
 
     if (!erVisitId) {
@@ -198,7 +202,8 @@ export async function GET(request: NextRequest) {
     }
 
     const erTriageCollection = await getCollection('er_triage');
-    const triage = await erTriageCollection.findOne<ERTriage>({ erVisitId });
+    const query = createTenantQuery({ erVisitId }, tenantId);
+    const triage = await erTriageCollection.findOne<ERTriage>(query);
 
     if (!triage) {
       return NextResponse.json(
@@ -215,5 +220,5 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'er.triage.read' });
 

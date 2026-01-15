@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCollection } from '@/lib/db';
-import { requireRole } from '@/lib/rbac';
-import { requireAuth } from '@/lib/auth/requireAuth';
+import { getTenantCollection } from '@/lib/db/tenantDb';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 import fs from 'fs';
@@ -9,6 +7,7 @@ import path from 'path';
 import { z } from 'zod';
 import { chunkTextWithLines } from '@/lib/policy/chunking';
 import { PolicyDocument, PolicyChunk } from '@/lib/models/Policy';
+import { withAuthTenant } from '@/lib/core/guards/withAuthTenant';
 // Import pdfjs-dist for PDF text extraction
 // Using dynamic import to avoid bundling issues in Next.js
 let pdfjsLib: any = null;
@@ -20,6 +19,18 @@ async function getPdfJs() {
   return pdfjsLib;
 }
 
+/**
+ * @deprecated This route is deprecated. Use /api/sam/policy-engine/ingest instead.
+ * 
+ * This route performs duplicate ingestion (PDF extraction, chunking) that is now handled
+ * by policy-engine. The new unified system:
+ * - Policy-engine handles files/OCR/chunks/indexing
+ * - MongoDB stores only governance metadata
+ * - Upload flow: classification first, then policy-engine ingest, then metadata upsert
+ * 
+ * See: /api/sam/policy-engine/ingest for the new upload endpoint.
+ * See: /api/sam/library/* for unified library management.
+ */
 export const runtime = 'nodejs';
 
 import { env } from '@/lib/env';
@@ -155,26 +166,12 @@ const uploadSchema = z.object({
   expiryDate: z.string().optional(),
 });
 
-export async function POST(request: NextRequest) {
+export const POST = withAuthTenant(async (req, { user, tenantId, userId, role }) => {
   try {
     console.log('Policy upload request received');
-    
-    // Authentication and tenant isolation
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
-    const { userId, userRole, tenantId } = authResult;
+    console.log('User role:', role, 'User ID:', userId, 'Tenant ID:', tenantId);
 
-    console.log('User role:', userRole, 'User ID:', userId, 'Tenant ID:', tenantId);
-
-    // Authorization check
-    if (!requireRole(userRole, ['admin', 'supervisor'])) {
-      console.log('Access denied - insufficient permissions');
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
-    const formData = await request.formData();
+    const formData = await req.formData();
     const file = formData.get('file') as File;
     console.log('File received:', file?.name, file?.size, 'bytes');
     const title = formData.get('title') as string;
@@ -217,9 +214,21 @@ export async function POST(request: NextRequest) {
     // Calculate hash
     const fileHash = calculateFileHash(buffer);
 
-    // Check for duplicate
-    const policiesCollection = await getCollection('policy_documents');
-    const existing = await policiesCollection.findOne<PolicyDocument>({ fileHash, isActive: true });
+    // CRITICAL: Use getTenantCollection with platform-aware naming
+    // policy_documents → sam_policy_documents (platform-scoped)
+    const policiesCollectionResult = await getTenantCollection(req, 'policy_documents', 'sam');
+    if (policiesCollectionResult instanceof NextResponse) {
+      return policiesCollectionResult;
+    }
+    const policiesCollection = policiesCollectionResult;
+    
+    // Check for duplicate (with tenant isolation)
+    const duplicateQuery = {
+      fileHash,
+      isActive: true,
+      tenantId: tenantId, // Explicit tenantId
+    };
+    const existing = await policiesCollection.findOne<PolicyDocument>(duplicateQuery);
 
     if (existing) {
       return NextResponse.json(
@@ -339,6 +348,7 @@ export async function POST(request: NextRequest) {
         chunk.isActive = true;
         chunk.updatedAt = new Date();
         chunk.hospital = hospital; // Add hospital to chunks
+        chunk.tenantId = tenantId; // CRITICAL: Always include tenantId for tenant isolation
         
         // Validate chunk has required fields
         if (!chunk.text || !chunk.documentId || !chunk.policyId) {
@@ -418,8 +428,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Save chunks
+    // CRITICAL: policy_chunks is also platform-scoped
+    // policy_chunks → sam_policy_chunks (platform-scoped)
     try {
-      const chunksCollection = await getCollection('policy_chunks');
+      const chunksCollectionResult = await getTenantCollection(req, 'policy_chunks', 'sam');
+      if (chunksCollectionResult instanceof NextResponse) {
+        return chunksCollectionResult;
+      }
+      const chunksCollection = chunksCollectionResult;
       
       if (chunks.length === 0) {
         console.warn('No chunks to save!');
@@ -516,5 +532,5 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { platformKey: 'sam', tenantScoped: true, permissionKey: 'sam.policies.upload' });
 

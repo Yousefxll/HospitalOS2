@@ -204,7 +204,24 @@ export default function TenantDetailsPage() {
 
       if (response.ok) {
         const data = await response.json();
-        setTenant(data.tenant);
+        // Ensure entitlements exist (fallback to enabledPlatforms or default)
+        const tenantData = data.tenant;
+        if (!tenantData.entitlements && tenantData.enabledPlatforms) {
+          tenantData.entitlements = {
+            sam: tenantData.enabledPlatforms.sam || false,
+            health: tenantData.enabledPlatforms.syraHealth || tenantData.enabledPlatforms.health || false,
+            edrac: tenantData.enabledPlatforms.edrac || false,
+            cvision: tenantData.enabledPlatforms.cvision || false,
+          };
+        } else if (!tenantData.entitlements) {
+          tenantData.entitlements = {
+            sam: false,
+            health: false,
+            edrac: false,
+            cvision: false,
+          };
+        }
+        setTenant(tenantData);
       } else if (response.status === 403) {
         toast({
           title: 'Access Denied',

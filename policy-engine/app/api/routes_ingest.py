@@ -4,8 +4,11 @@ from typing import List
 import uuid
 from app.jobs import create_job, start_job_processing, get_all_jobs
 from app.storage import save_uploaded_file, get_file_hash
+from app.storage import delete_policy_files
+from app.vector_store import delete_policy_chunks
 from app.config import settings
 from pathlib import Path
+import json
 
 
 router = APIRouter()
@@ -38,6 +41,7 @@ async def ingest_files(
     
     duplicate_files = []
     new_files = []
+    duplicate_policy_ids: List[str] = []
     
     for file in files:
         filename = file.filename or "unknown"
@@ -46,12 +50,54 @@ async def ingest_files(
         else:
             new_files.append(file)
     
-    # If there are duplicates, return error
+    # If there are duplicates, delete existing policies and continue (replace behavior)
     if duplicate_files:
-        raise HTTPException(
-            status_code=409,
-            detail=f"File(s) already exist: {', '.join(duplicate_files)}"
-        )
+        # Find matching policyIds from jobs
+        for job in all_jobs:
+            filename = job.get("filename")
+            policy_id = job.get("policyId")
+            if filename and policy_id and filename.lower() in {f.lower() for f in duplicate_files}:
+                duplicate_policy_ids.append(policy_id)
+        
+        if duplicate_policy_ids:
+            data_dir = Path(settings.data_dir)
+            jobs_dir = data_dir / "jobs"
+            jobs_dir.mkdir(parents=True, exist_ok=True)
+            for policy_id in duplicate_policy_ids:
+                # Delete job files for this policy
+                for job in all_jobs:
+                    if job.get("policyId") == policy_id:
+                        job_id = job.get("jobId")
+                        if job_id:
+                            job_file = jobs_dir / f"{job_id}.json"
+                            if job_file.exists():
+                                job_file.unlink()
+                
+                # Delete vector store chunks
+                delete_policy_chunks(tenantId, policy_id)
+                
+                # Delete per-policy manifest
+                manifest_file = data_dir / "manifests" / tenantId / f"{policy_id}.json"
+                if manifest_file.exists():
+                    manifest_file.unlink()
+                
+                # Remove from global manifest.json if present
+                global_manifest_path = data_dir / tenantId / "manifest.json"
+                if global_manifest_path.exists():
+                    try:
+                        manifest = json.loads(global_manifest_path.read_text())
+                        if policy_id in manifest:
+                            del manifest[policy_id]
+                            global_manifest_path.write_text(json.dumps(manifest, indent=2))
+                    except Exception:
+                        pass
+                
+                # Delete policy files on disk
+                delete_policy_files(tenantId, policy_id, data_dir)
+        
+        # After cleanup, allow re-upload of all files (including duplicates)
+        new_files = list(files)
+        duplicate_files = []
     
     jobs = []
     

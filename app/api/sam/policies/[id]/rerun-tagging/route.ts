@@ -1,29 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth/requireAuth';
+import { withAuthTenant } from '@/lib/core/guards/withAuthTenant';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
-  try {
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
+  // Wrap with withAuthTenant manually for dynamic routes
+  return withAuthTenant(async (req, { user, tenantId }) => {
+    try {
+      const resolvedParams = params instanceof Promise ? await params : params;
+      const policyId = resolvedParams.id;
 
-    const policyId = params.id;
-
-    // Call suggest-tags endpoint internally
-    const suggestTagsUrl = `${request.nextUrl.origin}/api/policies/${policyId}/suggest-tags`;
-    const response = await fetch(suggestTagsUrl, {
-      method: 'POST',
-      headers: {
-        'Cookie': request.headers.get('Cookie') || '',
-      },
-    });
+      // Call suggest-tags endpoint internally
+      const suggestTagsUrl = `${req.nextUrl.origin}/api/policies/${policyId}/suggest-tags`;
+      const response = await fetch(suggestTagsUrl, {
+        method: 'POST',
+        headers: {
+          'Cookie': req.headers.get('Cookie') || '',
+        },
+      });
 
     if (response.ok) {
       const data = await response.json();
@@ -47,4 +45,5 @@ export async function POST(
       { status: 500 }
     );
   }
+  }, { platformKey: 'sam', tenantScoped: true, permissionKey: 'sam.policies.rerun-tagging' })(request);
 }

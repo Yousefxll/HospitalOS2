@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 import { getCollection } from '@/lib/db';
-import { requireAuth } from '@/lib/security/auth';
-import { requireRole } from '@/lib/security/auth';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 import fs from 'fs';
@@ -121,23 +120,14 @@ async function createIndexes() {
   }
 }
 
-export async function POST(request: NextRequest) {
+export const POST = withAuthTenant(async (req, { user, tenantId, userId, role, permissions }) => {
   try {
-    // Authenticate
-    const auth = await requireAuth(request);
-    if (auth instanceof NextResponse) {
-      return auth;
+    // Authorization check - admin or supervisor
+    if (!['admin', 'supervisor'].includes(role) && !permissions.includes('er.policies.upload')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Check role: admin or supervisor
-    const roleCheck = await requireRole(request, ['admin', 'supervisor'], auth);
-    if (roleCheck instanceof NextResponse) {
-      return roleCheck;
-    }
-    
-    const userId = auth.userId;
-
-    const formData = await request.formData();
+    const formData = await req.formData();
     const file = formData.get('file') as File;
     const title = formData.get('title') as string;
     const category = formData.get('category') as string || '';
@@ -163,9 +153,10 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(arrayBuffer);
     const fileHash = calculateFileHash(buffer);
 
-    // Check if file already exists
+    // Check if file already exists with tenant isolation
     const policiesCollection = await getCollection('policy_documents');
-    const existing = await policiesCollection.findOne<PolicyDocument>({ fileHash, isActive: true });
+    const existingQuery = createTenantQuery({ fileHash, isActive: true }, tenantId);
+    const existing = await policiesCollection.findOne<PolicyDocument>(existingQuery);
 
     if (existing) {
       return NextResponse.json(
@@ -214,7 +205,7 @@ export async function POST(request: NextRequest) {
     // Chunk text
     const textChunks = chunkText(text);
 
-    // Create document metadata (NO textChunks array)
+    // Create document metadata (NO textChunks array) with tenant isolation
     const document = {
       id: policyId,
       documentId,
@@ -228,6 +219,7 @@ export async function POST(request: NextRequest) {
       totalPages: numPages,
       processingStatus: 'completed' as const,
       uploadedBy: userId || 'system',
+      tenantId, // CRITICAL: Always include tenantId for tenant isolation
       createdAt: new Date(),
       updatedAt: new Date(),
       isActive: true,
@@ -236,7 +228,7 @@ export async function POST(request: NextRequest) {
     // Save metadata to MongoDB
     await policiesCollection.insertOne(document);
 
-    // Create chunks for database
+    // Create chunks for database with tenant isolation
     const chunksCollection = await getCollection('policy_chunks');
     const chunks = textChunks.map(chunk => ({
       id: uuidv4(),
@@ -246,6 +238,7 @@ export async function POST(request: NextRequest) {
       pageNumber: chunk.pageNumber,
       text: chunk.text,
       wordCount: chunk.wordCount,
+      tenantId, // CRITICAL: Always include tenantId for tenant isolation
       createdAt: new Date(),
     }));
 
@@ -274,4 +267,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'er.policies.upload' });

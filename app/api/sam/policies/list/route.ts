@@ -1,21 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCollection } from '@/lib/db';
 import { PolicyDocument } from '@/lib/models/Policy';
-import { requireAuth } from '@/lib/auth/requireAuth';
-
+import { withAuthTenant } from '@/lib/core/guards/withAuthTenant';
+import { getTenantCollection } from '@/lib/db/tenantDb';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-export async function GET(request: NextRequest) {
+export const GET = withAuthTenant(async (req, { user, tenantId }) => {
   try {
-    // Authentication and tenant isolation
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
-    const { tenantId } = authResult;
-
-    const { searchParams } = new URL(request.url);
+    const { searchParams } = new URL(req.url);
     const active = searchParams.get('active') !== '0'; // Default true
     const query = searchParams.get('query') || '';
     const hospital = searchParams.get('hospital') || '';
@@ -23,22 +15,26 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
 
-    const policiesCollection = await getCollection('policy_documents');
+    // CRITICAL: Use getTenantCollection with platform-aware naming
+    // policy_documents → sam_policy_documents (platform-scoped)
+    const policiesCollectionResult = await getTenantCollection(req, 'policy_documents', 'sam');
+    if (policiesCollectionResult instanceof NextResponse) {
+      return policiesCollectionResult;
+    }
+    const policiesCollection = policiesCollectionResult;
 
     // Build query with tenant isolation
-    // GOLDEN RULE: tenantId must ALWAYS come from session (already extracted above)
-    // After migration, all data will have tenantId, so we can use strict filtering
-    const mongoQuery: any = {
-      tenantId: tenantId, // Strict tenant isolation - no backward compatibility needed after migration
+    const baseQuery: any = {
+      tenantId: tenantId, // Explicit tenantId filter (getTenantCollection ensures tenant DB)
     };
     
     if (active) {
-      mongoQuery.isActive = true;
-      mongoQuery.deletedAt = { $exists: false };
+      baseQuery.isActive = true;
+      baseQuery.deletedAt = { $exists: false };
     }
 
     if (query) {
-      mongoQuery.$or = [
+      baseQuery.$or = [
         { title: { $regex: query, $options: 'i' } },
         { originalFileName: { $regex: query, $options: 'i' } },
         { documentId: { $regex: query, $options: 'i' } },
@@ -46,19 +42,19 @@ export async function GET(request: NextRequest) {
     }
     
     if (hospital) {
-      mongoQuery.hospital = hospital;
+      baseQuery.hospital = hospital;
     }
     
     if (category) {
-      mongoQuery.category = category;
+      baseQuery.category = category;
     }
 
     // Get total count
-    const total = await policiesCollection.countDocuments(mongoQuery);
+    const total = await policiesCollection.countDocuments(baseQuery);
 
     // Get documents
     const documents = await policiesCollection
-      .find(mongoQuery)
+      .find(baseQuery)
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
@@ -101,5 +97,5 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, platformKey: 'sam', permissionKey: 'sam.policies.list' });
 

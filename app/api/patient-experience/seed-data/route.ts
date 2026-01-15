@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTenantId } from '@/lib/tenant';
+import { withAuthTenant } from '@/lib/core/guards/withAuthTenant';
 import { getTenantDbFromRequest } from '@/lib/db/tenantDb';
-import { requireAuthContext } from '@/lib/auth/requireAuthContext';
 import { v4 as uuidv4 } from 'uuid';
 import { env } from '@/lib/env';
 
@@ -20,10 +19,11 @@ export const revalidate = 0;
  * Returns counts for: floors, departments, rooms, visits, cases, etc.
  * Does NOT return 403 - always returns counts (zeros if no data)
  */
-export async function GET(request: NextRequest) {
+export const GET = withAuthTenant(async (req, { user, tenantId }) => {
   try {
     // Get tenant DB from request (session-based, SINGLE SOURCE OF TRUTH)
-    const ctx = await getTenantDbFromRequest(request);
+    // Note: tenantId from withAuthTenant is already verified
+    const ctx = await getTenantDbFromRequest(req);
     if (ctx instanceof NextResponse) {
       return ctx;
     }
@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'patient-experience.seed-data.read' });
 
 /**
  * POST /api/patient-experience/seed-data
@@ -105,28 +105,26 @@ export async function GET(request: NextRequest) {
  * WARNING: This will delete all existing Patient Experience data!
  * Only use for development/testing.
  */
-export async function POST(request: NextRequest) {
+export const POST = withAuthTenant(async (req, { user, tenantId, userId, role, permissions }) => {
   try {
+    // Authorization check - admin or supervisor
+    if (!['admin', 'supervisor'].includes(role) && !permissions.includes('patient-experience.seed-data')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     // Get tenant DB from request (session-based, SINGLE SOURCE OF TRUTH)
-    const ctx = await getTenantDbFromRequest(request);
+    // Note: tenantId from withAuthTenant is already verified
+    const ctx = await getTenantDbFromRequest(req);
     if (ctx instanceof NextResponse) {
       return ctx;
     }
-    const { db, tenantKey, userRole } = ctx;
+    const { db, tenantKey } = ctx;
 
-    // SECURITY: Only allow seeding for WHH tenant
+    // SECURITY: Only allow seeding for WHH tenant (optional restriction)
     // Check BEFORE any DB operations
     if (tenantKey !== WHH_TENANT_ID) {
       return NextResponse.json(
         { error: 'Seed allowed only for hmg-whh' },
-        { status: 403 }
-      );
-    }
-
-    // Only allow admin/supervisor
-    if (!userRole || !['admin', 'supervisor'].includes(userRole)) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Admin or Supervisor role required' },
         { status: 403 }
       );
     }
@@ -573,4 +571,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'patient-experience.seed-data' });

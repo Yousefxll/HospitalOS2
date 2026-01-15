@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 import { getCollection } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import type { ERTriage, ERRegistration } from '@/lib/cdo/repositories/ERRepository';
-
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -13,9 +13,9 @@ type DispositionType =
   | 'discharge-home'
   | 'death';
 
-export async function POST(request: NextRequest) {
+export const POST = withAuthTenant(async (req, { user, tenantId, userId }) => {
   try {
-    const body = await request.json();
+    const body = await req.json();
     const {
       erVisitId,
       dispositionType,
@@ -49,15 +49,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if death is only in Resus
+    // Check if death is only in Resus with tenant isolation
     if (dispositionType === 'death') {
       const erTriageCollection = await getCollection('er_triage');
-      // Type annotation for triage document
-      interface ERTriage {
-        routing?: string;
-        [key: string]: any;
-      }
-      const triage = await erTriageCollection.findOne<ERTriage>({ erVisitId });
+      const triageQuery = createTenantQuery({ erVisitId }, tenantId);
+      const triage = await erTriageCollection.findOne<ERTriage>(triageQuery);
       
       if (!triage || triage.routing !== 'Resus') {
         return NextResponse.json(
@@ -67,11 +63,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Get registration
+    // Get registration with tenant isolation
     const erRegistrationsCollection = await getCollection('er_registrations');
-    const registration = await erRegistrationsCollection.findOne<ERRegistration>({
-      erVisitId,
-    });
+    const registrationQuery = createTenantQuery({ erVisitId }, tenantId);
+    const registration = await erRegistrationsCollection.findOne<ERRegistration>(registrationQuery);
 
     if (!registration) {
       return NextResponse.json(
@@ -80,7 +75,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Save disposition
+    // Save disposition with tenant isolation
     const erDispositionsCollection = await getCollection('er_dispositions');
     const disposition = {
       id: uuidv4(),
@@ -92,19 +87,23 @@ export async function POST(request: NextRequest) {
       departmentId: departmentId || null,
       bedId: bedId || null,
       dispositionDate: new Date(),
+      tenantId, // CRITICAL: Always include tenantId for tenant isolation
       createdAt: new Date(),
       updatedAt: new Date(),
+      createdBy: userId,
+      updatedBy: userId,
     };
 
     await erDispositionsCollection.insertOne(disposition);
 
-    // Update registration status
+    // Update registration status with tenant isolation
     await erRegistrationsCollection.updateOne(
-      { erVisitId },
+      registrationQuery,
       {
         $set: {
           status: 'completed',
           updatedAt: new Date(),
+          updatedBy: userId,
         },
       }
     );
@@ -125,11 +124,11 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'er.disposition' });
 
-export async function GET(request: NextRequest) {
+export const GET = withAuthTenant(async (req, { user, tenantId }) => {
   try {
-    const { searchParams } = new URL(request.url);
+    const { searchParams } = new URL(req.url);
     const erVisitId = searchParams.get('erVisitId');
 
     if (!erVisitId) {
@@ -140,7 +139,8 @@ export async function GET(request: NextRequest) {
     }
 
     const erDispositionsCollection = await getCollection('er_dispositions');
-    const disposition = await erDispositionsCollection.findOne({ erVisitId });
+    const query = createTenantQuery({ erVisitId }, tenantId);
+    const disposition = await erDispositionsCollection.findOne(query);
 
     if (!disposition) {
       return NextResponse.json(
@@ -157,5 +157,5 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'er.disposition.read' });
 

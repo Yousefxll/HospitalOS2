@@ -38,6 +38,9 @@ export interface Patient {
   isActive: boolean;
   deceasedDate?: string; // ISO date string (YYYY-MM-DD)
   
+  // Tenant isolation
+  tenantId: string; // ALWAYS from session
+  
   // Audit
   createdAt: string; // ISO timestamp
   updatedAt: string; // ISO timestamp

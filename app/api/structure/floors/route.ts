@@ -30,6 +30,42 @@ export async function GET(request: NextRequest) {
       return tenantIdResult;
     }
     const tenantId = tenantIdResult;
+    const { searchParams } = new URL(request.url);
+    const includeDeleted = searchParams.get('includeDeleted') === 'true';
+    
+    if (includeDeleted) {
+      // CRITICAL ARCHITECTURAL RULE: Read floors ONLY from tenant DB (syra_tenant_<tenantId>)
+      // Never use hospital_ops, nursing_scheduling, or policy_system databases
+      const { getTenantDbByKey } = await import('@/lib/db/tenantDb');
+      const tenantDb = await getTenantDbByKey(tenantId);
+      const floorsCollection = tenantDb.collection('floors');
+      
+      console.log(`[structure/floors] Reading from tenant DB: ${tenantDb.databaseName}, collection: floors`);
+      
+      const floors = await floorsCollection
+        .find({ tenantId: tenantId }) // No active filter - include all
+        .sort({ number: 1 })
+        .toArray();
+      
+      const formattedFloors = floors.map((floor: any) => ({
+        _id: floor._id,
+        id: floor.id,
+        number: floor.number,
+        name: floor.name,
+        key: floor.key,
+        label_en: floor.label_en,
+        label_ar: floor.label_ar,
+        active: floor.active !== false,
+        deletedAt: floor.deletedAt,
+        createdAt: floor.createdAt,
+        updatedAt: floor.updatedAt,
+        createdBy: floor.createdBy,
+        updatedBy: floor.updatedBy,
+      }));
+      
+      return NextResponse.json({ success: true, data: formattedFloors });
+    }
+    
     const floors = await structureService.getAllFloors(tenantId);
     return NextResponse.json({ success: true, data: floors });
   } catch (error: any) {

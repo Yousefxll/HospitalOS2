@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCollection } from '@/lib/db';
-import { requireAuth } from '@/lib/auth/requireAuth';
 import { Group } from '@/lib/models/Group';
 import { createAuditLog } from '@/lib/utils/audit';
-
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -22,42 +21,40 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
-  try {
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
+  // Wrap with withAuthTenant manually for dynamic routes
+  return withAuthTenant(async (req, { user, tenantId, role }, resolvedParams) => {
+    try {
+      // Only admin can view groups
+      if (role !== 'admin') {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
 
-    // Only admin can view groups
-    if (authResult.userRole !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+      const paramsObj = resolvedParams instanceof Promise ? await resolvedParams : resolvedParams;
+      const { id } = paramsObj as { id: string };
 
-    const { tenantId } = authResult;
-    const resolvedParams = params instanceof Promise ? await params : params;
-    const { id } = resolvedParams;
+      const groupsCollection = await getCollection('groups');
+      const groupQuery = createTenantQuery({ id }, tenantId);
+      const group = await groupsCollection.findOne<Group>(
+        groupQuery,
+        { projection: { _id: 0 } }
+      );
 
-    const groupsCollection = await getCollection('groups');
-    const group = await groupsCollection.findOne<Group>(
-      { id, tenantId },
-      { projection: { _id: 0 } }
-    );
+      if (!group) {
+        return NextResponse.json(
+          { error: 'Group not found' },
+          { status: 404 }
+        );
+      }
 
-    if (!group) {
+      return NextResponse.json({ group });
+    } catch (error) {
+      console.error('Get group error:', error);
       return NextResponse.json(
-        { error: 'Group not found' },
-        { status: 404 }
+        { error: 'Internal server error' },
+        { status: 500 }
       );
     }
-
-    return NextResponse.json({ group });
-  } catch (error) {
-    console.error('Get group error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
-  }
+  }, { tenantScoped: true, permissionKey: 'admin.groups.access' })(request, { params });
 }
 
 /**
@@ -68,103 +65,95 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
-  try {
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
+  // Wrap with withAuthTenant manually for dynamic routes
+  return withAuthTenant(async (req, { user, tenantId, userId, role }, resolvedParams) => {
+    try {
+      // Only admin can update groups
+      if (role !== 'admin') {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
 
-    // Only admin can update groups
-    if (authResult.userRole !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+      const paramsObj = resolvedParams instanceof Promise ? await resolvedParams : resolvedParams;
+      const { id } = paramsObj as { id: string };
 
-    const { tenantId, userId } = authResult;
-    const resolvedParams = params instanceof Promise ? await params : params;
-    const { id } = resolvedParams;
+      const body = await req.json();
+      const data = updateGroupSchema.parse(body);
 
-    const body = await request.json();
-    const data = updateGroupSchema.parse(body);
+      const groupsCollection = await getCollection('groups');
 
-    const groupsCollection = await getCollection('groups');
+      // Verify group exists and belongs to tenant (with tenant isolation)
+      const groupQuery = createTenantQuery({ id }, tenantId);
+      const existingGroup = await groupsCollection.findOne<Group>(groupQuery);
 
-    // Verify group exists and belongs to tenant
-    const existingGroup = await groupsCollection.findOne<Group>({
-      id,
-      tenantId,
-    });
-
-    if (!existingGroup) {
-      return NextResponse.json(
-        { error: 'Group not found' },
-        { status: 404 }
-      );
-    }
-
-    // If code is being updated, check for duplicates
-    if (data.code && data.code !== existingGroup.code) {
-      const duplicateGroup = await groupsCollection.findOne({
-        code: data.code,
-        tenantId,
-        id: { $ne: id },
-      });
-
-      if (duplicateGroup) {
+      if (!existingGroup) {
         return NextResponse.json(
-          { error: 'Group with this code already exists' },
+          { error: 'Group not found' },
+          { status: 404 }
+        );
+      }
+
+      // If code is being updated, check for duplicates (with tenant isolation)
+      if (data.code && data.code !== existingGroup.code) {
+        const duplicateQuery = createTenantQuery({ code: data.code, id: { $ne: id } }, tenantId);
+        const duplicateGroup = await groupsCollection.findOne(duplicateQuery);
+
+        if (duplicateGroup) {
+          return NextResponse.json(
+            { error: 'Group with this code already exists' },
+            { status: 400 }
+          );
+        }
+      }
+
+      // Build update object
+      const updateData: Partial<Group> = {
+        updatedAt: new Date(),
+        updatedBy: userId,
+      };
+
+      if (data.name !== undefined) {
+        updateData.name = data.name;
+      }
+      if (data.code !== undefined) {
+        updateData.code = data.code;
+      }
+      if (data.isActive !== undefined) {
+        updateData.isActive = data.isActive;
+      }
+
+      await groupsCollection.updateOne(
+        groupQuery, // Strict tenant check using createTenantQuery
+        { $set: updateData }
+      );
+
+      const updatedGroup = await groupsCollection.findOne<Group>(
+        groupQuery,
+        { projection: { _id: 0 } }
+      );
+
+      // Create audit log - with tenant isolation
+      await createAuditLog('group', id, 'update', userId, user.email, updateData, tenantId);
+
+      return NextResponse.json({
+        success: true,
+        group: updatedGroup,
+      });
+    } catch (error) {
+      console.error('Update group error:', error);
+
+      if (error instanceof z.ZodError) {
+        return NextResponse.json(
+          { error: 'Invalid request format', details: error.errors },
           { status: 400 }
         );
       }
-    }
 
-    // Build update object
-    const updateData: Partial<Group> = {
-      updatedAt: new Date(),
-      updatedBy: userId,
-    };
-
-    if (data.name !== undefined) {
-      updateData.name = data.name;
-    }
-    if (data.code !== undefined) {
-      updateData.code = data.code;
-    }
-    if (data.isActive !== undefined) {
-      updateData.isActive = data.isActive;
-    }
-
-    await groupsCollection.updateOne(
-      { id, tenantId }, // Strict tenant check
-      { $set: updateData }
-    );
-
-    const updatedGroup = await groupsCollection.findOne<Group>(
-      { id, tenantId },
-      { projection: { _id: 0 } }
-    );
-
-    // Create audit log
-    await createAuditLog('group', id, 'update', userId, authResult.userEmail, updateData, tenantId);
-
-    return NextResponse.json({
-      success: true,
-      group: updatedGroup,
-    });
-  } catch (error) {
-    console.error('Update group error:', error);
-
-    if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Invalid request format', details: error.errors },
-        { status: 400 }
+        { error: 'Internal server error' },
+        { status: 500 }
       );
     }
-
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
-  }
+  }, { tenantScoped: true, permissionKey: 'admin.groups.access' })(request, { params });
 }
 
 /**
@@ -175,72 +164,65 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
-  try {
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
-
-    // Only admin can delete groups
-    if (authResult.userRole !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
-    const { tenantId, userId } = authResult;
-    const resolvedParams = params instanceof Promise ? await params : params;
-    const { id } = resolvedParams;
-
-    const groupsCollection = await getCollection('groups');
-    const hospitalsCollection = await getCollection('hospitals');
-
-    // Verify group exists and belongs to tenant
-    const existingGroup = await groupsCollection.findOne({
-      id,
-      tenantId,
-    });
-
-    if (!existingGroup) {
-      return NextResponse.json(
-        { error: 'Group not found' },
-        { status: 404 }
-      );
-    }
-
-    // Check if group has active hospitals
-    const activeHospitals = await hospitalsCollection.countDocuments({
-      groupId: id,
-      isActive: true,
-    });
-
-    if (activeHospitals > 0) {
-      return NextResponse.json(
-        { error: 'Cannot delete group with active hospitals' },
-        { status: 400 }
-      );
-    }
-
-    // Soft delete: set isActive=false
-    await groupsCollection.updateOne(
-      { id, tenantId },
-      {
-        $set: {
-          isActive: false,
-          updatedAt: new Date(),
-          updatedBy: userId,
-        },
+  // Wrap with withAuthTenant manually for dynamic routes
+  return withAuthTenant(async (req, { user, tenantId, userId, role }, resolvedParams) => {
+    try {
+      // Only admin can delete groups
+      if (role !== 'admin') {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
-    );
 
-    // Create audit log
-    await createAuditLog('group', id, 'delete', userId, authResult.userEmail, { isActive: false }, tenantId);
+      const paramsObj = resolvedParams instanceof Promise ? await resolvedParams : resolvedParams;
+      const { id } = paramsObj as { id: string };
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Delete group error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
-  }
+      const groupsCollection = await getCollection('groups');
+      const hospitalsCollection = await getCollection('hospitals');
+
+      // Verify group exists and belongs to tenant (with tenant isolation)
+      const groupQuery = createTenantQuery({ id }, tenantId);
+      const existingGroup = await groupsCollection.findOne(groupQuery);
+
+      if (!existingGroup) {
+        return NextResponse.json(
+          { error: 'Group not found' },
+          { status: 404 }
+        );
+      }
+
+      // Check if group has active hospitals (with tenant isolation)
+      const hospitalQuery = createTenantQuery({ groupId: id, isActive: true }, tenantId);
+      const activeHospitals = await hospitalsCollection.countDocuments(hospitalQuery);
+
+      if (activeHospitals > 0) {
+        return NextResponse.json(
+          { error: 'Cannot delete group with active hospitals' },
+          { status: 400 }
+        );
+      }
+
+      // Soft delete: set isActive=false (with tenant isolation)
+      await groupsCollection.updateOne(
+        groupQuery, // Strict tenant check using createTenantQuery
+        {
+          $set: {
+            isActive: false,
+            updatedAt: new Date(),
+            updatedBy: userId,
+          },
+        }
+      );
+
+      // Create audit log - with tenant isolation
+      await createAuditLog('group', id, 'delete', userId, user.email, { isActive: false }, tenantId);
+
+      return NextResponse.json({ success: true });
+    } catch (error) {
+      console.error('Delete group error:', error);
+      return NextResponse.json(
+        { error: 'Internal server error' },
+        { status: 500 }
+      );
+    }
+  }, { tenantScoped: true, permissionKey: 'admin.groups.access' })(request, { params });
 }
 

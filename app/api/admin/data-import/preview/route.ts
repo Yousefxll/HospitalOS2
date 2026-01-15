@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withAuthTenant } from '@/lib/core/guards/withAuthTenant';
 import ExcelJS from 'exceljs';
 
-export async function POST(request: NextRequest) {
+export const dynamic = 'force-dynamic';
+
+export const POST = withAuthTenant(async (req, { user, tenantId }) => {
   try {
-    const formData = await request.formData();
+    const formData = await req.formData();
     const file = formData.get('file') as File;
 
     if (!file) {
@@ -41,4 +44,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { permissionKey: 'admin.data-import' });

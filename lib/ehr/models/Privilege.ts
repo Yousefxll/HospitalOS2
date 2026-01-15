@@ -28,6 +28,9 @@ export interface Privilege {
   revokedAt?: string; // ISO timestamp
   revokedBy?: string; // User ID who revoked
   
+  // Tenant isolation
+  tenantId: string; // ALWAYS from session
+  
   // Audit
   createdAt: string; // ISO timestamp
   updatedAt: string; // ISO timestamp

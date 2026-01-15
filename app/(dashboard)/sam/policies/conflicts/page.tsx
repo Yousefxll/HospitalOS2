@@ -2150,24 +2150,44 @@ export default function PoliciesConflictsPage() {
           {mode === 'pair' && Object.keys(rewrittenPolicies).length > 1 ? (
             // Pair mode: Show tabs for multiple policies
             <div className="mt-4">
-              <Tabs value={currentPreviewPolicyId || Object.keys(rewrittenPolicies)[0]} onValueChange={setCurrentPreviewPolicyId}>
-                <TabsList className="grid w-full grid-cols-2">
-                  {Object.values(rewrittenPolicies).map((policy) => (
-                    <TabsTrigger key={policy.policyId} value={policy.policyId}>
-                      {policy.filename}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
-                {Object.values(rewrittenPolicies).map((policy) => (
-                  <TabsContent key={policy.policyId} value={policy.policyId} className="mt-4">
-                    <div className="p-6 bg-muted rounded-lg max-h-[60vh] overflow-y-auto border">
-                      <div className="prose prose-sm max-w-none dark:prose-invert">
-                        {formatPolicyText(policy.text)}
-                      </div>
-                    </div>
-                  </TabsContent>
-                ))}
-              </Tabs>
+              {(() => {
+                // Sort policies by filename alphabetically (natural sort for numbers)
+                const sortedPolicies = Object.values(rewrittenPolicies).sort((a, b) => {
+                  const filenameA = (a.filename || '').toLowerCase().trim();
+                  const filenameB = (b.filename || '').toLowerCase().trim();
+                  // Use natural sort (handles numbers correctly)
+                  return filenameA.localeCompare(filenameB, undefined, { 
+                    numeric: true, 
+                    sensitivity: 'base' 
+                  });
+                });
+                const firstPolicyId = sortedPolicies[0]?.policyId || Object.keys(rewrittenPolicies)[0];
+                
+                return (
+                  <Tabs value={currentPreviewPolicyId || firstPolicyId} onValueChange={setCurrentPreviewPolicyId}>
+                    <TabsList className="flex flex-wrap w-full gap-1">
+                      {sortedPolicies.map((policy) => (
+                        <TabsTrigger 
+                          key={policy.policyId} 
+                          value={policy.policyId} 
+                          className="text-xs px-3 py-2 flex-1 min-w-0 truncate"
+                        >
+                          {policy.filename}
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+                    {sortedPolicies.map((policy) => (
+                      <TabsContent key={policy.policyId} value={policy.policyId} className="mt-4">
+                        <div className="p-6 bg-muted rounded-lg max-h-[60vh] overflow-y-auto border">
+                          <div className="prose prose-sm max-w-none dark:prose-invert">
+                            {formatPolicyText(policy.text)}
+                          </div>
+                        </div>
+                      </TabsContent>
+                    ))}
+                  </Tabs>
+                );
+              })()}
               <div className="mt-4 flex gap-2 justify-end">
                 <Button
                   variant="default"

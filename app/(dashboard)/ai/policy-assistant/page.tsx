@@ -366,7 +366,7 @@ export default function PolicyAssistantPage() {
     setAiResponse(null);
 
     try {
-      const response = await fetch('/api/policies/search', {
+      const response = await fetch('/api/sam/policies/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -638,7 +638,7 @@ export default function PolicyAssistantPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => router.push(`/api/policies/view/${primaryPolicy.documentId}`)}
+                        onClick={() => window.open(`/api/sam/policies/view/${primaryPolicy.documentId}`, '_blank')}
                       >
                         <Download className="h-4 w-4 mr-1" />
                         View PDF
@@ -676,7 +676,7 @@ export default function PolicyAssistantPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => router.push(`/api/policies/view/${doc.documentId}`)}
+                            onClick={() => window.open(`/api/sam/policies/view/${doc.documentId}`, '_blank')}
                           >
                             <Download className="h-4 w-4 mr-1" />
                             View PDF
@@ -729,7 +729,7 @@ export default function PolicyAssistantPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => router.push(`/api/policies/view/${result.documentId}`)}
+                          onClick={() => window.open(`/api/sam/policies/view/${result.documentId}`, '_blank')}
                         >
                           <Download className="h-4 w-4 mr-1" />
                           View PDF
@@ -835,10 +835,10 @@ export default function PolicyAssistantPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => router.push(`/api/policies/view/${source.documentId}`)}
-                          >
-                            <Download className="h-4 w-4 mr-1" />
-                            View PDF
+                          onClick={() => window.open(`/api/sam/policies/view/${source.documentId}`, '_blank')}
+                        >
+                          <Download className="h-4 w-4 mr-1" />
+                          View PDF
                           </Button>
                         </div>
                       </div>

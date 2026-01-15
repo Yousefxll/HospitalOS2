@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { requireAuth } from '@/lib/auth/requireAuth';
+import { withAuthTenant } from '@/lib/core/guards/withAuthTenant';
 import { getCollection } from '@/lib/db';
 import { ClinicalEvent } from '@/lib/models/ClinicalEvent';
 import { PolicyAlert } from '@/lib/models/PolicyAlert';
@@ -34,18 +34,11 @@ const policyCheckSchema = z.object({
  * Body: { eventId } OR { type, subject?, payload }
  * Response: { ok: true, alertId, resultSummary }
  */
-export async function POST(request: NextRequest) {
+export const POST = withAuthTenant(async (req, { user, tenantId, userId, permissions }) => {
   try {
-    // Authentication
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
-
-    const { tenantId, userId } = authResult;
-
     // Check entitlements: requires BOTH sam AND health
-    const token = request.cookies.get('auth-token')?.value;
+    // Note: withAuthTenant ensures authentication, but we need to check platform entitlements separately
+    const token = req.cookies.get('auth-token')?.value;
     if (!token) {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -90,7 +83,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate request body
-    const body = await request.json();
+    const body = await req.json();
     const validation = policyCheckSchema.safeParse(body);
     
     if (!validation.success) {
@@ -105,13 +98,11 @@ export async function POST(request: NextRequest) {
     let event: ClinicalEvent | null = null;
     let eventText = '';
 
-    // Load event if eventId provided, otherwise use direct input
+    // Load event if eventId provided, otherwise use direct input with tenant isolation
     if (eventId) {
       const eventsCollection = await getCollection('clinical_events');
-      event = await eventsCollection.findOne<ClinicalEvent>({
-        id: eventId,
-        tenantId, // Tenant isolation
-      });
+      const eventQuery = { id: eventId, tenantId }; // Tenant isolation
+      event = await eventsCollection.findOne<ClinicalEvent>(eventQuery);
 
       if (!event) {
         return NextResponse.json(
@@ -139,15 +130,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update event status to processing
+    // Update event status to processing with tenant isolation
     if (event) {
       const eventsCollection = await getCollection('clinical_events');
+      const eventQuery = { id: event.id, tenantId }; // Tenant isolation
       await eventsCollection.updateOne(
-        { id: event.id, tenantId },
+        eventQuery,
         {
           $set: {
             status: 'processing',
             updatedAt: new Date(),
+            updatedBy: userId,
           },
         }
       );
@@ -228,18 +221,12 @@ export async function POST(request: NextRequest) {
             source = 'ISO';
           }
 
-          // Build evidence item with extended structure
-          const evidenceItem = {
+          // Build evidence item matching PolicyAlert['evidence'] type
+          const evidenceItem: PolicyAlert['evidence'][0] = {
             policyId: result.policyId,
             policyTitle,
-            policyName: result.filename, // Backward compatibility
-            snippet: result.snippet,
-            pageNumber: result.pageNumber,
-            score,
-            relevanceScore: score, // Backward compatibility
-            source,
-            lineStart: result.lineStart,
-            lineEnd: result.lineEnd,
+            snippet: result.snippet || '',
+            relevance: score,
           };
 
           evidenceItems.push(evidenceItem);
@@ -278,15 +265,17 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Update event status to processed
+      // Update event status to processed with tenant isolation
       if (event) {
         const eventsCollection = await getCollection('clinical_events');
+        const eventQuery = { id: event.id, tenantId }; // Tenant isolation
         await eventsCollection.updateOne(
-          { id: event.id, tenantId },
+          eventQuery,
           {
             $set: {
               status: 'processed',
               updatedAt: now,
+              updatedBy: userId,
             },
           }
         );
@@ -304,16 +293,18 @@ export async function POST(request: NextRequest) {
         },
       });
     } catch (error) {
-      // Update event status to failed
+      // Update event status to failed with tenant isolation
       if (event) {
         const eventsCollection = await getCollection('clinical_events');
+        const eventQuery = { id: event.id, tenantId }; // Tenant isolation
         await eventsCollection.updateOne(
-          { id: event.id, tenantId },
+          eventQuery,
           {
             $set: {
               status: 'failed',
               errorMessage: error instanceof Error ? error.message : String(error),
               updatedAt: new Date(),
+              updatedBy: userId,
             },
           }
         );
@@ -335,5 +326,5 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'integrations.policy-check' });
 

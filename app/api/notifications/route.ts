@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 import { getCollection } from '@/lib/db';
-import { v4 as uuidv4 } from 'uuid';
-import { requireAuth } from '@/lib/auth/requireAuth';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 /**
-
  * GET /api/notifications
  * List notifications for current user
  * 
@@ -17,19 +15,9 @@ export const revalidate = 0;
  * - limit: number (default: 50)
  * - skip: number (default: 0)
  */
-export async function GET(request: NextRequest) {
+export const GET = withAuthTenant(async (req, { user, tenantId, userId }) => {
   try {
-    // Use centralized auth helper - reads ONLY from cookies
-    const authResult = await requireAuth(request);
-    
-    // Check if auth failed
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
-
-    const { userId, departmentKey } = authResult;
-
-    const { searchParams } = new URL(request.url);
+    const { searchParams } = new URL(req.url);
     const unread = searchParams.get('unread');
     const recipientType = searchParams.get('recipientType');
     const limit = parseInt(searchParams.get('limit') || '50');
@@ -37,31 +25,34 @@ export async function GET(request: NextRequest) {
 
     const notificationsCollection = await getCollection('notifications');
     
-    // Build query - get notifications for this user
+    // Build query - get notifications for this user with tenant isolation
     // User can receive notifications as:
     // 1. Direct user notifications (recipientType='user', recipientUserId=userId)
     // 2. Department notifications (recipientType='department', recipientDeptKey matches user's department)
-    // For MVP, we'll fetch both and let the frontend filter, or we can query user's department from user collection
     
-    // Build query - use departmentKey from auth context
-    const query: any = {
+    // Build base query - get departmentKey from user object
+    const departmentKey = (user as any).departmentKey || (user as any).department;
+    const baseQuery: any = {
       $or: [
         { recipientType: 'user', recipientUserId: userId },
         ...(departmentKey ? [{ recipientType: 'department', recipientDeptKey: departmentKey }] : []),
       ],
     };
-
+    
     // Filter by read status
     if (unread === '1') {
-      query.readAt = { $exists: false };
+      baseQuery.readAt = { $exists: false };
     } else if (unread === '0') {
-      query.readAt = { $exists: true };
+      baseQuery.readAt = { $exists: true };
     }
 
     // Filter by recipient type if specified
     if (recipientType) {
-      query.recipientType = recipientType;
+      baseQuery.recipientType = recipientType;
     }
+    
+    // Add tenant isolation
+    const query = createTenantQuery(baseQuery, tenantId) as any;
 
     // Fetch notifications
     const notifications = await notificationsCollection
@@ -75,7 +66,7 @@ export async function GET(request: NextRequest) {
     const total = await notificationsCollection.countDocuments(query);
     
     // Get unread count
-    const unreadQuery = { ...query, readAt: { $exists: false } };
+    const unreadQuery: any = { ...query, readAt: { $exists: false } };
     const unreadCount = await notificationsCollection.countDocuments(unreadQuery);
 
     return NextResponse.json({
@@ -96,4 +87,5 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'notifications.read' });
+

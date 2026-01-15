@@ -1,17 +1,24 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 import { getCollection } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import type { Department } from '@/lib/models/Department';
 
-export async function POST() {
+export const POST = withAuthTenant(async (req, { user, tenantId, userId, role, permissions }) => {
   try {
     const departmentsCollection = await getCollection('departments');
     const doctorsCollection = await getCollection('doctors');
     const clinicsCollection = await getCollection('clinic_details');
     const censusCollection = await getCollection('opd_census');
 
-    // Get or create Ophthalmology department
-    let ophthDept = await departmentsCollection.findOne<Department>({ code: 'OPHTH' });
+    // Authorization check - admin only for seed routes
+    if (!['admin'].includes(role) && !permissions.includes('opd.census.seed')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    // Get or create Ophthalmology department with tenant isolation
+    const deptQuery = createTenantQuery({ code: 'OPHTH' }, tenantId);
+    let ophthDept = await departmentsCollection.findOne<Department>(deptQuery);
 
     if (!ophthDept) {
       ophthDept = {
@@ -21,6 +28,7 @@ export async function POST() {
         code: 'OPHTH',
         type: 'OPD',
         isActive: true,
+        tenantId, // CRITICAL: Always include tenantId for tenant isolation
         createdAt: new Date(),
         updatedAt: new Date(),
         createdBy: 'system',
@@ -35,7 +43,8 @@ export async function POST() {
 
     for (let i = 0; i < 9; i++) {
       const clinicId = `OPHTH_CLINIC_${i + 1}`;
-      let clinic = await clinicsCollection.findOne({ clinicId });
+      const clinicQuery = createTenantQuery({ clinicId }, tenantId);
+      let clinic = await clinicsCollection.findOne(clinicQuery);
       
       if (!clinic) {
         clinic = {
@@ -51,6 +60,7 @@ export async function POST() {
             startTime: '08:00',
             endTime: '16:00',
           },
+          tenantId, // CRITICAL: Always include tenantId for tenant isolation
           createdAt: new Date(),
           updatedAt: new Date(),
           createdBy: 'system',
@@ -90,7 +100,8 @@ export async function POST() {
     const createdDoctors: any[] = [];
     
     for (const docData of doctorsToCreate) {
-      let doctor = await doctorsCollection.findOne({ employeeId: docData.employeeId });
+      const doctorQuery = createTenantQuery({ employeeId: docData.employeeId }, tenantId);
+      let doctor = await doctorsCollection.findOne(doctorQuery);
       
       if (!doctor) {
         // Full-time: Monday-Friday, Part-time: 2-3 days per week
@@ -121,6 +132,7 @@ export async function POST() {
           assignedRooms: [],
           assignedNurses: [],
           isActive: true,
+          tenantId, // CRITICAL: Always include tenantId for tenant isolation
           createdAt: new Date(),
           updatedAt: new Date(),
           createdBy: 'system',
@@ -180,6 +192,7 @@ export async function POST() {
             waiting: 3 + Math.floor(Math.random() * 8), // 3-11 waiting
             procedures: 2 + Math.floor(Math.random() * 6), // 2-8 procedures
             utilizationRate: 60 + Math.floor(Math.random() * 30), // 60-90%
+            tenantId, // CRITICAL: Always include tenantId for tenant isolation
             createdAt: new Date(),
             updatedAt: new Date(),
             createdBy: 'system',
@@ -189,14 +202,18 @@ export async function POST() {
       });
     }
 
-    // Check if data already exists for the date range
-    const existingData = await censusCollection.findOne({
-      date: {
-        $gte: new Date(startDate.setHours(0, 0, 0, 0)),
-        $lte: new Date(endDate.setHours(23, 59, 59, 999)),
+    // Check if data already exists for the date range with tenant isolation
+    const existingQuery = createTenantQuery(
+      {
+        date: {
+          $gte: new Date(startDate.setHours(0, 0, 0, 0)),
+          $lte: new Date(endDate.setHours(23, 59, 59, 999)),
+        },
+        departmentId: ophthDept.id,
       },
-      departmentId: ophthDept.id,
-    });
+      tenantId
+    );
+    const existingData = await censusCollection.findOne(existingQuery);
 
     if (!existingData) {
       await censusCollection.insertMany(sampleRecords);
@@ -221,5 +238,5 @@ export async function POST() {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'opd.census.seed' });
 

@@ -1,41 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth/requireAuth';
-import { requireTenantId } from '@/lib/tenant';
+import { withAuthTenant } from '@/lib/core/guards/withAuthTenant';
 import { env } from '@/lib/env';
-
-
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ policyId: string }> | { policyId: string } }
 ) {
-  try {
-    // Authenticate
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
+  // Wrap with withAuthTenant manually for dynamic routes
+  return withAuthTenant(async (req, { user, tenantId }) => {
+    try {
+      // Handle params - in Next.js 15+ params is a Promise, in earlier versions it's an object
+      const resolvedParams = params instanceof Promise ? await params : params;
+      const { policyId } = resolvedParams;
 
-    // Handle params - in Next.js 15+ params is a Promise, in earlier versions it's an object
-  const resolvedParams = params instanceof Promise ? await params : params;
-  const { policyId } = resolvedParams;
-
-    // Get tenantId from session (SINGLE SOURCE OF TRUTH)
-    const tenantIdResult = await requireTenantId(request);
-    if (tenantIdResult instanceof NextResponse) {
-      return tenantIdResult;
-    }
-    const tenantId = tenantIdResult;
-
-    // Forward to policy-engine with tenantId in header
-    const policyEngineUrl = `${env.POLICY_ENGINE_URL}/v1/policies/${policyId}/file`;
+    // Forward to policy-engine with tenantId in query parameter (required by policy-engine)
+    const policyEngineUrl = `${env.POLICY_ENGINE_URL}/v1/policies/${policyId}/file?tenantId=${encodeURIComponent(tenantId)}`;
     
     const response = await fetch(policyEngineUrl, {
       method: 'GET',
       headers: {
-        'x-tenant-id': tenantId,
+        'x-tenant-id': tenantId, // Also send in header for compatibility
       },
     });
 
@@ -65,5 +52,6 @@ export async function GET(
       { error: 'Internal server error' },
       { status: 500 }
     );
-  }
+    }
+  }, { platformKey: 'sam', tenantScoped: true, permissionKey: 'sam.policy-engine.policies.file.read' })(request);
 }

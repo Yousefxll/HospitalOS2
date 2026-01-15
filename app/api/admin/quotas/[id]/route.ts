@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCollection } from '@/lib/db';
-import { requireAuth } from '@/lib/auth/requireAuth';
-import { requireRole } from '@/lib/rbac';
 import { UsageQuota } from '@/lib/models/UsageQuota';
-
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -20,55 +18,50 @@ const updateQuotaSchema = z.object({
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
-  try {
-    // Authentication
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
+  // Wrap with withAuthTenant manually for dynamic routes
+  return withAuthTenant(async (req, { user, tenantId, userId, role }, resolvedParams) => {
+    try {
+      const groupId = user.groupId;
 
-    const { tenantId, userId, userRole, user } = authResult;
-    const groupId = user.groupId;
-
-    // Authorization: Only admin and group-admin can update quotas
-    if (!requireRole(userRole, ['admin', 'group-admin'])) {
-      return NextResponse.json(
-        { error: 'Forbidden', message: 'Insufficient permissions' },
-        { status: 403 }
-      );
-    }
-
-    const { id } = params;
-    const body = await request.json();
-    const parsed = updateQuotaSchema.parse(body);
-
-    const quotasCollection = await getCollection('usage_quotas');
-
-    // Find quota with tenant isolation
-    const quota = await quotasCollection.findOne<UsageQuota>({
-      id,
-      tenantId,
-    });
-
-    if (!quota) {
-      return NextResponse.json(
-        { error: 'Quota not found' },
-        { status: 404 }
-      );
-    }
-
-    // Group admin can only update quotas for their group
-    if (userRole === 'group-admin' && groupId) {
-      if (quota.scopeType === 'group' && quota.scopeId !== groupId) {
+      // Authorization: Only admin and group-admin can update quotas
+      if (!['admin', 'group-admin'].includes(role)) {
         return NextResponse.json(
-          { error: 'Forbidden', message: 'Group admin can only update quotas for their own group' },
+          { error: 'Forbidden', message: 'Insufficient permissions' },
           { status: 403 }
         );
       }
-      // Group admin can update user quotas (users may belong to their group)
-    }
+
+      const paramsObj = resolvedParams instanceof Promise ? await resolvedParams : resolvedParams;
+      const { id } = paramsObj as { id: string };
+
+      const body = await req.json();
+      const parsed = updateQuotaSchema.parse(body);
+
+      const quotasCollection = await getCollection('usage_quotas');
+
+      // Find quota with tenant isolation
+      const quotaQuery = createTenantQuery({ id }, tenantId);
+      const quota = await quotasCollection.findOne<UsageQuota>(quotaQuery);
+
+      if (!quota) {
+        return NextResponse.json(
+          { error: 'Quota not found' },
+          { status: 404 }
+        );
+      }
+
+      // Group admin can only update quotas for their group
+      if (role === 'group-admin' && groupId) {
+        if (quota.scopeType === 'group' && quota.scopeId !== groupId) {
+          return NextResponse.json(
+            { error: 'Forbidden', message: 'Group admin can only update quotas for their own group' },
+            { status: 403 }
+          );
+        }
+        // Group admin can update user quotas (users may belong to their group)
+      }
 
     // Build update object
     const update: any = {
@@ -116,48 +109,46 @@ export async function PATCH(
       );
     }
 
-    // Update quota
-    await quotasCollection.updateOne(
-      { id, tenantId },
-      { $set: update }
-    );
+      // Update quota (with tenant isolation)
+      await quotasCollection.updateOne(
+        quotaQuery, // Uses tenantId via createTenantQuery
+        { $set: update }
+      );
 
-    // Fetch updated quota
-    const updatedQuota = await quotasCollection.findOne<UsageQuota>({
-      id,
-      tenantId,
-    });
+      // Fetch updated quota (with tenant isolation)
+      const updatedQuota = await quotasCollection.findOne<UsageQuota>(quotaQuery);
 
-    return NextResponse.json({
-      success: true,
-      quota: {
-        id: updatedQuota!.id,
-        scopeType: updatedQuota!.scopeType,
-        scopeId: updatedQuota!.scopeId,
-        featureKey: updatedQuota!.featureKey,
-        limit: updatedQuota!.limit,
-        used: updatedQuota!.used,
-        status: updatedQuota!.status,
-        startsAt: updatedQuota!.startsAt,
-        endsAt: updatedQuota!.endsAt,
-        lockedAt: updatedQuota!.lockedAt,
-        createdAt: updatedQuota!.createdAt,
-        updatedAt: updatedQuota!.updatedAt,
-      },
-    });
-  } catch (error: any) {
-    console.error('Update quota error:', error);
-    
-    if (error.name === 'ZodError') {
+      return NextResponse.json({
+        success: true,
+        quota: {
+          id: updatedQuota!.id,
+          scopeType: updatedQuota!.scopeType,
+          scopeId: updatedQuota!.scopeId,
+          featureKey: updatedQuota!.featureKey,
+          limit: updatedQuota!.limit,
+          used: updatedQuota!.used,
+          status: updatedQuota!.status,
+          startsAt: updatedQuota!.startsAt,
+          endsAt: updatedQuota!.endsAt,
+          lockedAt: updatedQuota!.lockedAt,
+          createdAt: updatedQuota!.createdAt,
+          updatedAt: updatedQuota!.updatedAt,
+        },
+      });
+    } catch (error: any) {
+      console.error('Update quota error:', error);
+      
+      if (error.name === 'ZodError') {
+        return NextResponse.json(
+          { error: 'Invalid request data', details: error.errors },
+          { status: 400 }
+        );
+      }
+
       return NextResponse.json(
-        { error: 'Invalid request data', details: error.errors },
-        { status: 400 }
+        { error: 'Failed to update quota', details: error.message },
+        { status: 500 }
       );
     }
-
-    return NextResponse.json(
-      { error: 'Failed to update quota', details: error.message },
-      { status: 500 }
-    );
-  }
+  }, { tenantScoped: true, permissionKey: 'admin.quotas.access' })(request, { params });
 }

@@ -62,7 +62,9 @@ export default function Header({ onMenuClick }: HeaderProps) {
   }
 
   return (
-    <header className="sticky top-0 z-40 h-16 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 flex items-center justify-between pl-0 pr-10 md:pr-20 lg:pr-24 shadow-elevation-1">
+    <header 
+      data-testid="platform-header"
+      className="sticky top-0 z-40 h-16 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 flex items-center justify-between pl-0 pr-10 md:pr-20 lg:pr-24 shadow-elevation-1">
       {/* Mobile Menu Button */}
       <div className="flex items-center gap-2">
         {isMobile && onMenuClick && (

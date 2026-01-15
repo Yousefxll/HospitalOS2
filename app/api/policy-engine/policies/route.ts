@@ -1,26 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth/requireAuth';
-import { requireTenantId } from '@/lib/tenant';
+import { withAuthTenant } from '@/lib/core/guards/withAuthTenant';
 import { env } from '@/lib/env';
-
-
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-export async function GET(request: NextRequest) {
-  try {
-    // Authenticate
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
 
-    // Get tenantId from session (SINGLE SOURCE OF TRUTH)
-    const tenantIdResult = await requireTenantId(request);
-    if (tenantIdResult instanceof NextResponse) {
-      return tenantIdResult;
-    }
-    const tenantId = tenantIdResult;
+export const GET = withAuthTenant(async (req, { user, tenantId }) => {
+  try {
 
     // Forward to policy-engine with tenantId as query parameter
     const policyEngineUrl = `${env.POLICY_ENGINE_URL}/v1/policies?tenantId=${encodeURIComponent(tenantId)}`;
@@ -66,4 +52,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'policies.list' });

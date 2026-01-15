@@ -1,27 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
+import ExcelJS from 'exceljs';
+import { getTenantCollection, getPlatformCollection } from '@/lib/db-tenant';
+import { withAuthTenant } from '@/lib/core/guards/withAuthTenant';
 
 export const dynamic = 'force-dynamic';
-import ExcelJS from 'exceljs';
-import { requireAuthContext } from '@/lib/auth/requireAuthContext';
-import { getTenantCollection, getPlatformCollection } from '@/lib/db-tenant';
-
-export async function GET(request: NextRequest) {
+export const GET = withAuthTenant(async (req, { user, tenantId, role }) => {
   try {
-    // Require auth context with tenant isolation
-    const authContext = await requireAuthContext(request, true); // Allow platform access
-    if (authContext instanceof NextResponse) {
-      return authContext;
-    }
-
-    const { userRole, tenantId } = authContext;
-
     // Only admin/supervisor can export, or platform roles for cross-tenant export
-    const isPlatformRole = ['syra-owner', 'platform', 'owner'].includes(userRole);
-    if (!isPlatformRole && !['admin', 'supervisor'].includes(userRole)) {
+    const isPlatformRole = ['syra-owner', 'platform', 'owner'].includes(role);
+    if (!isPlatformRole && !['admin', 'supervisor'].includes(role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { searchParams } = new URL(request.url);
+    const { searchParams } = new URL(req.url);
     const collection = searchParams.get('collection');
 
     if (!collection) {
@@ -34,7 +25,7 @@ export async function GET(request: NextRequest) {
     // Fetch data from MongoDB with tenant isolation
     // Platform roles can access cross-tenant, others are tenant-scoped
     const targetCollection = isPlatformRole && tenantId === 'platform'
-      ? await getPlatformCollection(collection, userRole, 'admin/data-export')
+      ? await getPlatformCollection(collection, role, 'admin/data-export')
       : await getTenantCollection(collection, tenantId, 'admin/data-export');
     
     const documents = await targetCollection.find({}).limit(1000).toArray();
@@ -89,4 +80,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'admin.data.export' });

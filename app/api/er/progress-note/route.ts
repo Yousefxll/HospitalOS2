@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 import { getCollection } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import type { ERRegistration } from '@/lib/cdo/repositories/ERRepository';
 
-
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-export async function POST(request: NextRequest) {
+
+export const POST = withAuthTenant(async (req, { user, tenantId, userId }) => {
   try {
-    const body = await request.json();
+    const body = await req.json();
     const {
       erVisitId,
       physicianName,
@@ -25,11 +26,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get registration to verify visit exists
+    // Get registration to verify visit exists with tenant isolation
     const erRegistrationsCollection = await getCollection('er_registrations');
-    const registration = await erRegistrationsCollection.findOne<ERRegistration>({
-      erVisitId,
-    });
+    const registrationQuery = createTenantQuery({ erVisitId }, tenantId);
+    const registration = await erRegistrationsCollection.findOne<ERRegistration>(registrationQuery);
 
     if (!registration) {
       return NextResponse.json(
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Save progress note
+    // Save progress note with tenant isolation
     const erProgressNotesCollection = await getCollection('er_progress_notes');
     const progressNote = {
       id: uuidv4(),
@@ -50,8 +50,11 @@ export async function POST(request: NextRequest) {
       managementPlan: managementPlan || null,
       noteDate: new Date(),
       isLocked: true, // Notes are locked after saving
+      tenantId, // CRITICAL: Always include tenantId for tenant isolation
       createdAt: new Date(),
       updatedAt: new Date(),
+      createdBy: userId,
+      updatedBy: userId,
     };
 
     await erProgressNotesCollection.insertOne(progressNote);
@@ -72,11 +75,11 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'er.progress-note' });
 
-export async function GET(request: NextRequest) {
+export const GET = withAuthTenant(async (req, { user, tenantId }) => {
   try {
-    const { searchParams } = new URL(request.url);
+    const { searchParams } = new URL(req.url);
     const erVisitId = searchParams.get('erVisitId');
 
     if (!erVisitId) {
@@ -87,8 +90,9 @@ export async function GET(request: NextRequest) {
     }
 
     const erProgressNotesCollection = await getCollection('er_progress_notes');
+    const query = createTenantQuery({ erVisitId }, tenantId);
     const notes = await erProgressNotesCollection
-      .find({ erVisitId })
+      .find(query)
       .sort({ noteDate: -1 })
       .toArray();
 
@@ -100,5 +104,5 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'er.progress-note.read' });
 

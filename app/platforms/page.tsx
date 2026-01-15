@@ -64,6 +64,27 @@ export default function PlatformsPage() {
           
     setEntitlements(effectiveEntitlements);
           
+    // CRITICAL: For owner without approved access OR owner tenant, handle appropriately
+    // Owner can access platforms if:
+    // 1. Has approved access token, OR
+    // 2. Is using owner tenant (syra-owner-dev)
+    const isOwner = user.role === 'syra-owner';
+    
+    if (isOwner) {
+      // Check for approved access token (client-side check)
+      const hasApprovedAccess = typeof document !== 'undefined' && 
+                                document.cookie.includes('approved_access_token=');
+      
+      // Check if using owner tenant (from me.tenantId)
+      const isOwnerTenant = me.tenantId === 'syra-owner-dev';
+      
+      if (!hasApprovedAccess && !isOwnerTenant) {
+        // Owner without approved access and not using owner tenant - redirect to /owner
+        router.push('/owner');
+        return; // Exit early
+      }
+    }
+    
     // Count available platforms (only sam and health, not coming-soon platforms)
     const availablePlatforms = [
       effectiveEntitlements.sam && 'sam',
@@ -74,7 +95,7 @@ export default function PlatformsPage() {
     if (availablePlatforms.length === 1) {
       const platform = availablePlatforms[0];
       const platformValue = platform === 'sam' ? 'sam' : 'health';
-      const platformRoute = '/welcome';
+      const platformRoute = platform === 'sam' ? '/platforms/sam' : '/platforms/syra-health';
             
       // Set platform cookie and redirect immediately
       // Use async/await to ensure proper execution
@@ -159,11 +180,21 @@ export default function PlatformsPage() {
   }
 
   // If user has multiple platforms or no platforms, show selection page
+  // Filter platforms server-side: only include platforms user is entitled to
+  // This prevents flicker and ensures unauthorized platforms never render
+  const entitledPlatforms = {
+    sam: entitlements.sam,
+    siraHealth: entitlements.siraHealth,
+    // edrac and cvision are always "coming-soon", never render them
+    edrac: false,
+    cvision: false,
+  };
+
   return (
     <PlatformsClient
       userName={`${userData.firstName} ${userData.lastName}`.trim()}
       hospitalName={userData.hospitalName}
-      entitlements={entitlements}
+      entitlements={entitledPlatforms}
     />
   );
 }

@@ -1,42 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 import { getCollection } from '@/lib/db';
-import { requireAuth } from '@/lib/security/auth';
-import { requireRole } from '@/lib/security/auth';
-
-// Update nurse
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
-  try {
-    // Authenticate
-    const auth = await requireAuth(request);
-    if (auth instanceof NextResponse) {
-      return auth;
-    }
-
-    // Check role: admin or supervisor
-    const roleCheck = await requireRole(request, ['admin', 'supervisor'], auth);
-    if (roleCheck instanceof NextResponse) {
-      return roleCheck;
-    }
-
-    const body = await request.json();
-    const nursesCollection = await getCollection('nurses');
-
-    const result = await nursesCollection.updateOne(
-      { id: params.id },
-      {
-        $set: {
-          ...body,
-          updatedAt: new Date(),
-          updatedBy: auth.userId,
-        },
+  return withAuthTenant(async (req, { user, tenantId, userId, role, permissions }) => {
+    try {
+      // Authorization check - admin or supervisor
+      if (!['admin', 'supervisor'].includes(role) && !permissions.includes('opd.nurses.update')) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
-    );
+
+      const resolvedParams = params instanceof Promise ? await params : params;
+      const nurseId = resolvedParams.id;
+      const body = await req.json();
+      const nursesCollection = await getCollection('nurses');
+
+      const query = createTenantQuery({ id: nurseId }, tenantId);
+      const result = await nursesCollection.updateOne(
+        query,
+        {
+          $set: {
+            ...body,
+            updatedAt: new Date(),
+            updatedBy: userId,
+          },
+        }
+      );
 
     if (result.matchedCount === 0) {
       return NextResponse.json({ error: 'Nurse not found' }, { status: 404 });
@@ -49,29 +44,26 @@ export async function PUT(
       { error: 'Failed to update nurse' },
       { status: 500 }
     );
-  }
+    }
+  }, { tenantScoped: true, permissionKey: 'opd.nurses.update' })(request);
 }
 
-// Delete nurse
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
-  try {
-    // Authenticate
-    const auth = await requireAuth(request);
-    if (auth instanceof NextResponse) {
-      return auth;
-    }
+  return withAuthTenant(async (req, { user, tenantId, userId, role, permissions }) => {
+    try {
+      // Authorization check - admin only
+      if (!['admin'].includes(role) && !permissions.includes('opd.nurses.delete')) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
 
-    // Check role: admin only
-    const roleCheck = await requireRole(request, ['admin'], auth);
-    if (roleCheck instanceof NextResponse) {
-      return roleCheck;
-    }
-
-    const nursesCollection = await getCollection('nurses');
-    await nursesCollection.deleteOne({ id: params.id });
+      const resolvedParams = params instanceof Promise ? await params : params;
+      const nurseId = resolvedParams.id;
+      const nursesCollection = await getCollection('nurses');
+      const query = createTenantQuery({ id: nurseId }, tenantId);
+      await nursesCollection.deleteOne(query);
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -80,5 +72,6 @@ export async function DELETE(
       { error: 'Failed to delete nurse' },
       { status: 500 }
     );
-  }
+    }
+  }, { tenantScoped: true, permissionKey: 'opd.nurses.delete' })(request);
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth/requireAuth';
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 import { getCollection } from '@/lib/db';
 import { env } from '@/lib/env';
 import { RiskRun } from '@/lib/models/Practice';
@@ -16,27 +16,24 @@ const runAnalysisSchema = z.object({
   practiceIds: z.array(z.string()).min(1),
 });
 
-export async function POST(request: NextRequest) {
+export const POST = withAuthTenant(async (req, { user, tenantId, userId }) => {
   try {
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
-    const { tenantId, userId } = authResult;
-
-    const body = await request.json();
+    const body = await req.json();
     const validated = runAnalysisSchema.parse(body);
 
     const practicesCollection = await getCollection('practices');
     const policiesCollection = await getCollection('policy_documents');
 
-    // Get practices
-    const practices = await practicesCollection
-      .find({
+    // Get practices with tenant isolation
+    const practicesQuery = createTenantQuery(
+      {
         id: { $in: validated.practiceIds },
-        tenantId,
         status: 'active',
-      })
+      },
+      tenantId
+    );
+    const practices = await practicesCollection
+      .find(practicesQuery)
       .toArray();
 
     if (practices.length === 0) {
@@ -46,27 +43,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get relevant policies:
+    // Get relevant policies with tenant isolation:
     // - Policies tagged with selected departmentId OR scope=HospitalWide
-    const relevantPolicies = await policiesCollection
-      .find({
-        tenantId,
+    const policiesQuery = createTenantQuery(
+      {
         isActive: true,
         $or: [
           { departmentIds: validated.departmentId },
           { scope: 'HospitalWide' },
         ],
-      })
+      },
+      tenantId
+    );
+    const relevantPolicies = await policiesCollection
+      .find(policiesQuery)
       .toArray();
 
-    // Get department name for context (from departments collection, same as Structure Management)
+    // Get department name for context with tenant isolation
     let departmentName = validated.departmentId;
     try {
       const departmentsCollection = await getCollection('departments');
-      const dept = await departmentsCollection.findOne<Department>({
-        id: validated.departmentId,
-        isActive: true,
-      });
+      const deptQuery = createTenantQuery(
+        {
+          id: validated.departmentId,
+          isActive: true,
+        },
+        tenantId
+      );
+      const dept = await departmentsCollection.findOne<Department>(deptQuery);
       if (dept) {
         departmentName = dept.name || validated.departmentId;
       }
@@ -198,4 +202,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'risk-detector.run' });

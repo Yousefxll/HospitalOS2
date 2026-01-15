@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth/requireAuth';
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 import { getCollection } from '@/lib/db';
 import { Order } from '@/lib/ehr/models';
 import { v4 as uuidv4 } from 'uuid';
@@ -14,18 +14,12 @@ import { emitAutoTriggerEvent } from '@/lib/integrations/auto-trigger';
 import { canAutoTrigger } from '@/lib/integrations/check-entitlements';
 import { isAutoTriggerEnabled } from '@/lib/integrations/settings';
 
-
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-export async function POST(request: NextRequest) {
-  try {
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
 
-    const user = authResult.user;
-    const body = await request.json();
+export const POST = withAuthTenant(async (req, { user, tenantId }) => {
+  try {
+    const body = await req.json();
 
     // Validation
     const requiredFields = ['patientId', 'mrn', 'orderType', 'description', 'orderedBy'];
@@ -51,9 +45,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(formatValidationErrors(validationErrors), { status: 400 });
     }
 
-    // Verify patient exists
+    // Verify patient exists - with tenant isolation
     const patientsCollection = await getCollection('ehr_patients');
-    const patient = await patientsCollection.findOne({ id: body.patientId, mrn: body.mrn });
+    const patientQuery = createTenantQuery(
+      { id: body.patientId, mrn: body.mrn },
+      tenantId
+    );
+    const patient = await patientsCollection.findOne(patientQuery);
     
     if (!patient) {
       return NextResponse.json(
@@ -65,7 +63,7 @@ export async function POST(request: NextRequest) {
     // Generate order number
     const orderNumber = `ORD-${Date.now()}-${uuidv4().substring(0, 8).toUpperCase()}`;
 
-    // Create order
+    // Create order - with tenant isolation
     const now = getISOTimestamp();
     const order: Order = {
       id: uuidv4(),
@@ -94,53 +92,50 @@ export async function POST(request: NextRequest) {
       updatedAt: now,
       createdBy: user.id,
       updatedBy: user.id,
+      tenantId, // CRITICAL: Always include tenantId
     };
 
     const ordersCollection = await getCollection('ehr_orders');
     await ordersCollection.insertOne(order);
 
-    // Audit log
+    // Audit log - with tenant isolation
     await createAuditLog({
       action: 'CREATE_ORDER',
       resourceType: 'order',
       resourceId: order.id,
       userId: user.id,
       userName: `${user.firstName} ${user.lastName}`,
+      tenantId, // CRITICAL: Always include tenantId
       patientId: order.patientId,
       mrn: order.mrn,
       success: true,
-      ipAddress: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined,
-      userAgent: request.headers.get('user-agent') || undefined,
+      ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || undefined,
+      userAgent: req.headers.get('user-agent') || undefined,
     });
 
     // Auto-trigger policy check (fire-and-forget, non-blocking)
-    // Only if user has both SAM and Health entitlements AND auto-trigger is enabled
-    const token = request.cookies.get('auth-token')?.value;
+    const token = req.cookies.get('auth-token')?.value;
     if (token) {
       const hasEntitlements = await canAutoTrigger(token);
-      const autoTriggerEnabled = await isAutoTriggerEnabled(authResult.tenantId);
+      const autoTriggerEnabled = await isAutoTriggerEnabled(tenantId);
       if (hasEntitlements && autoTriggerEnabled) {
-        // Extract order description for policy checking
         const orderText = order.description || order.instructions || '';
         
-        // Emit auto-trigger event (non-blocking)
         emitAutoTriggerEvent({
-          tenantId: authResult.tenantId,
+          tenantId,
           userId: user.id,
           type: 'ORDER',
           source: 'order_submit',
-          subject: order.mrn, // Use MRN as subject (not full patient info)
+          subject: order.mrn,
           payload: {
             text: orderText,
             metadata: {
               orderId: order.id,
               orderType: order.orderType,
               orderNumber: order.orderNumber,
-              // Do NOT include PHI in metadata
             },
           },
         }).catch((error) => {
-          // Silent failure - already logged in emitAutoTriggerEvent
           console.error('[Auto-Trigger] Failed to emit order event:', error);
         });
       }
@@ -152,25 +147,9 @@ export async function POST(request: NextRequest) {
     );
   } catch (error: any) {
     console.error('Create order error:', error);
-    
-    // Audit log for failure
-    try {
-      const authResult = await requireAuth(request);
-      if (!(authResult instanceof NextResponse)) {
-        await createAuditLog({
-          action: 'CREATE_ORDER',
-          resourceType: 'order',
-          userId: authResult.user.id,
-          success: false,
-          errorMessage: error.message,
-        });
-      }
-    } catch {}
-
     return NextResponse.json(
       { error: 'Failed to create order', details: error.message },
       { status: 500 }
     );
   }
-}
-
+}, { permissionKey: 'admin.ehr.orders' });

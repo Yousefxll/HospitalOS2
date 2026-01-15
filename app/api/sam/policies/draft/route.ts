@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth/requireAuth';
-import { requireTenantId } from '@/lib/tenant';
+import { withAuthTenant } from '@/lib/core/guards/withAuthTenant';
 import { env } from '@/lib/env';
 import { z } from 'zod';
 
@@ -21,22 +20,10 @@ const draftPolicySchema = z.object({
   setting: z.string(),
 });
 
-export async function POST(request: NextRequest) {
+export const POST = withAuthTenant(async (req, { user, tenantId }) => {
   try {
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
-
-    const body = await request.json();
+    const body = await req.json();
     const validated = draftPolicySchema.parse(body);
-
-    // Get tenantId from session (SINGLE SOURCE OF TRUTH)
-    const tenantIdResult = await requireTenantId(request);
-    if (tenantIdResult instanceof NextResponse) {
-      return tenantIdResult;
-    }
-    const tenantId = tenantIdResult;
 
     // Call policy-engine with tenantId in header
     const policyEngineUrl = `${env.POLICY_ENGINE_URL}/v1/policies/draft`;
@@ -90,4 +77,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { platformKey: 'sam', tenantScoped: true, permissionKey: 'sam.policies.draft' });

@@ -8,18 +8,14 @@ import { requireAuth } from '@/lib/auth/requireAuth';
 import { getCollection } from '@/lib/db';
 import { AuditLog } from '@/lib/ehr/models';
 import { validateISOTimestamp, formatValidationErrors } from '@/lib/ehr/utils/validation';
-
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-export async function GET(request: NextRequest) {
-  try {
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
 
-    const { searchParams } = new URL(request.url);
+export const GET = withAuthTenant(async (req, { user, tenantId }) => {
+  try {
+    const { searchParams } = new URL(req.url);
     const userId = searchParams.get('userId');
     const resourceType = searchParams.get('resourceType');
     const resourceId = searchParams.get('resourceId');
@@ -72,10 +68,11 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Query audit logs
+    // Query audit logs with tenant isolation
     const auditLogsCollection = await getCollection('ehr_audit_logs');
+    const tenantQuery = createTenantQuery(query, tenantId);
     const logs = await auditLogsCollection
-      .find(query)
+      .find(tenantQuery)
       .sort({ timestamp: -1 })
       .limit(limit)
       .toArray();
@@ -92,5 +89,5 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'admin.ehr.audit.access' });
 

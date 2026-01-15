@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth/requireAuth';
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 import { getCollection } from '@/lib/db';
 import { Practice } from '@/lib/models/Practice';
 import { v4 as uuidv4 } from 'uuid';
@@ -18,35 +18,30 @@ const createPracticeSchema = z.object({
 });
 
 // GET - List practices
-export async function GET(request: NextRequest) {
+export const GET = withAuthTenant(async (req, { user, tenantId }) => {
   try {
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
-    const { tenantId } = authResult;
-
-    const { searchParams } = new URL(request.url);
+    const { searchParams } = new URL(req.url);
     const departmentId = searchParams.get('departmentId');
     const setting = searchParams.get('setting') as 'IPD' | 'OPD' | 'Corporate' | 'Shared' | null;
     const status = searchParams.get('status') as 'active' | 'archived' | null;
 
     const practicesCollection = await getCollection('practices');
 
-    const query: any = { tenantId };
+    const baseQuery: any = {};
     if (departmentId) {
-      query.departmentId = departmentId;
+      baseQuery.departmentId = departmentId;
     }
     if (setting) {
-      query.setting = setting;
+      baseQuery.setting = setting;
     }
     if (status) {
-      query.status = status;
+      baseQuery.status = status;
     } else {
       // Default to active if not specified
-      query.status = 'active';
+      baseQuery.status = 'active';
     }
 
+    const query = createTenantQuery(baseQuery, tenantId);
     const practices = await practicesCollection
       .find(query)
       .sort({ createdAt: -1 })
@@ -64,18 +59,12 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'risk-detector.practices.read' });
 
 // POST - Create practice
-export async function POST(request: NextRequest) {
+export const POST = withAuthTenant(async (req, { user, tenantId, userId }) => {
   try {
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
-    const { tenantId, userId } = authResult;
-
-    const body = await request.json();
+    const body = await req.json();
     const validated = createPracticeSchema.parse(body);
 
     const practicesCollection = await getCollection('practices');
@@ -115,4 +104,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'risk-detector.practices.create' });

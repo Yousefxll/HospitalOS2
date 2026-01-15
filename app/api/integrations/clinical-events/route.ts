@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { requireAuth } from '@/lib/auth/requireAuth';
+import { withAuthTenant } from '@/lib/core/guards/withAuthTenant';
 import { getCollection } from '@/lib/db';
 import { ClinicalEvent } from '@/lib/models/ClinicalEvent';
 import { v4 as uuidv4 } from 'uuid';
@@ -24,18 +24,11 @@ const createEventSchema = z.object({
  * Body: { type, subject?, payload }
  * Response: { ok: true, eventId }
  */
-export async function POST(request: NextRequest) {
+export const POST = withAuthTenant(async (req, { user, tenantId, userId }) => {
   try {
-    // Authentication
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
-
-    const { tenantId, userId } = authResult;
 
     // Validate request body
-    const body = await request.json();
+    const body = await req.json();
     const validation = createEventSchema.safeParse(body);
     
     if (!validation.success) {
@@ -79,5 +72,5 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'integrations.clinical-events' });
 

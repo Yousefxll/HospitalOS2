@@ -21,8 +21,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, AuthenticatedUser } from '@/lib/auth/requireAuth';
 import { requireOwner } from '@/lib/core/owner/separation';
 import { isPlatformEnabled } from '../subscription/engine';
+import { type PlatformKey } from '@/lib/db/platformKey';
 
-export type PlatformKey = 'sam' | 'syra-health' | 'cvision' | 'edrac';
+// Re-export PlatformKey for backward compatibility
+export type { PlatformKey } from '@/lib/db/platformKey';
 
 export interface WithAuthTenantOptions {
   /** Platform key (e.g., 'sam', 'syra-health') - enforces platform access */
@@ -113,10 +115,10 @@ export function withAuthTenant(
 
     // Platform check
     if (platformKey) {
-      // Map platformKey to subscription contract format
+      // Map platformKey (underscore format) to subscription contract format (camelCase)
       const platformMap: Record<PlatformKey, 'sam' | 'syraHealth' | 'cvision' | 'edrac'> = {
         'sam': 'sam',
-        'syra-health': 'syraHealth',
+        'syra_health': 'syraHealth', // Convert underscore to camelCase for subscription engine
         'cvision': 'cvision',
         'edrac': 'edrac',
       };

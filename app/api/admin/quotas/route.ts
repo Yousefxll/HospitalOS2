@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCollection } from '@/lib/db';
-import { requireAuth } from '@/lib/auth/requireAuth';
-import { requireRole } from '@/lib/rbac';
 import { v4 as uuidv4 } from 'uuid';
 import { UsageQuota } from '@/lib/models/UsageQuota';
-
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -35,26 +33,19 @@ const updateQuotaSchema = z.object({
  * POST /api/admin/quotas
  * Create a new quota
  */
-export async function POST(request: NextRequest) {
+export const POST = withAuthTenant(async (req, { user, tenantId, userId, role }) => {
   try {
-    // Authentication
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
-
-    const { tenantId, userId, userRole, user } = authResult;
     const groupId = user.groupId;
 
     // Authorization: Only platform admin and group-admin can create quotas
-    if (!['admin', 'group-admin'].includes(userRole)) {
+    if (!['admin', 'group-admin'].includes(role)) {
       return NextResponse.json(
         { error: 'Forbidden', message: 'Insufficient permissions' },
         { status: 403 }
       );
     }
 
-    const body = await request.json();
+    const body = await req.json();
     
     // Parse and validate - refine will check that at least limit or endsAt is provided
     let parsed;
@@ -71,7 +62,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Authorization check for group-admin (after parsing)
-    if (userRole === 'group-admin' && groupId) {
+    if (role === 'group-admin' && groupId) {
       if (parsed.scopeType === 'group' && parsed.scopeId !== groupId) {
         return NextResponse.json(
           { error: 'Forbidden', message: 'Group admin can only create quotas for their own group' },
@@ -87,14 +78,14 @@ export async function POST(request: NextRequest) {
 
     const quotasCollection = await getCollection('usage_quotas');
 
-    // Check if quota already exists
-    const existing = await quotasCollection.findOne({
-      tenantId,
+    // Check if quota already exists (with tenant isolation)
+    const existingQuery = createTenantQuery({
       scopeType: parsed.scopeType,
       scopeId: parsed.scopeId,
       featureKey: parsed.featureKey,
       status: 'active',
-    });
+    }, tenantId);
+    const existing = await quotasCollection.findOne(existingQuery);
 
     if (existing) {
       return NextResponse.json(
@@ -109,7 +100,7 @@ export async function POST(request: NextRequest) {
     
     const quota: UsageQuota = {
       id: uuidv4(),
-      tenantId,
+      tenantId, // CRITICAL: Always include tenantId for tenant isolation
       scopeType: parsed.scopeType,
       scopeId: parsed.scopeId,
       featureKey: parsed.featureKey,
@@ -155,31 +146,23 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'admin.quotas.access' });
 
 /**
  * GET /api/admin/quotas
  * List quotas (tenant-scoped, with optional filtering)
  */
-export async function GET(request: NextRequest) {
+export const GET = withAuthTenant(async (req, { user, tenantId, role }) => {
   try {
-    // Authentication
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
-
-    const { tenantId, userRole, user } = authResult;
-
     // Authorization: Only admin and group-admin can list quotas
-    if (!requireRole(userRole, ['admin', 'group-admin'])) {
+    if (!['admin', 'group-admin'].includes(role)) {
       return NextResponse.json(
         { error: 'Forbidden', message: 'Insufficient permissions' },
         { status: 403 }
       );
     }
 
-    const { searchParams } = new URL(request.url);
+    const { searchParams } = new URL(req.url);
     const scopeType = searchParams.get('scopeType') as 'group' | 'user' | null;
     const scopeId = searchParams.get('scopeId');
     const featureKey = searchParams.get('featureKey');
@@ -187,28 +170,31 @@ export async function GET(request: NextRequest) {
     const quotasCollection = await getCollection('usage_quotas');
 
     // Build query with tenant isolation
-    const query: any = { tenantId };
+    let baseQuery: any = {};
 
     // Group admin can only see quotas for their group
     const groupId = user.groupId;
-    if (userRole === 'group-admin' && groupId) {
-      query.$or = [
+    if (role === 'group-admin' && groupId) {
+      baseQuery.$or = [
         { scopeType: 'group', scopeId: groupId },
         { scopeType: 'user' }, // Can see user quotas (they may belong to their group)
       ];
     }
 
     if (scopeType) {
-      query.scopeType = scopeType;
+      baseQuery.scopeType = scopeType;
     }
 
     if (scopeId) {
-      query.scopeId = scopeId;
+      baseQuery.scopeId = scopeId;
     }
 
     if (featureKey) {
-      query.featureKey = featureKey;
+      baseQuery.featureKey = featureKey;
     }
+
+    // Apply tenant filtering to query
+    const query = createTenantQuery(baseQuery, tenantId);
 
     const quotas = await quotasCollection.find(query).sort({ createdAt: -1 }).toArray();
 
@@ -235,4 +221,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'admin.quotas.access' });

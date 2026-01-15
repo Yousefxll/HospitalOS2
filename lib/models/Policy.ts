@@ -5,13 +5,16 @@ import type { ObjectId } from 'mongodb';
 
 export interface PolicyDocument {
   _id?: ObjectId;
-  id: string; // UUID
+  id: string; // UUID (MongoDB document ID)
   documentId: string; // POL-2025-XXXXXX
+  
+  // CRITICAL: Link to policy-engine (source of truth for files/OCR/chunks/indexing)
+  policyEngineId?: string; // Policy ID from policy-engine (required for unified system)
 
   title: string;
   originalFileName: string;
   storedFileName: string;
-  filePath: string; // storage/policies/YYYY/...
+  filePath: string; // storage/policies/YYYY/... (legacy, policy-engine manages files now)
   fileSize: number;
   fileHash: string; // SHA-256, unique
   mimeType: 'application/pdf';
@@ -31,23 +34,43 @@ export interface PolicyDocument {
 
   isActive: boolean;
   deletedAt?: Date | null;
+  archivedAt?: Date | null; // Archive timestamp (soft delete alternative)
+  archivedBy?: string; // User who archived the document
   
   tenantId?: string; // Tenant isolation - from session
+  
+  // Lifecycle tracking
+  lastReviewedAt?: Date; // Last review date
+  nextReviewDate?: Date; // Calculated: lastReviewedAt + reviewCycle
+  reviewReminderSent?: boolean; // Whether review reminder was sent
+  expiryWarningSent?: boolean; // Whether expiry warning was sent
+  
+  // Operational grouping
+  operationalGroup?: string; // Group items governing the same operation
 
   tags?: string[];
   category?: string;
   section?: string;
-  source?: string;
   version?: string;
   effectiveDate?: Date;
   expiryDate?: Date;
   hospital?: string; // Inferred from fileName prefix (TAK, WHH, etc.)
   
-  // Classification metadata
-  departmentIds?: string[]; // Multi-select departments
+  // Unified Library Entity Model (Universal Knowledge & Operations Core)
+  entityType?: 'policy' | 'sop' | 'workflow' | 'playbook'; // Universal entity type
+  scope?: 'department' | 'shared' | 'enterprise'; // Universal scope
+  departments?: string[]; // Multi-select departments (preferred)
+  departmentIds?: string[]; // Legacy support - maps to departments
+  sector?: string; // Industry sector (e.g., 'healthcare', 'manufacturing', 'finance')
+  country?: string; // Country code (ISO 3166-1 alpha-2)
+  status?: 'active' | 'expired' | 'draft' | 'archived'; // Lifecycle status
+  reviewCycle?: number; // Review cycle in days (e.g., 365 for annual review)
+  source?: 'manual' | 'ai-generated' | string; // Document source (universal or legacy string)
+  
+  // Legacy classification metadata (backward compatibility)
   setting?: 'IPD' | 'OPD' | 'Corporate' | 'Shared' | 'Unknown';
   policyType?: 'Clinical' | 'Admin' | 'HR' | 'Quality' | 'IC' | 'Medication' | 'Other' | 'Unknown';
-  scope?: 'HospitalWide' | 'DepartmentOnly' | 'UnitSpecific' | 'Unknown';
+  // Legacy scope mapping: HospitalWide -> enterprise, DepartmentOnly -> department, UnitSpecific -> department
   
   // AI tagging metadata
   aiTags?: {
@@ -80,6 +103,7 @@ export interface PolicyChunk {
   createdAt: Date;
   updatedAt?: Date;
   hospital?: string; // Inferred from fileName prefix (TAK, WHH, etc.)
+  tenantId?: string; // Tenant isolation - from session
 }
 
 export interface PolicySearchMatch {

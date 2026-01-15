@@ -64,6 +64,7 @@ export function MobileTopBar({
 
   return (
     <header
+      data-testid="platform-header"
       className={cn(
         'sticky top-0 z-50 flex items-center justify-between h-14 px-4',
         'bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 border-b border-border',

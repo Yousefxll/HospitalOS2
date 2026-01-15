@@ -15,16 +15,51 @@ A production-grade service for automatic policy document ingestion, OCR, chunkin
 
 ### Prerequisites
 
+**macOS (Recommended):**
+1. Install Python 3 via Homebrew:
+```bash
+brew install python
+```
+
+2. Install Poppler (required for Vision OCR):
+```bash
+brew install poppler
+```
+
+**Other platforms:**
 - Python 3.9+
+- Poppler (required for Vision OCR)
+  - macOS: `brew install poppler`
+  - Ubuntu/Debian: `sudo apt-get install poppler-utils`
+  - Windows: Download from [poppler releases](https://github.com/oschwartz10612/poppler-windows/releases/)
 - Tesseract (optional, for OCR fallback)
-- Poppler (optional, for PDF to image conversion)
 
 ### Installation
 
-1. Install dependencies:
+**⚠️ IMPORTANT: PEP 668 on macOS blocks pip installs into Homebrew-managed Python (externally-managed-environment).**
+**You MUST use a virtual environment (venv) to install dependencies.**
+
+1. Create and activate virtual environment:
 ```bash
-pip install -r requirements.txt
+cd policy-engine
+python3 -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 ```
+
+2. Upgrade pip:
+```bash
+python -m pip install -U pip
+```
+
+3. Install dependencies:
+```bash
+python -m pip install -r requirements.txt
+python -m pip install pdf2image pillow
+```
+
+**Note:** Always use `python -m pip` (not `pip` directly) and ensure the venv is activated before installing packages.
+
+**📖 For detailed venv setup instructions, see [VENV_SETUP.md](./VENV_SETUP.md)**
 
 2. Set environment variables (optional):
 ```bash
@@ -33,14 +68,19 @@ export EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
 export OPENAI_API_KEY=your_key_here  # Required for generate, harmonize, and conflicts features
 ```
 
-3. Run the service:
+3. Activate the virtual environment (if not already active):
 ```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 ```
 
-Or using Python:
+4. Run the service:
 ```bash
-python -m app.main
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+```
+
+Or use the start script (handles venv automatically):
+```bash
+./start.sh
 ```
 
 Note: Default port is 8001 (can be changed via uvicorn --port flag)

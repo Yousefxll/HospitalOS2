@@ -1,28 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth/requireAuth';
-import { requireTenantId } from '@/lib/tenant';
+import { withAuthTenant } from '@/lib/core/guards/withAuthTenant';
 import { env } from '@/lib/env';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export async function POST(request: NextRequest) {
+export const POST = withAuthTenant(async (req, { user, tenantId }) => {
   try {
-    // Authenticate
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
-
-    // Get tenantId from session (SINGLE SOURCE OF TRUTH)
-    const tenantIdResult = await requireTenantId(request);
-    if (tenantIdResult instanceof NextResponse) {
-      return tenantIdResult;
-    }
-    const tenantId = tenantIdResult;
-
     // Parse request body
-    const body = await request.json();
+    const body = await req.json();
 
     // Forward to policy-engine with tenantId as a query parameter
     const policyEngineUrl = `${env.POLICY_ENGINE_URL}/v1/issues/ai?tenantId=${encodeURIComponent(tenantId)}`;
@@ -68,5 +54,5 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { platformKey: 'sam', tenantScoped: true, permissionKey: 'sam.policy-engine.issues.ai' });
 

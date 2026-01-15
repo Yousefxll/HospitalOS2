@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withAuthTenant } from '@/lib/core/guards/withAuthTenant';
 import { z } from 'zod';
 import OpenAI from 'openai';
 import { env } from '@/lib/env';
@@ -27,9 +28,9 @@ const createSchema = z.object({
   notes: z.string().optional(),
 });
 
-export async function POST(request: NextRequest) {
+export const POST = withAuthTenant(async (req, { user, tenantId }) => {
   try {
-    const body = await request.json();
+    const body = await req.json();
     const data = createSchema.parse(body);
 
     if (!env.OPENAI_API_KEY) {
@@ -112,7 +113,7 @@ Format the output as a well-structured policy document suitable for hospital use
       { status: 500 }
     );
   }
-}
+}, { platformKey: 'sam', tenantScoped: true, permissionKey: 'sam.policies.ai-create' });
 
 
 

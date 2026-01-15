@@ -1,130 +1,75 @@
-import { v4 as uuidv4 } from 'uuid';
-import { PolicyChunk } from '@/lib/models/Policy';
+/**
+ * Policy Text Chunking Utilities
+ * 
+ * Note: This is a stub implementation. 
+ * Policy chunking is now handled by policy-engine service.
+ */
 
-interface ChunkingOptions {
-  minWords?: number;
-  maxWords?: number;
-  overlapWords?: number;
-}
+import type { PolicyChunk } from '@/lib/models/Policy';
+
+const CHUNK_SIZE = 2000; // characters
+const CHUNK_OVERLAP = 300; // characters
 
 /**
- * Chunk text with line mapping
- * Returns chunks with startLine/endLine and approximate pageNumber
+ * Chunk text with line numbers
+ * @deprecated Policy chunking is now handled by policy-engine service
  */
-export function chunkTextWithLines(
-  text: string,
-  totalPages: number,
-  options: ChunkingOptions = {}
-): PolicyChunk[] {
-  const minWords = options.minWords || 800;
-  const maxWords = options.maxWords || 1200;
-  const overlapWords = options.overlapWords || 175;
-
-  // Split text into lines
-  const lines = text.split('\n').filter(Boolean);
-  const totalLines = lines.length;
-  const linesPerPage = Math.ceil(totalLines / totalPages) || 1;
-
+export function chunkTextWithLines(text: string, numPages: number): PolicyChunk[] {
+  // Simple stub implementation - split text into chunks
+  const words = text.split(/\s+/);
   const chunks: PolicyChunk[] = [];
   let currentChunk: string[] = [];
   let wordCount = 0;
   let chunkIndex = 0;
-  let startLineIndex = 0;
-
-  // Build chunks word by word
-  for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
-    const line = lines[lineIndex];
-    const words = line.split(/\s+/).filter(Boolean);
+  
+  const wordsPerPage = Math.max(1, Math.ceil(words.length / numPages));
+  
+  for (let i = 0; i < words.length; i++) {
+    currentChunk.push(words[i]);
+    wordCount++;
     
-    for (const word of words) {
-      currentChunk.push(word);
-      wordCount++;
-
-      // If we've reached max words, finalize this chunk
-      if (wordCount >= maxWords) {
-        const chunkText = currentChunk.join(' ');
-        const endLineIndex = lineIndex;
-        
-        // Calculate approximate page number
-        const pageNumber = Math.min(
-          Math.floor(startLineIndex / linesPerPage) + 1,
-          totalPages
-        );
-
-        chunks.push({
-          id: uuidv4(),
-          policyId: '', // Will be set later
-          documentId: '', // Will be set later
-          chunkIndex: chunkIndex++,
-          pageNumber,
-          startLine: startLineIndex,
-          endLine: endLineIndex,
-          text: chunkText,
-          wordCount: wordCount,
-          isActive: true,
-          createdAt: new Date(),
-        });
-
-        // Start next chunk with overlap
-        const overlapWordsArray = currentChunk.slice(-overlapWords);
-        currentChunk = overlapWordsArray;
-        wordCount = overlapWordsArray.length;
-        
-        // Adjust start line for overlap (approximate)
-        startLineIndex = Math.max(0, lineIndex - Math.floor(overlapWordsArray.length / 10));
-      }
-    }
-  }
-
-  // Add remaining words as final chunk
-  if (currentChunk.length > 0) {
-    // For short documents, create a chunk even if it's less than minWords
-    // This ensures all documents have at least one chunk for search
-    if (wordCount >= minWords || chunks.length === 0) {
-      const chunkText = currentChunk.join(' ');
-      const endLineIndex = lines.length - 1;
-      const pageNumber = Math.min(
-        Math.floor(startLineIndex / linesPerPage) + 1,
-        totalPages
-      );
-
+    const chunkText = currentChunk.join(' ');
+    if (chunkText.length >= CHUNK_SIZE || wordCount >= 500) {
+      const pageNumber = Math.min(Math.floor(i / wordsPerPage) + 1, numPages);
+      
       chunks.push({
-        id: uuidv4(),
+        id: `chunk-${chunkIndex}`,
         policyId: '',
         documentId: '',
         chunkIndex: chunkIndex++,
         pageNumber,
-        startLine: startLineIndex,
-        endLine: endLineIndex,
+        startLine: 0,
+        endLine: 0,
         text: chunkText,
-        wordCount: wordCount,
+        wordCount,
         isActive: true,
         createdAt: new Date(),
       });
+      
+      // Overlap
+      const overlapSize = Math.min(CHUNK_OVERLAP / 10, currentChunk.length);
+      currentChunk = currentChunk.slice(-overlapSize);
+      wordCount = overlapSize;
     }
   }
-
-  // If no chunks were created (very short text), create at least one chunk
-  if (chunks.length === 0 && text.trim().length > 0) {
-    const allWords = text.split(/\s+/).filter(Boolean);
-    const chunkText = allWords.join(' ');
-    const wordCount = allWords.length;
-    
+  
+  // Add final chunk
+  if (currentChunk.length > 0) {
+    const pageNumber = Math.min(Math.ceil(words.length / wordsPerPage), numPages);
     chunks.push({
-      id: uuidv4(),
+      id: `chunk-${chunkIndex}`,
       policyId: '',
       documentId: '',
-      chunkIndex: 0,
-      pageNumber: 1,
+      chunkIndex: chunkIndex++,
+      pageNumber,
       startLine: 0,
-      endLine: lines.length - 1,
-      text: chunkText,
-      wordCount: wordCount,
+      endLine: 0,
+      text: currentChunk.join(' '),
+      wordCount: currentChunk.length,
       isActive: true,
       createdAt: new Date(),
     });
   }
-
+  
   return chunks;
 }
-

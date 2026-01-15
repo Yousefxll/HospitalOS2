@@ -149,7 +149,7 @@ export async function POST(
     let existingUser: User | null = null;
     try {
       const tenantDb = await getTenantDbByKey(tenantId);
-      const tenantUsersCollection = tenantDb.collection<User>('users');
+      const tenantUsersCollection = tenantDb.collection('users');
       existingUser = await tenantUsersCollection.findOne<User>({ email });
     } catch (error) {
       console.warn(`[create-admin] Failed to check existing user in tenant DB:`, error);

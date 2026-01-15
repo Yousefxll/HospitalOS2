@@ -37,6 +37,9 @@ export interface Encounter {
   primaryDiagnosis?: string;
   diagnosisCodes?: string[]; // ICD-10 codes
   
+  // Tenant isolation
+  tenantId: string; // ALWAYS from session
+  
   // Audit
   createdAt: string; // ISO timestamp
   updatedAt: string; // ISO timestamp

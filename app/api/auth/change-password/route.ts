@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 import { getCollection } from '@/lib/db';
 import { comparePassword, hashPassword } from '@/lib/auth';
-import { deleteUserSessions, validateSession } from '@/lib/auth/sessions';
-import { verifyTokenEdge } from '@/lib/auth/edge';
+import { deleteUserSessions } from '@/lib/auth/sessions';
 import { User } from '@/lib/models/User';
 import { serialize } from 'cookie';
 
@@ -36,19 +36,10 @@ export const dynamic = 'force-dynamic';
 // Note: Schema validation is done manually to handle both 'currentPassword' and 'oldPassword' field names
 // for UI compatibility (UI sends 'oldPassword')
 
-export async function POST(request: NextRequest) {
+export const POST = withAuthTenant(async (req, { user, tenantId, userId }) => {
   try {
-    // 1. Authentication check (same as /api/auth/me)
-    const { requireAuth } = await import('@/lib/security/auth');
-    const auth = await requireAuth(request);
-    if (auth instanceof NextResponse) {
-      return auth;
-    }
-    
-    const userId = auth.userId;
-
-    // 2. Parse and validate request body
-    const body = await request.json();
+    // Parse and validate request body
+    const body = await req.json();
     
     // Map oldPassword to currentPassword for UI compatibility (UI sends 'oldPassword')
     const currentPassword = body.currentPassword || body.oldPassword;
@@ -77,16 +68,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 4. Fetch user from database
+    // 4. Fetch user from database with tenant isolation
     const usersCollection = await getCollection('users');
-    const user = await usersCollection.findOne<User>({ id: userId }) as User | null;
+    const userQuery = createTenantQuery({ id: userId }, tenantId);
+    const userDoc = await usersCollection.findOne<User>(userQuery) as User | null;
 
-    if (!user || !user.isActive) {
+    if (!userDoc || !userDoc.isActive) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     // 5. Verify current password
-    const isCurrentPasswordValid = await comparePassword(currentPassword, user.password);
+    const isCurrentPasswordValid = await comparePassword(currentPassword, userDoc.password);
     if (!isCurrentPasswordValid) {
       return NextResponse.json(
         { error: 'Current password is incorrect', message: 'Current password is incorrect' },
@@ -97,9 +89,9 @@ export async function POST(request: NextRequest) {
     // 6. Hash new password
     const hashedNewPassword = await hashPassword(newPassword);
 
-    // 7. Update password in database
+    // 7. Update password in database with tenant isolation
     await usersCollection.updateOne(
-      { id: userId },
+      userQuery,
       {
         $set: {
           password: hashedNewPassword,
@@ -113,7 +105,7 @@ export async function POST(request: NextRequest) {
 
     // 9. Clear auth cookie and return success (use same secure setting as login)
     const res = NextResponse.json({ ok: true });
-    const protocol = request.headers.get('x-forwarded-proto') || (request.url.startsWith('https://') ? 'https' : 'http');
+    const protocol = req.headers.get('x-forwarded-proto') || (req.url.startsWith('https://') ? 'https' : 'http');
     const isSecure = protocol === 'https';
     res.headers.set(
       'Set-Cookie',
@@ -133,5 +125,5 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'auth.change-password' });
 

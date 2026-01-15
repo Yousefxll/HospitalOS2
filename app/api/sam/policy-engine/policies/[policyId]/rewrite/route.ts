@@ -1,35 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth/requireAuth';
-import { requireTenantId } from '@/lib/tenant';
+import { withAuthTenant } from '@/lib/core/guards/withAuthTenant';
 import { env } from '@/lib/env';
-
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ policyId: string }> | { policyId: string } }
 ) {
-  try {
-    // Authenticate
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
+  // Wrap with withAuthTenant manually for dynamic routes
+  return withAuthTenant(async (req, { user, tenantId }) => {
+    try {
+      // Resolve params
+      const resolvedParams = params instanceof Promise ? await params : params;
+      const { policyId } = resolvedParams;
 
-    // Resolve params
-    const resolvedParams = params instanceof Promise ? await params : params;
-    const { policyId } = resolvedParams;
-
-    // Get tenantId from session (SINGLE SOURCE OF TRUTH)
-    const tenantIdResult = await requireTenantId(request);
-    if (tenantIdResult instanceof NextResponse) {
-      return tenantIdResult;
-    }
-    const tenantId = tenantIdResult;
-
-    // Get request body
-    const body = await request.json();
+      // Get request body
+      const body = await req.json();
     const { mode, issues, language } = body;
 
     // Forward to policy-engine with tenantId as a query parameter
@@ -75,6 +63,7 @@ export async function POST(
       { error: 'Internal server error' },
       { status: 500 }
     );
-  }
+    }
+  }, { platformKey: 'sam', tenantScoped: true, permissionKey: 'sam.policy-engine.policies.rewrite' })(request);
 }
 

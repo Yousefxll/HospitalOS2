@@ -1,36 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth/requireAuth';
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 import { getCollection } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export async function GET(request: NextRequest) {
+export const GET = withAuthTenant(async (req, { user, tenantId }) => {
   try {
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
-    const { tenantId } = authResult;
-
-    const { searchParams } = new URL(request.url);
+    const { searchParams } = new URL(req.url);
     const lowConfidenceOnly = searchParams.get('lowConfidenceOnly') === 'true';
     const status = searchParams.get('status') as 'needs-review' | 'auto-approved' | null;
 
     const policiesCollection = await getCollection('policy_documents');
 
-    // Build query
-    const query: any = {
-      tenantId,
+    // Build query with tenant isolation
+    const baseQuery: any = {
       isActive: true,
     };
 
     if (status) {
-      query.tagsStatus = status;
+      baseQuery.tagsStatus = status;
     } else {
       // Default to needs-review if not specified
-      query.tagsStatus = 'needs-review';
+      baseQuery.tagsStatus = 'needs-review';
     }
+
+    const query = createTenantQuery(baseQuery, tenantId) as any;
 
     const policies = await policiesCollection
       .find(query)
@@ -70,4 +65,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'policies.tag-review' });

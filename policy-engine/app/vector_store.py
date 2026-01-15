@@ -3,6 +3,7 @@ from typing import List, Dict, Any, Optional
 import chromadb
 from chromadb.config import Settings as ChromaSettings
 from pathlib import Path
+import shutil
 from app.config import settings
 
 
@@ -27,7 +28,14 @@ def get_collection(tenant_id: str):
     
     try:
         collection = client.get_collection(collection_name)
-    except:
+    except Exception as exc:
+        # Handle Chroma schema mismatch (e.g., sqlite column changes)
+        if "collections.topic" in str(exc):
+            print("[Chroma] Detected schema mismatch (collections.topic). Resetting Chroma store.")
+            chroma_dir = Path(settings.data_dir) / "chroma"
+            shutil.rmtree(chroma_dir, ignore_errors=True)
+            chroma_dir.mkdir(parents=True, exist_ok=True)
+            client = get_chroma_client()
         collection = client.create_collection(collection_name)
     
     return collection

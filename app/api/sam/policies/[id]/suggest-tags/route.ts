@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth/requireAuth';
-import { requireTenantId } from '@/lib/tenant';
+import { withAuthTenant } from '@/lib/core/guards/withAuthTenant';
+import { getTenantCollection } from '@/lib/db/tenantDb';
 import { env } from '@/lib/env';
-import { getCollection } from '@/lib/db';
 import type { PolicyDocument, PolicyChunk } from '@/lib/models/Policy';
 
 export const dynamic = 'force-dynamic';
@@ -19,30 +18,35 @@ interface AITagsResponse {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
-  try {
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
+  // Wrap with withAuthTenant manually for dynamic routes
+  return withAuthTenant(async (req, { user, tenantId }) => {
+    try {
+      const resolvedParams = params instanceof Promise ? await params : params;
+      const policyId = resolvedParams.id;
+
+      if (!policyId) {
+        return NextResponse.json(
+          { error: 'Policy ID is required' },
+          { status: 400 }
+        );
+      }
+
+    // CRITICAL: Use getTenantCollection with platform-aware naming
+    // policy_documents → sam_policy_documents (platform-scoped)
+    const policiesCollectionResult = await getTenantCollection(req, 'policy_documents', 'sam');
+    if (policiesCollectionResult instanceof NextResponse) {
+      return policiesCollectionResult;
     }
-
-    // Get tenantId from session (SINGLE SOURCE OF TRUTH) BEFORE querying Mongo
-    const tenantIdResult = await requireTenantId(request);
-    if (tenantIdResult instanceof NextResponse) {
-      return tenantIdResult;
-    }
-    const tenantId = tenantIdResult;
-
-    const policyId = params.id;
-
-    // Get policy document
-    const policiesCollection = await getCollection('policy_documents');
-    const policy = await policiesCollection.findOne<PolicyDocument>({
+    const policiesCollection = policiesCollectionResult;
+    
+    const policyQuery = {
       id: policyId,
-      tenantId,
       isActive: true,
-    });
+      tenantId: tenantId, // Explicit tenantId
+    };
+    const policy = await policiesCollection.findOne<PolicyDocument>(policyQuery);
 
     if (!policy) {
       return NextResponse.json(
@@ -52,20 +56,27 @@ export async function POST(
     }
 
     // Get first page text for context (if available)
+    // CRITICAL: policy_chunks is also platform-scoped
+    // policy_chunks → sam_policy_chunks (platform-scoped)
     let sampleText = '';
     try {
-      const chunksCollection = await getCollection('policy_chunks');
-      const firstChunk = await chunksCollection.findOne<PolicyChunk>(
-        {
+      const chunksCollectionResult = await getTenantCollection(req, 'policy_chunks', 'sam');
+      if (!(chunksCollectionResult instanceof NextResponse)) {
+        const chunksCollection = chunksCollectionResult;
+        const chunkQuery = {
           policyId,
           pageNumber: 1,
           isActive: true,
-        },
-        { sort: { chunkIndex: 1 } }
-      );
-      if (firstChunk?.text) {
-        // Use first 2000 chars as sample
-        sampleText = firstChunk.text.substring(0, 2000);
+          tenantId: tenantId, // Explicit tenantId
+        };
+        const firstChunk = await chunksCollection.findOne<PolicyChunk>(
+          chunkQuery,
+          { sort: { chunkIndex: 1 } }
+        );
+        if (firstChunk?.text) {
+          // Use first 2000 chars as sample
+          sampleText = firstChunk.text.substring(0, 2000);
+        }
       }
     } catch (err) {
       console.warn('Could not fetch sample text:', err);
@@ -122,7 +133,9 @@ export async function POST(
       : 0;
 
     // Determine tagsStatus
-    const tagsStatus = overallConfidence >= 0.85 ? 'auto-approved' : 'needs-review';
+    // Always set to 'needs-review' for manual review, even if confidence is high
+    // Users can approve manually after reviewing the tags
+    const tagsStatus = 'needs-review';
 
     // Format response
     const aiTags = {
@@ -132,12 +145,17 @@ export async function POST(
     };
 
     // Update policy with AI tags
+    // Keep tagsStatus as 'needs-review' to ensure it appears in review queue
+    const updateQuery = {
+      id: policyId,
+      tenantId: tenantId, // Explicit tenantId
+    };
     await policiesCollection.updateOne(
-      { id: policyId, tenantId },
+      updateQuery,
       {
         $set: {
           aiTags,
-          tagsStatus,
+          tagsStatus, // Always needs-review for manual approval
           updatedAt: new Date(),
         },
       }
@@ -155,4 +173,5 @@ export async function POST(
       { status: 500 }
     );
   }
+  }, { platformKey: 'sam', tenantScoped: true, permissionKey: 'sam.policies.tag' })(request);
 }

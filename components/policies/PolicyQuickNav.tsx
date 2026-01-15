@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { FileText, AlertTriangle, Sparkles, FilePlus, Merge, Shield, Filter } from 'lucide-react';
+import { FileText, AlertTriangle, Sparkles, FilePlus, Merge, Shield, Filter, Building2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMe } from '@/lib/hooks/useMe';
 import { hasRoutePermission } from '@/lib/permissions';
@@ -45,10 +45,11 @@ const policyNavItems: PolicyNavItem[] = [
     label: 'Risk Detector',
     icon: Shield,
   },
+  // Tag Review Queue removed - tagsStatus shown as badge/filter in Library only
   {
-    href: '/policies/tag-review-queue',
-    label: 'Tag Review Queue',
-    icon: Filter,
+    href: '/policies/policy-builder',
+    label: 'Policy Builder',
+    icon: Building2,
   },
 ];
 
@@ -56,11 +57,19 @@ export function PolicyQuickNav() {
   const pathname = usePathname();
   const { me } = useMe();
   
-  // Get user permissions
+  // Get user permissions and role
   const userPermissions = me?.user?.permissions || [];
+  const userRole = me?.user?.role;
+  
+  // Check if user is admin (admin role gets all permissions)
+  const isAdmin = userRole === 'admin' || userRole === 'syra-owner' || userPermissions.includes('admin.users');
   
   // Filter nav items based on user permissions
   const visibleNavItems = policyNavItems.filter(item => {
+    // Admin users have access to all routes
+    if (isAdmin) {
+      return true;
+    }
     // Check if user has permission for this route
     return hasRoutePermission(userPermissions, item.href);
   });

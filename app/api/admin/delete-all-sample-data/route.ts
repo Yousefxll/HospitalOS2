@@ -1,29 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 import { getCollection } from '@/lib/db';
-import { requireRoleAsync } from '@/lib/auth/requireRole';
 
 /**
- * DELETE endpoint to delete ALL sample data from the entire project
+ * DELETE endpoint to delete ALL sample data for the current tenant
  * This will delete all records with createdBy='system' or without createdBy field
- * from all collections that contain sample data
+ * from all collections that contain sample data, with tenant isolation
  */
-export async function DELETE(request: NextRequest) {
+export const DELETE = withAuthTenant(async (req, { user, tenantId }) => {
   try {
-    const authResult = await requireRoleAsync(request, ['admin']);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
-
     const deletedCounts: Record<string, number> = {};
 
     // Query to match sample data: createdBy='system' OR createdBy doesn't exist OR createdBy is null
-    const sampleDataQuery: any = {
+    // WITH tenant isolation
+    const sampleDataBaseQuery: any = {
       $or: [
         { createdBy: 'system' },
         { createdBy: { $exists: false } },
         { createdBy: null }
       ]
     };
+
+    // Enforce tenant filtering - only delete sample data for this tenant
+    const sampleDataQuery = createTenantQuery(sampleDataBaseQuery, tenantId);
 
     // Collections that may contain sample data
     const collectionsToClean = [
@@ -47,7 +46,7 @@ export async function DELETE(request: NextRequest) {
       'er_registrations',
     ];
 
-    console.log('[Delete All Sample Data] Starting deletion of all sample data...');
+    console.log('[Delete All Sample Data] Starting deletion of all sample data for tenant:', tenantId);
 
     for (const collectionName of collectionsToClean) {
       try {
@@ -55,7 +54,7 @@ export async function DELETE(request: NextRequest) {
         
         // Count before deletion
         const countBefore = await collection.countDocuments(sampleDataQuery);
-        console.log(`[Delete All Sample Data] Found ${countBefore} sample records in ${collectionName}`);
+        console.log(`[Delete All Sample Data] Found ${countBefore} sample records in ${collectionName} for tenant ${tenantId}`);
         
         if (countBefore > 0) {
           const result = await collection.deleteMany(sampleDataQuery);
@@ -74,11 +73,11 @@ export async function DELETE(request: NextRequest) {
     // Calculate total deleted
     const totalDeleted = Object.values(deletedCounts).reduce((sum, count) => sum + count, 0);
 
-    console.log('[Delete All Sample Data] Deletion completed. Total records deleted:', totalDeleted);
+    console.log('[Delete All Sample Data] Deletion completed. Total records deleted:', totalDeleted, 'for tenant:', tenantId);
 
     return NextResponse.json({
       success: true,
-      message: 'All sample data deleted successfully',
+      message: 'All sample data deleted successfully for tenant',
       deletedCounts,
       totalDeleted,
       collectionsProcessed: collectionsToClean.length,
@@ -90,4 +89,4 @@ export async function DELETE(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { permissionKey: 'admin.delete-data' });

@@ -2,25 +2,46 @@
 OpenAI Vision OCR implementation
 
 Extracts text from PDF pages using OpenAI Vision API (Responses API with image input).
+Uses pdf2image + poppler to render PDF pages before sending to Vision API.
 """
 import os
 import base64
 import io
+import subprocess
 from pathlib import Path
 from typing import Optional, Tuple
 from PIL import Image
 
 try:
-    import fitz  # PyMuPDF
-    PYMUPDF_AVAILABLE = True
+    from pdf2image import convert_from_path
+    PDF2IMAGE_AVAILABLE = True
 except ImportError:
-    PYMUPDF_AVAILABLE = False
-    fitz = None
+    PDF2IMAGE_AVAILABLE = False
+    convert_from_path = None
 
 from app.openai_client import get_openai_client
 from app.config import settings
 
 DEBUG_OCR = os.getenv("DEBUG_OCR", "false").lower() == "true"
+
+
+def check_poppler_available() -> bool:
+    """
+    Check if poppler utilities (pdftoppm) are available in PATH
+    
+    Returns:
+        True if poppler is available, False otherwise
+    """
+    try:
+        result = subprocess.run(
+            ['pdftoppm', '-v'],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        return result.returncode == 0 or 'pdftoppm' in result.stderr or 'pdftoppm' in result.stdout
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return False
 
 
 def render_pdf_page_to_image(
@@ -29,7 +50,7 @@ def render_pdf_page_to_image(
     dpi: int = 225
 ) -> Image.Image:
     """
-    Render a single PDF page to PIL Image using PyMuPDF
+    Render a single PDF page to PIL Image using pdf2image + poppler
     
     Args:
         pdf_path: Path to PDF file
@@ -38,36 +59,42 @@ def render_pdf_page_to_image(
     
     Returns:
         PIL Image object
+    
+    Raises:
+        ImportError: If pdf2image is not installed
+        Exception: If poppler is not available or rendering fails
     """
-    if not PYMUPDF_AVAILABLE:
-        raise ImportError("PyMuPDF (fitz) not installed - required for Vision OCR")
+    if not PDF2IMAGE_AVAILABLE:
+        raise ImportError("pdf2image not installed - required for Vision OCR. Install with: python3 -m pip install pdf2image pillow")
+    
+    # Check if poppler is available
+    if not check_poppler_available():
+        raise Exception("Poppler (pdftoppm) not found in PATH. Install with: brew install poppler")
     
     try:
-        # Open PDF
-        doc = fitz.open(str(pdf_path))
+        # Convert specific page using pdf2image
+        # Note: convert_from_path uses 0-indexed pages, so page_num - 1
+        # first_page and last_page are both page_num - 1 to get only one page
+        images = convert_from_path(
+            str(pdf_path),
+            first_page=page_num,
+            last_page=page_num,
+            dpi=dpi,
+            fmt='png'
+        )
         
-        # Get page (0-indexed)
-        page = doc[page_num - 1]
+        if not images or len(images) == 0:
+            raise Exception(f"Failed to render page {page_num}: no image returned")
         
-        # Calculate zoom factor for target DPI
-        # PyMuPDF default DPI is 72, so zoom = target_dpi / 72
-        zoom = dpi / 72.0
-        mat = fitz.Matrix(zoom, zoom)
-        
-        # Render page to pixmap
-        pix = page.get_pixmap(matrix=mat)
-        
-        # Convert to PIL Image
-        img_data = pix.tobytes("png")
-        image = Image.open(io.BytesIO(img_data))
-        
-        # Close document
-        doc.close()
-        
-        return image
+        # Return the first (and only) image
+        return images[0]
     
     except Exception as e:
-        raise Exception(f"Failed to render PDF page {page_num} to image: {str(e)}")
+        error_msg = str(e)
+        # Check for common poppler errors
+        if 'pdftoppm' in error_msg.lower() or 'poppler' in error_msg.lower():
+            raise Exception("Poppler (pdftoppm) not found or failed. Install with: brew install poppler")
+        raise Exception(f"Failed to render PDF page {page_num} to image: {error_msg}")
 
 
 def image_to_base64_data_url(image: Image.Image) -> str:

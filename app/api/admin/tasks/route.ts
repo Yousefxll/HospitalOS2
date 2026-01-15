@@ -4,25 +4,18 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth/requireAuth';
 import { getCollection } from '@/lib/db';
 import { Task } from '@/lib/ehr/models';
 import { v4 as uuidv4 } from 'uuid';
 import { getISOTimestamp, createAuditLog } from '@/lib/ehr/utils/audit';
 import { validateRequired, validateISOTimestamp, formatValidationErrors } from '@/lib/ehr/utils/validation';
-
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-export async function POST(request: NextRequest) {
+export const POST = withAuthTenant(async (req, { user, tenantId }) => {
   try {
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
-
-    const user = authResult.user;
-    const body = await request.json();
+    const body = await req.json();
 
     // Validation
     const requiredFields = ['title', 'taskType', 'assignedTo', 'priority'];
@@ -44,10 +37,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(formatValidationErrors(validationErrors), { status: 400 });
     }
 
-    // Verify patient exists if patientId is provided
+    // Verify patient exists if patientId is provided (with tenant isolation)
     if (body.patientId) {
       const patientsCollection = await getCollection('ehr_patients');
-      const patient = await patientsCollection.findOne({ id: body.patientId });
+      const patientQuery = createTenantQuery({ id: body.patientId }, tenantId);
+      const patient = await patientsCollection.findOne(patientQuery);
       
       if (!patient) {
         return NextResponse.json(
@@ -79,23 +73,25 @@ export async function POST(request: NextRequest) {
       updatedAt: now,
       createdBy: user.id,
       updatedBy: user.id,
+      tenantId, // CRITICAL: Always include tenantId for tenant isolation
     };
 
     const tasksCollection = await getCollection('ehr_tasks');
     await tasksCollection.insertOne(task);
 
-    // Audit log
+    // Audit log - with tenant isolation
     await createAuditLog({
       action: 'CREATE_TASK',
       resourceType: 'task',
       resourceId: task.id,
       userId: user.id,
       userName: `${user.firstName} ${user.lastName}`,
+      tenantId, // CRITICAL: Always include tenantId for tenant isolation
       patientId: task.patientId,
       mrn: task.mrn,
       success: true,
-      ipAddress: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined,
-      userAgent: request.headers.get('user-agent') || undefined,
+      ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || undefined,
+      userAgent: req.headers.get('user-agent') || undefined,
     });
 
     return NextResponse.json(
@@ -104,19 +100,17 @@ export async function POST(request: NextRequest) {
     );
   } catch (error: any) {
     console.error('Create task error:', error);
-    
-    // Audit log for failure
+
+    // Audit log for failure - user is available from context
     try {
-      const authResult = await requireAuth(request);
-      if (!(authResult instanceof NextResponse)) {
-        await createAuditLog({
-          action: 'CREATE_TASK',
-          resourceType: 'task',
-          userId: authResult.user.id,
-          success: false,
-          errorMessage: error.message,
-        });
-      }
+      await createAuditLog({
+        action: 'CREATE_TASK',
+        resourceType: 'task',
+        userId: user.id,
+        tenantId, // CRITICAL: Always include tenantId for tenant isolation
+        success: false,
+        errorMessage: error.message,
+      });
     } catch {}
 
     return NextResponse.json(
@@ -124,4 +118,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'admin.ehr.tasks.access' });

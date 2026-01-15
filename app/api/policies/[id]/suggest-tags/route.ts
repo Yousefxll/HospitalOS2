@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth/requireAuth';
-import { requireTenantId } from '@/lib/tenant';
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 import { env } from '@/lib/env';
 import { getCollection } from '@/lib/db';
 import type { PolicyDocument, PolicyChunk } from '@/lib/models/Policy';
@@ -19,30 +18,25 @@ interface AITagsResponse {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
-  try {
-    const authResult = await requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
+  // Wrap with withAuthTenant manually for dynamic routes
+  return withAuthTenant(async (req, { user, tenantId }) => {
+    try {
+      const resolvedParams = params instanceof Promise ? await params : params;
+      const policyId = resolvedParams.id;
 
-    // Get tenantId from session (SINGLE SOURCE OF TRUTH) BEFORE querying Mongo
-    const tenantIdResult = await requireTenantId(request);
-    if (tenantIdResult instanceof NextResponse) {
-      return tenantIdResult;
-    }
-    const tenantId = tenantIdResult;
-
-    const policyId = params.id;
+      if (!policyId) {
+        return NextResponse.json(
+          { error: 'Policy ID is required' },
+          { status: 400 }
+        );
+      }
 
     // Get policy document
     const policiesCollection = await getCollection('policy_documents');
-    const policy = await policiesCollection.findOne<PolicyDocument>({
-      id: policyId,
-      tenantId,
-      isActive: true,
-    });
+    const policyQuery = createTenantQuery({ id: policyId, isActive: true }, tenantId);
+    const policy = await policiesCollection.findOne<PolicyDocument>(policyQuery);
 
     if (!policy) {
       return NextResponse.json(
@@ -55,12 +49,16 @@ export async function POST(
     let sampleText = '';
     try {
       const chunksCollection = await getCollection('policy_chunks');
-      const firstChunk = await chunksCollection.findOne<PolicyChunk>(
+      const chunkQuery = createTenantQuery(
         {
           policyId,
           pageNumber: 1,
           isActive: true,
         },
+        tenantId
+      );
+      const firstChunk = await chunksCollection.findOne<PolicyChunk>(
+        chunkQuery,
         { sort: { chunkIndex: 1 } }
       );
       if (firstChunk?.text) {
@@ -122,7 +120,9 @@ export async function POST(
       : 0;
 
     // Determine tagsStatus
-    const tagsStatus = overallConfidence >= 0.85 ? 'auto-approved' : 'needs-review';
+    // Always set to 'needs-review' for manual review, even if confidence is high
+    // Users can approve manually after reviewing the tags
+    const tagsStatus = 'needs-review';
 
     // Format response
     const aiTags = {
@@ -132,12 +132,14 @@ export async function POST(
     };
 
     // Update policy with AI tags
+    // Keep tagsStatus as 'needs-review' to ensure it appears in review queue
+    const updateQuery = createTenantQuery({ id: policyId }, tenantId);
     await policiesCollection.updateOne(
-      { id: policyId, tenantId },
+      updateQuery,
       {
         $set: {
           aiTags,
-          tagsStatus,
+          tagsStatus, // Always needs-review for manual approval
           updatedAt: new Date(),
         },
       }
@@ -155,4 +157,5 @@ export async function POST(
       { status: 500 }
     );
   }
+  }, { tenantScoped: true, permissionKey: 'policies.tag' })(request);
 }

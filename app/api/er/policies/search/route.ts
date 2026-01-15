@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withAuthTenant, createTenantQuery } from '@/lib/core/guards/withAuthTenant';
 import { getCollection } from '@/lib/db';
 import type { PolicyDocument, PolicyChunk } from '@/lib/models/Policy';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-export async function GET(request: NextRequest) {
+
+export const GET = withAuthTenant(async (req, { user, tenantId }) => {
   try {
-    const { searchParams } = new URL(request.url);
-    const query = searchParams.get('q') || '';
+    const { searchParams } = new URL(req.url);
+    const searchQuery = searchParams.get('q') || '';
     const category = searchParams.get('category');
     const limit = parseInt(searchParams.get('limit') || '10');
 
-    if (!query || query.trim().length === 0) {
+    if (!searchQuery || searchQuery.trim().length === 0) {
       return NextResponse.json(
         { error: 'Search query is required' },
         { status: 400 }
@@ -21,20 +23,23 @@ export async function GET(request: NextRequest) {
     const policiesCollection = await getCollection('policy_documents');
     const chunksCollection = await getCollection('policy_chunks');
     
-    // Build search query for documents
-    const documentQuery: any = {
+    // Build search query for documents with tenant isolation
+    const baseDocumentQuery: any = {
       isActive: true,
       processingStatus: 'completed',
     };
 
     if (category) {
-      documentQuery.category = category;
+      baseDocumentQuery.category = category;
     }
 
-    // Search in chunks using text index
-    const chunksQuery = {
-      $text: { $search: query },
+    const documentQuery = createTenantQuery(baseDocumentQuery, tenantId);
+
+    // Search in chunks using text index with tenant isolation
+    const baseChunksQuery: any = {
+      $text: { $search: searchQuery },
     };
+    const chunksQuery = createTenantQuery(baseChunksQuery, tenantId);
 
     // Find matching chunks
     const matchingChunks = await chunksCollection
@@ -55,17 +60,21 @@ export async function GET(request: NextRequest) {
     const documentIds = Array.from(chunksByDocument.keys());
 
     if (documentIds.length === 0) {
-      // Fallback: search in document titles
+      // Fallback: search in document titles with tenant isolation
+      const titleQuery = createTenantQuery(
+        {
+          ...baseDocumentQuery,
+          title: { $regex: searchQuery, $options: 'i' },
+        },
+        tenantId
+      );
       const titleMatches = await policiesCollection
-        .find<PolicyDocument>({
-          ...documentQuery,
-          title: { $regex: query, $options: 'i' },
-        })
+        .find<PolicyDocument>(titleQuery)
         .limit(limit)
         .toArray();
 
       return NextResponse.json({
-        query,
+        query: searchQuery,
         results: titleMatches.map(doc => ({
           document: {
             id: doc.id,
@@ -85,12 +94,16 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Get documents for matching chunks
-    const documents = await policiesCollection
-      .find<PolicyDocument>({
-        ...documentQuery,
+    // Get documents for matching chunks with tenant isolation
+    const documentsQuery = createTenantQuery(
+      {
+        ...baseDocumentQuery,
         documentId: { $in: documentIds },
-      })
+      },
+      tenantId
+    );
+    const documents = await policiesCollection
+      .find<PolicyDocument>(documentsQuery)
       .toArray();
 
     // Build results
@@ -106,9 +119,9 @@ export async function GET(request: NextRequest) {
         .slice(0, 3)
         .map((chunk: any) => {
           const text = chunk.text;
-          const index = text.toLowerCase().indexOf(query.toLowerCase());
+          const index = text.toLowerCase().indexOf(searchQuery.toLowerCase());
           const start = Math.max(0, index - 100);
-          const end = Math.min(text.length, index + query.length + 100);
+          const end = Math.min(text.length, index + searchQuery.length + 100);
           return '...' + text.substring(start, end) + '...';
         });
 
@@ -138,7 +151,7 @@ export async function GET(request: NextRequest) {
     results.sort((a, b) => b.relevanceScore - a.relevanceScore);
 
     return NextResponse.json({
-      query,
+      query: searchQuery,
       results: results.slice(0, limit),
       totalResults: results.length,
     });
@@ -149,4 +162,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { tenantScoped: true, permissionKey: 'er.policies.search' });
