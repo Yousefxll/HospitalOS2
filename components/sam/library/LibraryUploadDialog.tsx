@@ -166,6 +166,13 @@ export function LibraryUploadDialog({
   };
 
   const handleSubmit = async () => {
+    const ai = uploadMode === 'ai' && previewResults?.length ? previewResults[0] : null;
+    const resolvedEntityType = ai?.entityType || entityType;
+    const resolvedScope = ai?.scope || scope;
+    const resolvedDepartmentIds =
+      Array.isArray(ai?.departmentIds) && ai.departmentIds.length
+        ? ai.departmentIds
+        : departmentIds;
     // Validation
     if (files.length === 0) {
       toast({
@@ -176,7 +183,7 @@ export function LibraryUploadDialog({
       return;
     }
 
-    if ((classificationType === 'DepartmentSpecific' || classificationType === 'Shared') && departmentIds.length === 0) {
+    if ((classificationType === 'DepartmentSpecific' || classificationType === 'Shared') && resolvedDepartmentIds.length === 0) {
       toast({
         title: 'Error',
         description: 'Please select at least one department',
@@ -188,7 +195,7 @@ export function LibraryUploadDialog({
     setIsUploading(true);
 
     try {
-      // Step 1: Upload files to policy-engine
+    // Step 1: Upload files to policy-engine
       const formData = new FormData();
       
       // Add files
@@ -197,11 +204,9 @@ export function LibraryUploadDialog({
       });
 
       // Add classification metadata
-      formData.append('entityType', entityType);
-      formData.append('scope', scope);
-      if (departmentIds.length > 0) {
-        departmentIds.forEach(id => formData.append('departments[]', id));
-      }
+      formData.append('entityType', resolvedEntityType);
+      formData.append('scope', resolvedScope);
+      resolvedDepartmentIds.forEach(id => formData.append('departments[]', id));
       if (effectiveDate) formData.append('effectiveDate', effectiveDate);
       if (expiryDate) formData.append('expiryDate', expiryDate);
       if (version) formData.append('version', version);
@@ -234,13 +239,13 @@ export function LibraryUploadDialog({
               policyEngineId,
               metadata: {
                 title: files.find((_, i) => i === ingestData.jobs.indexOf(job))?.name.replace('.pdf', '') || '',
-                departmentIds,
-                scope,
+                departmentIds: resolvedDepartmentIds,
+                scope: resolvedScope,
                 tagsStatus,
                 effectiveDate: effectiveDate || undefined,
                 expiryDate: expiryDate || undefined,
                 version: version || undefined,
-                entityType,
+                entityType: resolvedEntityType,
               },
             }),
           });
@@ -305,7 +310,7 @@ export function LibraryUploadDialog({
       <Dialog open={open} onOpenChange={onClose}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Upload Policy Documents</DialogTitle>
+            <DialogTitle>Upload Documents</DialogTitle>
             <DialogDescription>
               {step === 1 ? 'Step 1: Classification' : 'Step 2: Select Files'}
             </DialogDescription>
