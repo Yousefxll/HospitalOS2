@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDefaultPermissionsForRole } from '@/lib/permissions';
+import { getDefaultPermissionsForRole, PERMISSIONS } from '@/lib/permissions';
 import { requireAuth } from '@/lib/auth/requireAuth';
 import { getUserPlatformAccess, computeEffectiveEntitlements, PlatformEntitlements } from '@/lib/entitlements';
 import { checkSubscription } from '@/lib/core/subscription/engine';
@@ -110,7 +110,14 @@ export async function GET(request: NextRequest) {
         role: user.role,
         department: user.department,
         staffId: user.staffId,
-        permissions: user.permissions || getDefaultPermissionsForRole(user.role),
+        // IMPORTANT:
+        // - Existing users may have a persisted permissions array that predates new modules.
+        // - Admins must always see the full app (UI + routes), so we grant all permissions keys.
+        // - Non-admins keep persisted permissions; fallback to role defaults if missing.
+        permissions:
+          user.role === 'admin'
+            ? PERMISSIONS.map((p) => p.key)
+            : (user.permissions || getDefaultPermissionsForRole(user.role)),
       },
       tenantId: activeTenantId, // Include activeTenantId in response for client-side access control
       tenantEntitlements: tenantEntitlements || {

@@ -1,277 +1,300 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { AlertCircle, User, CreditCard, Loader2 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { useTranslation } from '@/hooks/use-translation';
+import { useRoutePermission } from '@/lib/hooks/useRoutePermission';
+import { useLang } from '@/hooks/use-lang';
+import { cn } from '@/lib/utils';
 
-export default function ERRegisterPage() {
+type PatientResult = {
+  id: string;
+  mrn?: string | null;
+  tempMrn?: string | null;
+  fullName: string;
+  gender: string;
+  approxAge?: number | null;
+};
+
+export default function ErRegisterPage() {
   const router = useRouter();
-  const { toast } = useToast();
-  const { t } = useTranslation();
-  const isMobile = useIsMobile();
-  const [isLoading, setIsLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    nationalId: '',
-    iqama: '',
-    fullName: '',
-    dateOfBirth: '',
-    gender: '',
-    insuranceCompany: '',
-    policyClass: '',
-    eligibilityStatus: 'unknown',
-    paymentType: 'insurance',
-  });
+  const { isRTL } = useLang();
+  const { hasPermission, isLoading } = useRoutePermission('/er/register');
 
-  async function handleNafathLogin() {
-    // TODO: Integrate with Nafath API
-    toast({
-      title: 'Nafath Integration',
-      description: 'Nafath integration will be implemented here',
-    });
-  }
+  const [mode, setMode] = useState<'known' | 'unknown'>('known');
+  const [arrivalMethod, setArrivalMethod] = useState('WALKIN');
+  const [paymentStatus, setPaymentStatus] = useState('PENDING');
 
-  async function handleAbsherLogin() {
-    // TODO: Integrate with Absher API
-    toast({
-      title: 'Absher Integration',
-      description: 'Absher integration will be implemented here',
-    });
-  }
+  const [query, setQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<PatientResult[]>([]);
+  const [selectedPatient, setSelectedPatient] = useState<PatientResult | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setIsLoading(true);
+  const [unknownGender, setUnknownGender] = useState('UNKNOWN');
+  const [unknownAge, setUnknownAge] = useState('');
+  const [unknownName, setUnknownName] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
-    try {
-      const response = await fetch('/api/er/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        toast({
-          title: 'Registration Successful',
-          description: `ER Visit ID: ${data.erVisitId}`,
-        });
-        // Redirect to triage page
-        router.push(`/er/triage?erVisitId=${data.erVisitId}`);
-      } else {
-        throw new Error(data.error || 'Registration failed');
-      }
-    } catch (error: any) {
-      toast({
-        title: 'Registration Failed',
-        description: error.message || 'Failed to register patient',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
+  useEffect(() => {
+    if (!query.trim() || mode !== 'known') {
+      setSearchResults([]);
+      return;
     }
+
+    const timeout = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const res = await fetch(`/api/er/patients/search?query=${encodeURIComponent(query.trim())}`);
+        const data = await res.json();
+        setSearchResults(data.results || []);
+      } catch (err) {
+        setSearchResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timeout);
+  }, [query, mode]);
+
+  const canSubmitKnown = useMemo(() => Boolean(selectedPatient), [selectedPatient]);
+  const canSubmitUnknown = useMemo(() => Boolean(unknownGender), [unknownGender]);
+
+  const handleKnownSubmit = async () => {
+    if (!selectedPatient) return;
+    setSubmitting(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const res = await fetch('/api/er/encounters/known', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          patientId: selectedPatient.id,
+          arrivalMethod,
+          paymentStatus,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to register');
+      setSuccess('Encounter created');
+      router.push(`/er/triage/${data.encounter.id}`);
+    } catch (err: any) {
+      setError(err.message || 'Failed to register');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleUnknownSubmit = async () => {
+    setSubmitting(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const res = await fetch('/api/er/encounters/unknown', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gender: unknownGender,
+          approxAge: unknownAge ? Number(unknownAge) : null,
+          fullName: unknownName || null,
+          arrivalMethod,
+          paymentStatus,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to register');
+      setSuccess(`Unknown registered: ${data.patient.tempMrn}`);
+      router.push(`/er/triage/${data.encounter.id}`);
+    } catch (err: any) {
+      setError(err.message || 'Failed to register');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (isLoading || hasPermission === null) {
+    return null;
+  }
+
+  if (!hasPermission) {
+    return null;
   }
 
   return (
-    <div className="space-y-4 md:space-y-6">
-      {/* Header - Hidden on mobile (MobileTopBar shows it) */}
-      <div className="hidden md:block">
-        <h1 className="text-3xl font-bold">ER Patient Registration</h1>
-        <p className="text-muted-foreground">
-          Register patient for ER visit and link identity, insurance, and payment data
-        </p>
-      </div>
-
-      {/* Quick Login Options */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Quick Login</CardTitle>
-          <CardDescription>Login using Nafath or Absher to auto-fetch patient data</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <Button onClick={handleNafathLogin} variant="outline" className="flex-1 h-11">
-              <User className="mr-2 h-4 w-4" />
-              Login with Nafath
+    <div dir={isRTL ? 'rtl' : 'ltr'} className="p-6">
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold">ER Quick Registration</h1>
+            <p className="text-sm text-muted-foreground">Speed-first registration for ER arrivals.</p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant={mode === 'known' ? 'default' : 'outline'}
+              onClick={() => setMode('known')}
+            >
+              Known Patient
             </Button>
-            <Button onClick={handleAbsherLogin} variant="outline" className="flex-1 h-11">
-              <User className="mr-2 h-4 w-4" />
-              Login with Absher
+            <Button
+              variant={mode === 'unknown' ? 'default' : 'outline'}
+              onClick={() => setMode('unknown')}
+            >
+              Register Unknown
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Registration Form */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Patient Information</CardTitle>
-          <CardDescription>Enter patient details manually or use quick login above</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="nationalId">National ID</Label>
-                <Input
-                  id="nationalId"
-                  value={formData.nationalId}
-                  onChange={(e) => setFormData({ ...formData, nationalId: e.target.value })}
-                  placeholder="Enter National ID"
-                  className="h-11"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="iqama">Iqama</Label>
-                <Input
-                  id="iqama"
-                  value={formData.iqama}
-                  onChange={(e) => setFormData({ ...formData, iqama: e.target.value })}
-                  placeholder="Enter Iqama"
-                  className="h-11"
-                />
-              </div>
-            </div>
-
+        <Card>
+          <CardHeader>
+            <CardTitle>Arrival Details</CardTitle>
+            <CardDescription>Set method and payment status.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
-              <Label htmlFor="fullName">Full Name *</Label>
-              <Input
-                id="fullName"
-                value={formData.fullName}
-                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                required
-                placeholder="Enter full name"
-                className="h-11"
-              />
+              <Label>Arrival Method</Label>
+              <div className="flex flex-wrap gap-2">
+                {['WALKIN', 'AMBULANCE', 'TRANSFER'].map((method) => (
+                  <Button
+                    key={method}
+                    variant={arrivalMethod === method ? 'default' : 'outline'}
+                    onClick={() => setArrivalMethod(method)}
+                  >
+                    {method}
+                  </Button>
+                ))}
+              </div>
             </div>
+            <div className="space-y-2">
+              <Label>Payment</Label>
+              <div className="flex flex-wrap gap-2">
+                {['PENDING', 'INSURANCE', 'CASH'].map((status) => (
+                  <Button
+                    key={status}
+                    variant={paymentStatus === status ? 'default' : 'outline'}
+                    onClick={() => setPaymentStatus(status)}
+                  >
+                    {status}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {mode === 'known' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Known Patient</CardTitle>
+              <CardDescription>Search by MRN or name.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="dateOfBirth">Date of Birth *</Label>
+                <Label>Search</Label>
                 <Input
-                  id="dateOfBirth"
-                  type="date"
-                  value={formData.dateOfBirth}
-                  onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
-                  required
-                  className="h-11"
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setSelectedPatient(null);
+                  }}
+                  placeholder="MRN or patient name"
                 />
+                {isSearching && <p className="text-xs text-muted-foreground">Searching...</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="gender">Gender *</Label>
-                <Select
-                  value={formData.gender}
-                  onValueChange={(value) => setFormData({ ...formData, gender: value })}
-                >
-                  <SelectTrigger className="h-11">
-                    <SelectValue placeholder="Select gender" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Male">Male</SelectItem>
-                    <SelectItem value="Female">Female</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Insurance Section */}
-            <div className="border-t pt-4">
-              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <CreditCard className="h-5 w-5" />
-                Insurance Information
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="insuranceCompany">Insurance Company</Label>
-                  <Input
-                    id="insuranceCompany"
-                    value={formData.insuranceCompany}
-                    onChange={(e) => setFormData({ ...formData, insuranceCompany: e.target.value })}
-                    placeholder="e.g., Bupa, Tawuniya"
-                    className="h-11"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="policyClass">Policy Class</Label>
-                  <Input
-                    id="policyClass"
-                    value={formData.policyClass}
-                    onChange={(e) => setFormData({ ...formData, policyClass: e.target.value })}
-                    placeholder="e.g., Gold, Silver"
-                    className="h-11"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                <div className="space-y-2">
-                  <Label htmlFor="eligibilityStatus">Eligibility Status</Label>
-                  <Select
-                    value={formData.eligibilityStatus}
-                    onValueChange={(value) => setFormData({ ...formData, eligibilityStatus: value })}
-                  >
-                    <SelectTrigger className="h-11">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="eligible">Eligible</SelectItem>
-                      <SelectItem value="not-eligible">Not Eligible</SelectItem>
-                      <SelectItem value="unknown">Unknown</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="paymentType">Payment Type</Label>
-                  <Select
-                    value={formData.paymentType}
-                    onValueChange={(value) => setFormData({ ...formData, paymentType: value })}
-                  >
-                    <SelectTrigger className="h-11">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="insurance">Insurance</SelectItem>
-                      <SelectItem value="self-pay">Self-Pay</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex gap-4 pt-4">
-              <Button type="submit" disabled={isLoading} className="flex-1 h-11">
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Registering...
-                  </>
-                ) : (
-                  <>
-                    <AlertCircle className="mr-2 h-4 w-4" />
-                    Register Patient
-                  </>
+                {searchResults.map((patient) => {
+                  const isSelected = selectedPatient?.id === patient.id;
+                  return (
+                    <button
+                      key={patient.id}
+                      type="button"
+                      onClick={() => setSelectedPatient(patient)}
+                      className={cn(
+                        'w-full text-left rounded-lg border px-4 py-3 transition',
+                        isSelected ? 'border-primary bg-primary/5' : 'hover:bg-muted'
+                      )}
+                    >
+                      <div className="flex justify-between">
+                        <span className="font-medium">{patient.fullName}</span>
+                        <span className="text-xs text-muted-foreground">{patient.mrn || patient.tempMrn}</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {patient.gender} {patient.approxAge ? `• ${patient.approxAge} yrs` : ''}
+                      </div>
+                    </button>
+                  );
+                })}
+                {!isSearching && query.trim() && searchResults.length === 0 && (
+                  <p className="text-xs text-muted-foreground">No matches found.</p>
                 )}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+              </div>
+              <div className="flex items-center gap-3">
+                <Button disabled={!canSubmitKnown || submitting} onClick={handleKnownSubmit}>
+                  Create Encounter
+                </Button>
+                <Button variant="outline">Print Wristband (stub)</Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {mode === 'unknown' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Unknown Patient</CardTitle>
+              <CardDescription>Minimal fields for speed.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="space-y-2">
+                  <Label>Gender</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {['MALE', 'FEMALE', 'UNKNOWN'].map((gender) => (
+                      <Button
+                        key={gender}
+                        variant={unknownGender === gender ? 'default' : 'outline'}
+                        onClick={() => setUnknownGender(gender)}
+                      >
+                        {gender}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Approx. Age</Label>
+                  <Input
+                    value={unknownAge}
+                    onChange={(e) => setUnknownAge(e.target.value)}
+                    placeholder="Optional"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Name (optional)</Label>
+                  <Input
+                    value={unknownName}
+                    onChange={(e) => setUnknownName(e.target.value)}
+                    placeholder="Optional"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <Button disabled={!canSubmitUnknown || submitting} onClick={handleUnknownSubmit}>
+                  Register Unknown
+                </Button>
+                <Button variant="outline">Print Wristband (stub)</Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {error && <p className="text-sm text-destructive">{error}</p>}
+        {success && <p className="text-sm text-emerald-600">{success}</p>}
+      </div>
     </div>
   );
 }
-

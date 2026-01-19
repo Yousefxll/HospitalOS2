@@ -1,0 +1,239 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("MONGO_URL")
+}
+
+enum UserRole {
+  OWNER
+  ER_RECEPTION
+  ER_NURSE
+  ER_DOCTOR
+  ER_ADMIN
+}
+
+enum PatientGender {
+  MALE
+  FEMALE
+  UNKNOWN
+}
+
+enum EncounterType {
+  ER
+  OPD
+  IPD
+}
+
+enum EncounterStatus {
+  ARRIVED
+  REGISTERED
+  TRIAGED
+  WAITING_BED
+  IN_BED
+  SEEN_BY_DOCTOR
+  ORDERS_IN_PROGRESS
+  RESULTS_PENDING
+  DECISION
+  DISCHARGED
+  ADMITTED
+  TRANSFERRED
+  CANCELLED
+}
+
+enum ArrivalMethod {
+  WALKIN
+  AMBULANCE
+  TRANSFER
+}
+
+enum PaymentStatus {
+  INSURANCE
+  CASH
+  PENDING
+}
+
+enum BedState {
+  VACANT
+  OCCUPIED
+  CLEANING
+  RESERVED
+}
+
+enum StaffAssignmentRole {
+  PRIMARY_DOCTOR
+  PRIMARY_NURSE
+  TRIAGE_NURSE
+}
+
+model Tenant {
+  id          String   @id @default(uuid())
+  name        String
+  createdAt   DateTime @default(now())
+  users       User[]
+  patients    Patient[]
+  encounters  Encounter[]
+  beds        ErBed[]
+  auditLogs   AuditLog[]
+  integrations IntegrationSetting[]
+
+  @@map("tenants")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String
+  role      UserRole
+  createdAt DateTime @default(now())
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@map("users")
+}
+
+model Patient {
+  id         String        @id @default(uuid())
+  tenantId   String
+  mrn        String?
+  tempMrn    String?
+  isUnknown  Boolean       @default(false)
+  fullName   String
+  gender     PatientGender
+  dob        DateTime?
+  approxAge  Int?
+  nationalId String?
+  createdAt  DateTime      @default(now())
+  tenant     Tenant        @relation(fields: [tenantId], references: [id])
+  encounters Encounter[]
+
+  @@index([tenantId])
+  @@index([mrn])
+  @@index([tempMrn])
+  @@map("patients")
+}
+
+model Encounter {
+  id             String          @id @default(uuid())
+  tenantId       String
+  patientId      String
+  type           EncounterType
+  status         EncounterStatus
+  arrivalMethod  ArrivalMethod
+  paymentStatus  PaymentStatus
+  triageLevel    Int?
+  chiefComplaint String?
+  startedAt      DateTime
+  closedAt       DateTime?
+  createdByUserId String
+  updatedAt      DateTime        @updatedAt
+  tenant        Tenant          @relation(fields: [tenantId], references: [id])
+  patient       Patient         @relation(fields: [patientId], references: [id])
+  triage        TriageAssessment?
+  bedAssignments ErBedAssignment[]
+  staffAssignments StaffAssignment[]
+
+  @@index([tenantId])
+  @@index([patientId])
+  @@index([status])
+  @@map("encounters")
+}
+
+model TriageAssessment {
+  id             String   @id @default(uuid())
+  encounterId    String
+  nurseId        String
+  painScore      Int?
+  vitals         Json
+  allergiesShort String?
+  chronicShort   String?
+  triageStartAt  DateTime
+  triageEndAt    DateTime?
+  aiSuggestedLevel Int?
+  createdAt      DateTime @default(now())
+  encounter      Encounter @relation(fields: [encounterId], references: [id])
+  nurse          User      @relation(fields: [nurseId], references: [id])
+
+  @@index([encounterId])
+  @@map("triage_assessments")
+}
+
+model ErBed {
+  id        String   @id @default(uuid())
+  tenantId  String
+  zone      String
+  bedLabel  String
+  state     BedState
+  updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  assignments ErBedAssignment[]
+
+  @@index([tenantId])
+  @@index([zone])
+  @@map("er_beds")
+}
+
+model ErBedAssignment {
+  id              String   @id @default(uuid())
+  encounterId     String
+  bedId           String
+  assignedAt      DateTime
+  unassignedAt    DateTime?
+  assignedByUserId String
+  encounter       Encounter @relation(fields: [encounterId], references: [id])
+  bed             ErBed     @relation(fields: [bedId], references: [id])
+  assignedBy      User      @relation(fields: [assignedByUserId], references: [id])
+
+  @@index([encounterId])
+  @@index([bedId])
+  @@map("er_bed_assignments")
+}
+
+model StaffAssignment {
+  id           String   @id @default(uuid())
+  encounterId  String
+  userId       String
+  role         StaffAssignmentRole
+  assignedAt   DateTime
+  unassignedAt DateTime?
+  encounter    Encounter @relation(fields: [encounterId], references: [id])
+  user         User      @relation(fields: [userId], references: [id])
+
+  @@index([encounterId])
+  @@index([userId])
+  @@map("staff_assignments")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  tenantId   String
+  userId     String
+  entityType String
+  entityId   String
+  action     String
+  before     Json?
+  after      Json?
+  ip         String?
+  createdAt  DateTime @default(now())
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@index([tenantId])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
+
+model IntegrationSetting {
+  id         String   @id @default(uuid())
+  tenantId   String
+  samEnabled Boolean  @default(false)
+  samSecret  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@map("integration_settings")
+}

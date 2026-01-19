@@ -36,6 +36,23 @@ SYRA is an enterprise-grade policy and procedure management system built with Ne
   - Export to Excel functionality
   - Utilization rate visualization with color coding
 
+### ✅ Phase 7: ER Module (SYRA Health)
+- **ER Quick Registration**
+  - Known/unknown patient flow
+  - Speed-first form with minimal fields
+- **Triage**
+  - Live autosave
+  - Rule-based triage level (1-5) with critical flagging
+- **ER Tracking Board**
+  - Polling-ready (5s refresh)
+  - Filtered views for reception/nursing/doctor roles
+- **ER Encounter Workspace**
+  - Tabs for overview, notes, nursing, orders/results placeholders
+  - Live notes autosave
+- **Bed Map**
+  - Assign/unassign beds with validation
+  - Encounter status sync
+
 ### ✅ Phase 4: Equipment Module
 - **Equipment Master**
   - Central registry of all equipment
@@ -128,6 +145,18 @@ SYRA is an enterprise-grade policy and procedure management system built with Ne
    yarn dev
    ```
 
+### ER Module Setup
+
+1. **Initialize ER collections + indexes**
+   ```bash
+   ER_TENANT_ID=<tenantId> yarn migrate:er-init
+   ```
+
+2. **Seed ER demo data**
+   ```bash
+   ER_TENANT_ID=<tenantId> yarn seed:er-demo
+   ```
+
 7. **Access the application**
    - Open `http://localhost:3000/login`
    - Default credentials:
@@ -185,6 +214,7 @@ See `.env.example` for all available options.
 │   ├── (dashboard)/          # Protected dashboard routes
 │   │   ├── dashboard/        # Main dashboard
 │   │   ├── opd/             # OPD modules
+│   │   ├── er/              # ER module
 │   │   ├── equipment/       # Equipment modules
 │   │   ├── admin/           # Admin modules
 │   │   ├── policies/        # Policy library
@@ -193,6 +223,7 @@ See `.env.example` for all available options.
 │   │   ├── auth/           # Authentication endpoints
 │   │   ├── admin/          # Admin endpoints
 │   │   ├── opd/            # OPD endpoints
+│   │   ├── er/             # ER endpoints
 │   │   ├── policies/       # Policy endpoints
 │   │   └── equipment/      # Equipment endpoints
 │   ├── login/              # Login page

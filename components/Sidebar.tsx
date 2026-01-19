@@ -94,10 +94,9 @@ const getNavItems = (t: any): NavItem[] => {
       title: nav.er || 'Emergency Room',
       icon: AlertCircle,
       children: [
-        { title: nav.patientRegistration || 'Patient Registration', href: '/er/register', icon: AlertCircle },
-        { title: nav.triage || 'Triage', href: '/er/triage', icon: Activity },
-        { title: nav.disposition || 'Disposition', href: '/er/disposition', icon: Bed },
-        { title: nav.progressNote || 'Progress Note', href: '/er/progress-note', icon: FileText },
+        { title: nav.erRegister || 'Registration', href: '/er/register', icon: AlertCircle },
+        { title: nav.erBoard || 'Tracking Board', href: '/er/board', icon: Activity },
+        { title: nav.erBeds || 'Beds', href: '/er/beds', icon: Bed },
       ],
     },
     {
@@ -154,15 +153,15 @@ const getNavItems = (t: any): NavItem[] => {
       ],
     },
     {
-      title: nav.policySystem || 'Policy System',
+      title: nav.policySystem || 'Document System',
       icon: FileText,
       children: [
-        { title: nav.library || 'Library', href: '/policies', icon: FileText },
-        { title: nav.policyConflicts || 'Conflicts', href: '/policies/conflicts', icon: FileText },
-        { title: nav.policyCreate || 'Create', href: '/policies/create', icon: FileText },
-        { title: nav.policyAssistant || 'Policy Assistant', href: '/ai/policy-assistant', icon: FileText },
-        { title: nav.newPolicyCreator || 'New Policy Creator', href: '/ai/new-policy-from-scratch', icon: FileText },
-        { title: nav.policyHarmonization || 'Policy Harmonization', href: '/ai/policy-harmonization', icon: FileText },
+        { title: nav.library || 'Library', href: '/library', icon: FileText },
+        { title: nav.policyConflicts || 'Conflicts', href: '/integrity', icon: FileText },
+        { title: nav.policyCreate || 'Create', href: '/builder', icon: FileText },
+        { title: nav.policyAssistant || 'Document Assistant', href: '/assistant', icon: FileText },
+        { title: nav.newPolicyCreator || 'New Document Creator', href: '/creator', icon: FileText },
+        { title: nav.policyHarmonization || 'Document Alignment', href: '/alignment', icon: FileText },
       ],
     },
     {
