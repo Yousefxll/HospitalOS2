@@ -10,8 +10,9 @@ export const revalidate = 0;
 
 export const PATCH = withAuthTenant(async (req, { tenantId, userId }, params) => {
   try {
-    const documentId = params?.documentId as string | undefined;
-    const taskId = params?.taskId as string | undefined;
+    const routeParams = await (params as any);
+    const documentId = routeParams?.documentId as string | undefined;
+    const taskId = routeParams?.taskId as string | undefined;
     if (!documentId || !taskId) {
       return NextResponse.json({ error: 'Document ID and task ID are required' }, { status: 400 });
     }
@@ -109,8 +110,9 @@ export const PATCH = withAuthTenant(async (req, { tenantId, userId }, params) =>
 
 export const DELETE = withAuthTenant(async (req, { tenantId }, params) => {
   try {
-    const documentId = params?.documentId as string | undefined;
-    const taskId = params?.taskId as string | undefined;
+    const routeParams = await (params as any);
+    const documentId = routeParams?.documentId as string | undefined;
+    const taskId = routeParams?.taskId as string | undefined;
     if (!documentId || !taskId) {
       return NextResponse.json({ error: 'Document ID and task ID are required' }, { status: 400 });
     }

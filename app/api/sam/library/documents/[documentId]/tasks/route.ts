@@ -11,7 +11,8 @@ export const revalidate = 0;
 
 export const POST = withAuthTenant(async (req, { tenantId, userId }, params) => {
   try {
-    const documentId = params?.documentId as string | undefined;
+    const routeParams = await (params as any);
+    const documentId = routeParams?.documentId as string | undefined;
     if (!documentId) {
       return NextResponse.json({ error: 'Document ID is required' }, { status: 400 });
     }
@@ -99,7 +100,8 @@ export const POST = withAuthTenant(async (req, { tenantId, userId }, params) => 
 
 export const GET = withAuthTenant(async (req, { tenantId }, params) => {
   try {
-    const documentId = params?.documentId as string | undefined;
+    const routeParams = await (params as any);
+    const documentId = routeParams?.documentId as string | undefined;
     if (!documentId) {
       return NextResponse.json({ error: 'Document ID is required' }, { status: 400 });
     }
