@@ -63,7 +63,9 @@ export const POST = withAuthTenant(async (req, { tenantId, userId }) => {
     chronicShort: body.chronicShort ?? null,
     onset: body.onset ?? existing?.onset ?? null,
     triageStartAt: existing?.triageStartAt || now,
-    triageEndAt: body.isComplete ? now : existing?.triageEndAt ?? null,
+    // Autosave only: do not mark completion or set triageEndAt here.
+    triageEndAt: existing?.triageEndAt ?? null,
+    isComplete: Boolean(existing?.isComplete) || Boolean(existing?.triageEndAt),
     aiSuggestedLevel: null,
     critical: calc.critical,
     createdAt: existing?.createdAt || now,
@@ -80,9 +82,10 @@ export const POST = withAuthTenant(async (req, { tenantId, userId }) => {
     chiefComplaint: body.chiefComplaint ?? encounter.chiefComplaint ?? null,
     updatedAt: now,
   };
-
-  if (canTransitionStatus(encounter.status, calc.statusAfterSave)) {
-    encounterUpdate.status = calc.statusAfterSave;
+  // Enter triage-in-progress deterministically on first autosave from REGISTERED.
+  if (canTransitionStatus(encounter.status, 'TRIAGE_IN_PROGRESS' as any)) {
+    encounterUpdate.status = 'TRIAGE_IN_PROGRESS';
+    if (!encounter.triageStartedAt) encounterUpdate.triageStartedAt = now;
   }
 
   await encounters.updateOne({ tenantId, id: body.encounterId }, { $set: encounterUpdate });
@@ -93,7 +96,7 @@ export const POST = withAuthTenant(async (req, { tenantId, userId }) => {
     tenantId,
     userId,
     entityType: 'triage',
-    entityId: triageDoc.id,
+    entityId: body.encounterId,
     action: existing ? 'UPDATE' : 'CREATE',
     before: existing || null,
     after: triageDoc,
