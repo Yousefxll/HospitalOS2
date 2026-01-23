@@ -41,7 +41,17 @@ export type AuditAction =
   | 'account_locked'
   | 'account_unlocked'
   | 'password_change'
-  | 'password_reset';
+  | 'password_reset'
+  | 'org_profile_updated'
+  | 'queue_item_ack'
+  | 'queue_item_assign'
+  | 'queue_item_resolve'
+  | 'queue_item_snooze'
+  | 'draft_created'
+  | 'draft_version_created'
+  | 'draft_reused_from_group'
+  | 'draft_published'
+  | 'integrity_reset';
 
 export type AuditResourceType =
   | 'user'
@@ -53,7 +63,10 @@ export type AuditResourceType =
   | 'policy'
   | 'data_export'
   | 'data_import'
-  | 'system';
+  | 'system'
+  | 'organization_profile'
+  | 'queue_item'
+  | 'draft_document';
 
 export interface AuditLog {
   _id?: ObjectId;
