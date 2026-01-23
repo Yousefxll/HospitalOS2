@@ -20,6 +20,7 @@ import {
   Activity,
   Database,
   AlertCircle,
+  ClipboardList,
   Heart,
   Bell,
   BarChart3,
@@ -40,6 +41,7 @@ import { usePlatform } from '@/lib/hooks/usePlatform';
 import { useTranslation } from '@/hooks/use-translation';
 import { translations } from '@/lib/i18n';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { canAccessChargeConsole } from '@/lib/er/chargeAccess';
 import {
   Sheet,
   SheetContent,
@@ -71,9 +73,16 @@ const getNavItems = (t: any): NavItem[] => {
       icon: Bell,
     },
     {
+      title: (nav as any).registration || 'Registration',
+      href: '/registration',
+      icon: ClipboardList,
+    },
+    {
       title: nav.opdDashboard || 'OPD Dashboard',
       icon: Stethoscope,
       children: [
+        { title: (nav as any).opdRegister || 'OPD Registration', href: '/opd/register', icon: AlertCircle },
+        { title: (nav as any).opdQueue || 'OPD Queue', href: '/opd/queue', icon: ClipboardList },
         { title: nav.overview || 'Overview', href: '/opd/dashboard', icon: Activity },
         { title: nav.clinicCensus || 'Clinic Daily Census', href: '/opd/clinic-daily-census', icon: Activity },
         { title: nav.performanceComparison || 'Performance Comparison', href: '/opd/dept-view', icon: Activity },
@@ -96,6 +105,11 @@ const getNavItems = (t: any): NavItem[] => {
       children: [
         { title: nav.erRegister || 'Registration', href: '/er/register', icon: AlertCircle },
         { title: nav.erBoard || 'Tracking Board', href: '/er/board', icon: Activity },
+        { title: (nav as any).erNursing || 'Nursing Hub', href: '/er/nursing', icon: ClipboardList },
+        { title: (nav as any).erCharge || 'Charge Console', href: '/er/charge', icon: Users },
+        { title: (nav as any).erAlerts || 'ER Alerts', href: '/er/notifications', icon: Bell },
+        { title: (nav as any).erCommand || 'ER Command', href: '/er/command', icon: BarChart3 },
+        { title: (nav as any).erDoctor || 'Doctor Hub', href: '/er/doctor', icon: Stethoscope },
         { title: nav.erBeds || 'Beds', href: '/er/beds', icon: Bed },
       ],
     },
@@ -112,15 +126,6 @@ const getNavItems = (t: any): NavItem[] => {
         { title: nav.setup || 'Setup', href: '/patient-experience/setup', icon: Database },
         { title: nav.seedData || 'Seed Data', href: '/patient-experience/seed-data', icon: Database },
         { title: nav.deleteAllData || 'Delete All Data', href: '/patient-experience/delete-all-data', icon: Trash2 },
-      ],
-    },
-    {
-      title: nav.ipd || 'Inpatient Department',
-      icon: Bed,
-      children: [
-        { title: nav.bedSetup || 'Bed Setup', href: '/ipd/bed-setup', icon: Bed },
-        { title: nav.liveBeds || 'Live Beds', href: '/ipd/live-beds', icon: Bed },
-        { title: nav.departmentInput || 'Department Input', href: '/ipd/inpatient-dept-input', icon: Bed },
       ],
     },
     {
@@ -269,7 +274,7 @@ function NavItemComponent({
   }
 
   const isActive = pathname === item.href;
-  const showBadge = item.href === '/notifications' && unreadCount > 0;
+  const showBadge = (item.href === '/notifications' || item.href === '/er/notifications') && unreadCount > 0;
 
   return (
     <Link
@@ -318,6 +323,7 @@ interface SidebarProps {
 export default function Sidebar({ onLinkClick, sidebarOpen, setSidebarOpen }: SidebarProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [erUnreadCount, setErUnreadCount] = useState(0);
   const [mounted, setMounted] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const { isRTL, language } = useLang();
@@ -327,9 +333,26 @@ export default function Sidebar({ onLinkClick, sidebarOpen, setSidebarOpen }: Si
   const { me } = useMe();
   const { platform: platformData } = usePlatform();
 
+  const normalizeTenantKey = (value: string | null | undefined) =>
+    String(value || '')
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, '');
+
   // Extract user data from me
   const userRole = me?.user?.role || null;
   const userPermissions = me?.user?.permissions || [];
+  const activeTenantId = me?.tenantId || null;
+  const isDeveloperSuperAdmin =
+    String(me?.user?.email || '').trim().toLowerCase() === 'tak@syra.com.a' ||
+    activeTenantId === '1' ||
+    normalizeTenantKey(activeTenantId).includes('TAKSYRA') ||
+    normalizeTenantKey(activeTenantId).includes('HMGTAK');
+  const isChargeOrDev = canAccessChargeConsole({
+    email: me?.user?.email,
+    tenantId: activeTenantId,
+    role: me?.user?.role,
+  });
   const platform = platformData?.platform === 'sam' || platformData?.platform === 'health' ? platformData.platform : null;
   
   // Get effective entitlements to check SAM access
@@ -394,6 +417,30 @@ export default function Sidebar({ onLinkClick, sidebarOpen, setSidebarOpen }: Si
     return () => clearInterval(interval);
   }, [mounted]);
 
+  useEffect(() => {
+    if (!mounted) return;
+    if (!isChargeOrDev) {
+      setErUnreadCount(0);
+      return;
+    }
+    async function fetchErUnread() {
+      try {
+        const response = await fetch('/api/er/notifications', { credentials: 'include' as any });
+        if (response.ok) {
+          const data = await response.json();
+          setErUnreadCount(data.unreadCount || 0);
+        } else if (response.status === 401 || response.status === 403) {
+          setErUnreadCount(0);
+        }
+      } catch {
+        // best-effort only
+      }
+    }
+    fetchErUnread();
+    const interval = setInterval(fetchErUnread, 30000);
+    return () => clearInterval(interval);
+  }, [mounted, isChargeOrDev]);
+
   // Close sidebar when clicking outside
   useEffect(() => {
     if (!mounted || !isExpanded) return;
@@ -442,7 +489,10 @@ export default function Sidebar({ onLinkClick, sidebarOpen, setSidebarOpen }: Si
     }
     
     // Define platform-specific route prefixes
-    const SAM_ROUTES = ['/policies', '/demo-limit', '/ai', '/sam'];
+    const SAM_ROUTES = [
+      '/sam',
+      '/platforms/sam',
+    ];
     const HEALTH_ROUTES = ['/dashboard', '/opd', '/nursing', '/scheduling', '/er', '/patient-experience', '/ipd', '/equipment', '/ipd-equipment', '/notifications'];
     const COMMON_ROUTES = ['/account'];
     
@@ -516,9 +566,9 @@ export default function Sidebar({ onLinkClick, sidebarOpen, setSidebarOpen }: Si
       if (!filteredItem) return null;
       
       // Filter single items (no children) by permissions
-      // For syra-owner, skip permission checks (owner has access to everything)
+      // For syra-owner (and dev super-admin), skip permission checks
       if (filteredItem.href && !filteredItem.children) {
-        if (userRole !== 'syra-owner') {
+        if (userRole !== 'syra-owner' && !isDeveloperSuperAdmin) {
           const hasPermission = hasRoutePermission(userPermissions, filteredItem.href);
           if (!hasPermission) {
             return null; // Hide this item
@@ -528,11 +578,11 @@ export default function Sidebar({ onLinkClick, sidebarOpen, setSidebarOpen }: Si
       }
       
       // Filter items with children by permissions
-      // For syra-owner, skip permission checks (owner has access to everything)
+      // For syra-owner (and dev super-admin), skip permission checks
       if (filteredItem.children) {
         const filteredChildren = filteredItem.children.filter(child => {
           if (!child.href) return true; // Keep items without href
-          if (userRole === 'syra-owner') return true; // Owner has access to everything
+          if (userRole === 'syra-owner' || isDeveloperSuperAdmin) return true; // Owner/dev has access to everything
           return hasRoutePermission(userPermissions, child.href);
         });
         
@@ -631,7 +681,7 @@ export default function Sidebar({ onLinkClick, sidebarOpen, setSidebarOpen }: Si
                     setIsExpanded(false);
                   }
                 }}
-                unreadCount={unreadCount}
+                unreadCount={item.href === '/er/notifications' ? erUnreadCount : unreadCount}
               />
             ))
           ) : (

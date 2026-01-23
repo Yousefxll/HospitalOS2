@@ -30,6 +30,7 @@ import {
   Building2,
   Upload,
   Users,
+  ClipboardList,
 } from 'lucide-react';
 
 export interface NavigationModule {
@@ -64,6 +65,15 @@ export const NAVIGATION_MODULES: NavigationModule[] = [
     requiredPermission: 'notifications.view',
     icon: Bell,
     category: 'Main',
+  },
+  {
+    id: 'registration',
+    titleKey: 'registration',
+    descriptionKey: 'registrationDescription',
+    href: '/registration',
+    requiredPermission: 'registration.view',
+    icon: ClipboardList,
+    category: 'Hospital Core',
   },
   {
     id: 'opd-dashboard',
@@ -219,24 +229,6 @@ export const NAVIGATION_MODULES: NavigationModule[] = [
     category: 'Patient Experience',
   },
   {
-    id: 'ipd-bed-setup',
-    titleKey: 'bedSetup',
-    descriptionKey: 'bedSetupDescription',
-    href: '/ipd/bed-setup',
-    requiredPermission: 'ipd.bed-setup.view',
-    icon: Bed,
-    category: 'Inpatient',
-  },
-  {
-    id: 'ipd-live-beds',
-    titleKey: 'liveBeds',
-    descriptionKey: 'liveBedsDescription',
-    href: '/ipd/live-beds',
-    requiredPermission: 'ipd.live-beds.view',
-    icon: Bed,
-    category: 'Inpatient',
-  },
-  {
     id: 'equipment-master',
     titleKey: 'master',
     descriptionKey: 'equipmentMasterDescription',
@@ -271,24 +263,6 @@ export const NAVIGATION_MODULES: NavigationModule[] = [
     requiredPermission: 'nursing.operations.view',
     icon: Activity,
     category: 'Nursing',
-  },
-  {
-    id: 'policies',
-    titleKey: 'library',
-    descriptionKey: 'policiesDescription',
-    href: '/policies',
-    requiredPermission: 'policies.view',
-    icon: FileText,
-    category: 'Policies',
-  },
-  {
-    id: 'policies-conflicts',
-    titleKey: 'policyConflicts',
-    descriptionKey: 'policyConflictsDescription',
-    href: '/policies/conflicts',
-    requiredPermission: 'policies.conflicts.view',
-    icon: FileText,
-    category: 'Policies',
   },
   {
     id: 'admin-data-admin',

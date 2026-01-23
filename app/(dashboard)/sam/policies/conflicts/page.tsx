@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,7 +34,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { PolicyQuickNav } from '@/components/policies/PolicyQuickNav';
 
 interface Policy {
   policyId: string;
@@ -70,6 +70,8 @@ interface AIIssue {
 
 export default function PoliciesConflictsPage() {
   const { t } = useTranslation();
+  const searchParams = useSearchParams();
+  const autoRunRef = useRef(false);
   const [mode, setMode] = useState<'single' | 'pair' | 'global'>('single');
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [selectedPolicyA, setSelectedPolicyA] = useState<string>('');
@@ -91,9 +93,47 @@ export default function PoliciesConflictsPage() {
   const [pendingRewritePolicies, setPendingRewritePolicies] = useState<Array<{ policyId: string; filename: string; issueCount: number }>>([]);
   const [currentRewriteIndex, setCurrentRewriteIndex] = useState(0);
   const { toast } = useToast();
+  const sourceIdFilter = searchParams?.get('sourceId');
+
+  const filteredIssues = useMemo(() => {
+    if (!sourceIdFilter) return issues;
+    return issues.filter((issue) => {
+      return issue.policyA?.policyId === sourceIdFilter || issue.policyB?.policyId === sourceIdFilter;
+    });
+  }, [issues, sourceIdFilter]);
+
+  useEffect(() => {
+    const queueType = searchParams?.get('queueType');
+    const sourceId = searchParams?.get('sourceId');
+    const modeParam = searchParams?.get('mode');
+    const categoryParam = searchParams?.get('category');
+    if (modeParam === 'single' || modeParam === 'pair' || modeParam === 'global') {
+      setMode(modeParam);
+    } else if (queueType === 'conflicts_to_review') {
+      setMode(sourceId ? 'single' : 'global');
+    }
+    if (sourceId) {
+      setSelectedPolicyA(sourceId);
+    }
+    if (categoryParam) {
+      setCategory(categoryParam);
+    } else if (queueType === 'conflicts_to_review') {
+      setCategory('CONFLICT');
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const queueType = searchParams?.get('queueType');
+    if (!queueType || autoRunRef.current) return;
+    if (queueType !== 'conflicts_to_review') return;
+    if (isScanning) return;
+    if (mode === 'single' && !selectedPolicyA) return;
+    autoRunRef.current = true;
+    handleScan();
+  }, [searchParams, mode, selectedPolicyA, isScanning]);
 
   // AI Review state
-  const [aiQuery, setAiQuery] = useState('Find conflicts, gaps, and risks in these policies');
+  const [aiQuery, setAiQuery] = useState('Find conflicts, gaps, and risks in these documents');
   const [selectedPoliciesForAI, setSelectedPoliciesForAI] = useState<string[]>([]);
   const [isAIRunning, setIsAIRunning] = useState(false);
   const [aiIssues, setAiIssues] = useState<AIIssue[]>([]);
@@ -190,7 +230,7 @@ export default function PoliciesConflictsPage() {
   useEffect(() => {
     async function fetchPolicies() {
       try {
-        const response = await fetch('/api/policy-engine/policies', {
+        const response = await fetch('/api/sam/policy-engine/policies', {
           credentials: 'include',
         });
         if (response.ok) {
@@ -221,7 +261,7 @@ export default function PoliciesConflictsPage() {
     if (mode === 'pair' && (!selectedPolicyA || !selectedPolicyB)) {
       toast({
         title: t.common.error,
-        description: 'Please select both policies',
+        description: 'Please select both documents',
         variant: 'destructive',
       });
       return;
@@ -231,7 +271,7 @@ export default function PoliciesConflictsPage() {
     setIssues([]);
 
     try {
-      const response = await fetch('/api/policy-engine/conflicts', {
+      const response = await fetch('/api/sam/policy-engine/conflicts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -259,7 +299,7 @@ export default function PoliciesConflictsPage() {
     } catch (error: any) {
       toast({
         title: t.common.error,
-        description: error.message || 'Failed to scan policies',
+        description: error.message || 'Failed to scan documents',
         variant: 'destructive',
       });
     } finally {
@@ -348,7 +388,7 @@ export default function PoliciesConflictsPage() {
     setAiMeta(null);
 
     try {
-      const response = await fetch('/api/policy-engine/issues/ai', {
+      const response = await fetch('/api/sam/policy-engine/issues/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -372,25 +412,25 @@ export default function PoliciesConflictsPage() {
         setAiIssues(data.issues || []);
         setAiMeta(data.meta || {});
         toast({
-          title: 'AI Review complete',
+          title: 'Review complete',
           description: `Found ${data.issues?.length || 0} issue(s)`,
         });
       } else {
-        const errorData = await response.json().catch(() => ({ error: 'AI review failed' }));
+        const errorData = await response.json().catch(() => ({ error: 'Review failed' }));
         // Check if service is unavailable
         if (response.status === 503 || errorData.error?.includes('not available')) {
           setServiceUnavailable(true);
           setAiIssues([]);
           return; // Don't show error toast
         }
-        throw new Error(errorData.error || 'Failed to run AI review');
+        throw new Error(errorData.error || 'Failed to run review');
       }
     } catch (error: any) {
       // Don't show error toast if service is unavailable - banner will show instead
       if (!serviceUnavailable && !error.message?.includes('not available')) {
         toast({
           title: 'Error',
-          description: error.message || 'Failed to run AI review',
+          description: error.message || 'Failed to run review',
           variant: 'destructive',
         });
       }
@@ -473,7 +513,7 @@ export default function PoliciesConflictsPage() {
       setIsPreviewOpen(true);
       toast({
         title: 'Info',
-        description: `Showing previously rewritten policy: ${rewritten.filename}`,
+        description: `Showing previously rewritten document: ${rewritten.filename}`,
       });
       return;
     }
@@ -484,7 +524,7 @@ export default function PoliciesConflictsPage() {
       if (policiesWithIssues.length === 0) {
         toast({
           title: 'Error',
-          description: 'No policies found in AI review results',
+          description: 'No documents found in review results',
           variant: 'destructive',
         });
         return;
@@ -503,7 +543,7 @@ export default function PoliciesConflictsPage() {
         setIsPreviewOpen(true);
         toast({
           title: 'Info',
-          description: 'All policies have been rewritten. Showing first policy.',
+          description: 'All documents have been rewritten. Showing first document.',
         });
         return;
       }
@@ -567,7 +607,7 @@ export default function PoliciesConflictsPage() {
         };
       });
 
-      const response = await fetch(`/api/policy-engine/policies/${targetPolicyId}/rewrite`, {
+      const response = await fetch(`/api/sam/policy-engine/policies/${targetPolicyId}/rewrite`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -606,16 +646,16 @@ export default function PoliciesConflictsPage() {
         
         toast({
           title: 'Success',
-          description: `Policy "${filename}" rewritten successfully with AI (${accreditation})`,
+          description: `Document "${filename}" rewritten successfully (${accreditation})`,
         });
       } else {
         const errorData = await response.json().catch(() => ({ error: 'Rewrite failed' }));
-        throw new Error(errorData.error || 'Failed to rewrite policy');
+        throw new Error(errorData.error || 'Failed to rewrite document');
       }
     } catch (error: any) {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to rewrite policy',
+        description: error.message || 'Failed to rewrite document',
         variant: 'destructive',
       });
     } finally {
@@ -692,14 +732,14 @@ export default function PoliciesConflictsPage() {
     if (!policyText) {
       toast({
         title: 'Error',
-        description: 'No policy text to download',
+        description: 'No document text to download',
         variant: 'destructive',
       });
       return;
     }
 
     const policy = currentPreviewPolicyId ? policies.find(p => p.policyId === currentPreviewPolicyId) : null;
-    const filename = policy?.filename || 'policy';
+    const filename = policy?.filename || 'document';
     const blob = new Blob([policyText], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -713,7 +753,7 @@ export default function PoliciesConflictsPage() {
 
     toast({
       title: 'Success',
-      description: 'Policy downloaded as text file',
+      description: 'Document downloaded as text file',
     });
   }
   
@@ -742,7 +782,7 @@ export default function PoliciesConflictsPage() {
     if (!policyText) {
       toast({
         title: 'Error',
-        description: 'No policy text to download',
+        description: 'No document text to download',
         variant: 'destructive',
       });
       return;
@@ -781,7 +821,7 @@ export default function PoliciesConflictsPage() {
       .join('');
 
     const policy = currentPreviewPolicyId ? policies.find(p => p.policyId === currentPreviewPolicyId) : null;
-    const filename = policy?.filename || 'policy';
+    const filename = policy?.filename || 'document';
     const accreditationText = accreditation ? ` (${accreditation})` : '';
 
     printWindow.document.write(`
@@ -901,7 +941,7 @@ export default function PoliciesConflictsPage() {
       setIsPreviewOpen(true);
       toast({
         title: 'Info',
-        description: `Showing previously rewritten policy: ${rewritten.filename}`,
+        description: `Showing previously rewritten document: ${rewritten.filename}`,
       });
       return;
     }
@@ -910,7 +950,7 @@ export default function PoliciesConflictsPage() {
       if (!selectedPolicyA || issues.length === 0) {
         toast({
           title: 'Error',
-          description: 'Please scan a single policy first and ensure issues are found',
+          description: 'Please scan a single document first and ensure issues are found',
           variant: 'destructive',
         });
         return;
@@ -925,7 +965,7 @@ export default function PoliciesConflictsPage() {
         setIsPreviewOpen(true);
         toast({
           title: 'Info',
-          description: `Showing previously rewritten policy: ${rewritten.filename}`,
+          description: `Showing previously rewritten document: ${rewritten.filename}`,
         });
         return;
       }
@@ -940,7 +980,7 @@ export default function PoliciesConflictsPage() {
       if (!selectedPolicyA || !selectedPolicyB || issues.length === 0) {
         toast({
           title: 'Error',
-          description: 'Please compare two policies first and ensure issues are found',
+          description: 'Please compare two documents first and ensure issues are found',
           variant: 'destructive',
         });
         return;
@@ -960,7 +1000,7 @@ export default function PoliciesConflictsPage() {
           setIsPreviewOpen(true);
           toast({
             title: 'Info',
-            description: 'Both policies have been rewritten. Showing first policy.',
+            description: 'Both documents have been rewritten. Showing first document.',
           });
           return;
         }
@@ -983,7 +1023,7 @@ export default function PoliciesConflictsPage() {
           setIsPreviewOpen(true);
           toast({
             title: 'Info',
-            description: 'Both policies have been rewritten. Showing first policy.',
+            description: 'Both documents have been rewritten. Showing first document.',
           });
           return;
         }
@@ -997,7 +1037,7 @@ export default function PoliciesConflictsPage() {
         setIsPreviewOpen(true);
         toast({
           title: 'Info',
-          description: `Showing previously rewritten policy: ${rewritten.filename}`,
+          description: `Showing previously rewritten document: ${rewritten.filename}`,
         });
         return;
       }
@@ -1016,7 +1056,7 @@ export default function PoliciesConflictsPage() {
         if (policiesWithIssues.length === 0) {
           toast({
             title: 'Error',
-            description: 'No policies with issues found',
+            description: 'No documents with issues found',
             variant: 'destructive',
           });
           return;
@@ -1034,7 +1074,7 @@ export default function PoliciesConflictsPage() {
           setIsPreviewOpen(true);
           toast({
             title: 'Info',
-            description: 'All policies have been rewritten. Showing first policy.',
+            description: 'All documents have been rewritten. Showing first document.',
           });
           return;
         }
@@ -1053,7 +1093,7 @@ export default function PoliciesConflictsPage() {
         setIsPreviewOpen(true);
         toast({
           title: 'Info',
-          description: `Showing previously rewritten policy: ${rewritten.filename}`,
+          description: `Showing previously rewritten document: ${rewritten.filename}`,
         });
         return;
       }
@@ -1098,7 +1138,7 @@ export default function PoliciesConflictsPage() {
     
     setIsRewriting(true);
     try {
-      const response = await fetch(`/api/policy-engine/policies/${targetPolicyId}/rewrite`, {
+      const response = await fetch(`/api/sam/policy-engine/policies/${targetPolicyId}/rewrite`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -1177,12 +1217,12 @@ export default function PoliciesConflictsPage() {
         });
       } else {
         const errorData = await response.json().catch(() => ({ error: 'Rewrite failed' }));
-        throw new Error(errorData.error || 'Failed to rewrite policy');
+        throw new Error(errorData.error || 'Failed to rewrite document');
       }
     } catch (error: any) {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to rewrite policy',
+        description: error.message || 'Failed to rewrite document',
         variant: 'destructive',
       });
     } finally {
@@ -1192,11 +1232,10 @@ export default function PoliciesConflictsPage() {
 
   return (
     <div className="space-y-6">
-      <PolicyQuickNav />
       <div>
         <h1 className="text-3xl font-bold">{t.policies.conflicts.title}</h1>
         <p className="text-muted-foreground">
-          Scan policies for conflicts, gaps, duplicates, and inconsistencies
+          Scan documents for conflicts, gaps, duplicates, and inconsistencies
         </p>
       </div>
 
@@ -1209,7 +1248,7 @@ export default function PoliciesConflictsPage() {
           <div className="px-6 pb-4">
             <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
               <p className="text-sm text-blue-900 dark:text-blue-200">
-                <span className="font-medium">Policy Engine is offline.</span> Policy AI features are disabled.
+                <span className="font-medium">Document engine is offline.</span> Automated features are disabled.
               </p>
             </div>
           </div>
@@ -1229,7 +1268,7 @@ export default function PoliciesConflictsPage() {
                   <Label>Policy</Label>
                   <Select value={selectedPolicyA} onValueChange={setSelectedPolicyA}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select a policy" />
+                      <SelectValue placeholder="Select a document" />
                     </SelectTrigger>
                     <SelectContent>
                       {policies.map((policy) => (
@@ -1321,12 +1360,12 @@ export default function PoliciesConflictsPage() {
                   {isScanning ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Scanning All Policies...
+                      Scanning All Documents...
                     </>
                   ) : (
                     <>
                       <AlertCircle className="mr-2 h-4 w-4" />
-                      Scan All Policies
+                      Scan All Documents
                     </>
                   )}
                 </Button>
@@ -1360,15 +1399,15 @@ export default function PoliciesConflictsPage() {
         </CardContent>
       </Card>
 
-      {/* AI Review Section */}
+          {/* Review Section */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5" />
-            AI Review
+            System Review
           </CardTitle>
           <CardDescription>
-            Use AI to analyze policies for conflicts, gaps, ambiguities, and risks
+            The system analyzes documents for conflicts, gaps, ambiguities, and risks
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -1378,16 +1417,16 @@ export default function PoliciesConflictsPage() {
               <Textarea
                 value={aiQuery}
                 onChange={(e) => setAiQuery(e.target.value)}
-                placeholder="Find conflicts, gaps, and risks in these policies"
+                placeholder="Find conflicts, gaps, and risks in these documents"
                 className="min-h-[100px]"
               />
             </div>
 
             <div className="space-y-2">
-              <Label>Policies (optional - leave empty to search all)</Label>
+              <Label>Documents (optional - leave empty to search all)</Label>
               <div className="max-h-40 overflow-y-auto border rounded-md p-2 space-y-1">
                 {policies.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No policies available</p>
+                  <p className="text-sm text-muted-foreground">No documents available</p>
                 ) : (
                   policies.map((policy) => (
                     <label key={policy.policyId} className="flex items-center space-x-2 cursor-pointer hover:bg-muted p-1 rounded">
@@ -1419,28 +1458,28 @@ export default function PoliciesConflictsPage() {
               ) : (
                 <>
                   <Sparkles className="mr-2 h-4 w-4" />
-                  Run AI Review
+                  Run Review
                 </>
               )}
             </Button>
 
             {aiMeta && (
               <div className="text-sm text-muted-foreground">
-                Retrieved {aiMeta.retrievedChunks || 0} chunks • Model: {aiMeta.model || 'gpt-4o'}
+                Retrieved {aiMeta.retrievedChunks || 0} chunks
               </div>
             )}
           </div>
         </CardContent>
       </Card>
 
-      {/* AI Results */}
+      {/* Review Results */}
       {aiIssues.length > 0 && (
         <Card>
           <CardHeader>
             <div className="flex justify-between items-center">
               <div>
-                <CardTitle>AI Review Results</CardTitle>
-                <CardDescription>{aiIssues.length} issue(s) detected by AI</CardDescription>
+                <CardTitle>Review Results</CardTitle>
+                <CardDescription>{aiIssues.length} issue(s) detected</CardDescription>
               </div>
               <Button
                 onClick={() => handleAIRewriteAll()}
@@ -1455,7 +1494,7 @@ export default function PoliciesConflictsPage() {
                 ) : (
                   <>
                     <RefreshCw className="h-4 w-4" />
-                    Rewrite Policy with AI
+                    Rewrite Document
                   </>
                 )}
               </Button>
@@ -1560,11 +1599,11 @@ export default function PoliciesConflictsPage() {
         </Card>
       )}
 
-      {/* AI Rewrite Policy Selector Dialog */}
+      {/* Rewrite Document Selector Dialog */}
       <Dialog open={isAIRewriteSelectorOpen} onOpenChange={setIsAIRewriteSelectorOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Select Policy to Rewrite with AI</DialogTitle>
+            <DialogTitle>Select Document to Rewrite</DialogTitle>
           </DialogHeader>
           <div className="mt-4 space-y-2 max-h-[60vh] overflow-y-auto">
             {pendingAIRewritePolicies.map((policy, index) => {
@@ -1635,7 +1674,7 @@ export default function PoliciesConflictsPage() {
                     setIsPreviewOpen(true);
                     toast({
                       title: 'Info',
-                      description: `Showing previously rewritten policy: ${rewritten.filename}`,
+                      description: `Showing previously rewritten document: ${rewritten.filename}`,
                     });
                   } else {
                     // Show accreditation dialog first
@@ -1654,8 +1693,8 @@ export default function PoliciesConflictsPage() {
               ) : (
                 <>
                   {aiRewrittenPolicies[pendingAIRewritePolicies[currentAIRewriteIndex]?.policyId]
-                    ? 'View Rewritten Policy'
-                    : 'Rewrite This Policy'}
+                    ? 'View Rewritten Document'
+                    : 'Rewrite This Document'}
                 </>
               )}
             </Button>
@@ -1669,7 +1708,7 @@ export default function PoliciesConflictsPage() {
           <DialogHeader>
             <DialogTitle>Select Accreditation/Certification Standards</DialogTitle>
             <p className="text-sm text-muted-foreground mt-2">
-              Select one or more accreditations/certifications to apply to this policy rewrite
+              Select one or more accreditations/certifications to apply to this document rewrite
             </p>
           </DialogHeader>
           <div className="space-y-4 mt-4">
@@ -1763,12 +1802,12 @@ export default function PoliciesConflictsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* AI Issue Details Dialog */}
+      {/* Issue Details Dialog */}
       <Dialog open={isAIDetailsOpen} onOpenChange={setIsAIDetailsOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              AI Issue Details
+              Issue Details
               {selectedAIIssue && (
                 <div className="flex gap-2 mt-2">
                   <Badge variant={getAISeverityColor(selectedAIIssue.severity) as any}>
@@ -1855,7 +1894,7 @@ export default function PoliciesConflictsPage() {
                         setIsPreviewOpen(true);
                         toast({
                           title: 'Info',
-                          description: `Showing previously rewritten policy: ${rewritten.filename}`,
+                          description: `Showing previously rewritten document: ${rewritten.filename}`,
                         });
                       } else {
                         // Show accreditation dialog first
@@ -1874,7 +1913,7 @@ export default function PoliciesConflictsPage() {
                     ) : (
                       <>
                         <RefreshCw className="mr-2 h-4 w-4" />
-                        Rewrite Policy with AI
+                        Rewrite Document
                       </>
                     )}
                   </Button>
@@ -1909,10 +1948,10 @@ export default function PoliciesConflictsPage() {
                     <>
                       <RefreshCw className="h-4 w-4" />
                       {mode === 'pair' 
-                        ? 'Rewrite Both Policies (Apply All Issues)' 
+                        ? 'Rewrite Both Documents (Apply All Issues)' 
                         : mode === 'global'
-                        ? 'Rewrite Policies (Apply All Issues)'
-                        : 'Rewrite Policy (Apply All Issues)'}
+                        ? 'Rewrite Documents (Apply All Issues)'
+                        : 'Rewrite Document (Apply All Issues)'}
                     </>
                   )}
                 </Button>
@@ -1926,13 +1965,13 @@ export default function PoliciesConflictsPage() {
                   <TableHead>Severity</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Summary</TableHead>
-                  <TableHead>Policies</TableHead>
+                  <TableHead>Documents</TableHead>
                   <TableHead>Locations</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {issues.map((issue) => (
+                {filteredIssues.map((issue) => (
                   <TableRow key={issue.issueId}>
                     <TableCell>
                       <Badge variant={getSeverityColor(issue.severity) as any}>
@@ -2141,10 +2180,10 @@ export default function PoliciesConflictsPage() {
           <DialogHeader>
             <DialogTitle>
               {mode === 'pair' && Object.keys(rewrittenPolicies).length > 1
-                ? 'Rewritten Policies Preview'
+                ? 'Rewritten Documents Preview'
                 : mode === 'global'
                 ? `Rewritten Policy Preview (${currentRewriteIndex + 1} / ${pendingRewritePolicies.length})`
-                : 'Rewritten Policy Preview'}
+                : 'Rewritten Document Preview'}
             </DialogTitle>
           </DialogHeader>
           {mode === 'pair' && Object.keys(rewrittenPolicies).length > 1 ? (
@@ -2401,7 +2440,7 @@ export default function PoliciesConflictsPage() {
                     setIsPreviewOpen(true);
                     toast({
                       title: 'Info',
-                      description: `Showing previously rewritten policy: ${rewritten.filename}`,
+                      description: `Showing previously rewritten document: ${rewritten.filename}`,
                     });
                   } else {
                     // Show accreditation dialog first
@@ -2412,8 +2451,8 @@ export default function PoliciesConflictsPage() {
               }}
             >
               {rewrittenPolicies[pendingRewritePolicies[currentRewriteIndex]?.policyId] 
-                ? 'View Rewritten Policy' 
-                : 'Rewrite This Policy'}
+                ? 'View Rewritten Document' 
+                : 'Rewrite This Document'}
             </Button>
           </div>
         </DialogContent>
