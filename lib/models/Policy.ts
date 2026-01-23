@@ -87,6 +87,7 @@ export interface PolicyDocument {
     model?: string;
     createdAt?: string;
   };
+  classification?: Record<string, any>;
   tagsStatus?: 'auto-approved' | 'needs-review' | 'approved';
   creationContext?: {
     departmentId: string;
