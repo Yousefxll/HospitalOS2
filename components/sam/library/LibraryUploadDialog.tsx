@@ -20,10 +20,29 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Upload, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+
+const ALLOWED_UPLOAD_EXTENSIONS = new Set([
+  'pdf',
+  'doc',
+  'docx',
+  'txt',
+  'text',
+  'xls',
+  'xlsx',
+  'ppt',
+  'pptx',
+  'jpg',
+  'jpeg',
+]);
 
 interface Department {
   id: string;
@@ -45,9 +64,14 @@ export function LibraryUploadDialog({
   const [step, setStep] = useState<1 | 2>(1);
   const [isUploading, setIsUploading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [uploadMode, setUploadMode] = useState<'manual' | 'ai'>('manual');
+  const [uploadMode] = useState<'manual' | 'ai'>('ai');
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewResults, setPreviewResults] = useState<any[]>([]);
+  const [dateOverrides, setDateOverrides] = useState<Record<string, { effectiveDate?: string; expiryDate?: string; version?: string }>>({});
+  const [mappingOverrides, setMappingOverrides] = useState<Record<string, { operations: string[]; function?: string; riskDomains: string[]; needsReview: boolean }>>({});
+  const [availableOperations, setAvailableOperations] = useState<Array<{ id: string; name: string }>>([]);
+  const [availableFunctions, setAvailableFunctions] = useState<Array<{ id: string; name: string }>>([]);
+  const [availableRiskDomains, setAvailableRiskDomains] = useState<Array<{ id: string; name: string }>>([]);
   
   // Step 1: Classification
   const [classificationType, setClassificationType] = useState<'Global' | 'DepartmentSpecific' | 'Shared'>('Global');
@@ -87,7 +111,6 @@ export function LibraryUploadDialog({
   useEffect(() => {
     if (!open) {
       setStep(1);
-      setUploadMode('manual');
       setClassificationType('Global');
       setDepartmentIds([]);
       setScope('enterprise');
@@ -100,12 +123,54 @@ export function LibraryUploadDialog({
       setIsAnalyzing(false);
       setPreviewOpen(false);
       setPreviewResults([]);
+      setDateOverrides({});
+      setMappingOverrides({});
     }
   }, [open]);
 
+  useEffect(() => {
+    if (!previewOpen) return;
+    const loadTaxonomy = async () => {
+      try {
+        const [opsRes, funcsRes, riskRes] = await Promise.all([
+          fetch('/api/taxonomy/operations', { credentials: 'include' }),
+          fetch('/api/taxonomy/functions', { credentials: 'include' }),
+          fetch('/api/taxonomy/risk-domains', { credentials: 'include' }),
+        ]);
+        if (opsRes.ok) {
+          const data = await opsRes.json();
+          setAvailableOperations(data.data || []);
+        }
+        if (funcsRes.ok) {
+          const data = await funcsRes.json();
+          setAvailableFunctions(data.data || []);
+        }
+        if (riskRes.ok) {
+          const data = await riskRes.json();
+          setAvailableRiskDomains(data.data || []);
+        }
+      } catch (error) {
+        console.error('Failed to load taxonomy catalogs:', error);
+      }
+    };
+    loadTaxonomy();
+  }, [previewOpen]);
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
-    setFiles(selectedFiles);
+    const allowedFiles = selectedFiles.filter((file) => {
+      const ext = file.name.split('.').pop()?.toLowerCase() || '';
+      return ALLOWED_UPLOAD_EXTENSIONS.has(ext);
+    });
+    const rejectedFiles = selectedFiles.filter((file) => !allowedFiles.includes(file));
+    if (rejectedFiles.length > 0) {
+      toast({
+        title: 'Unsupported file type',
+        description: 'Supported: PDF, DOC/DOCX, TXT/TEXT, XLS/XLSX, PPT/PPTX, JPG/JPEG',
+        variant: 'destructive',
+      });
+    }
+    setFiles(allowedFiles);
     setPreviewResults([]);
     setPreviewOpen(false);
   };
@@ -165,14 +230,81 @@ export function LibraryUploadDialog({
     }
   };
 
-  const handleSubmit = async () => {
-    const ai = uploadMode === 'ai' && previewResults?.length ? previewResults[0] : null;
-    const resolvedEntityType = ai?.entityType || entityType;
-    const resolvedScope = ai?.scope || scope;
+  const getPreviewForFile = (fileName: string) => {
+    if (!fileName) return null;
+    const lower = fileName.toLowerCase();
+    return (
+      previewResults.find(result => String(result?.filename || '').toLowerCase() === lower) ||
+      previewResults.find(result => String(result?.fileName || '').toLowerCase() === lower) ||
+      null
+    );
+  };
+
+  const getResolvedForFile = (file: File) => {
+    const preview = uploadMode === 'ai' && previewResults.length > 0 ? getPreviewForFile(file.name) : null;
+    const overrides = dateOverrides[file.name] || {};
+    const mappingOverride = mappingOverrides[file.name];
+    const entityTypeMatch = preview?.entityType;
+    const scopeMatch = preview?.scope;
+    const sectorMatch = preview?.sector;
+    const resolvedEntityType =
+      entityTypeMatch?.matchedName || entityTypeMatch?.suggestedName || entityType;
+    const resolvedScope =
+      scopeMatch?.matchedName || scopeMatch?.suggestedName || scope;
     const resolvedDepartmentIds =
-      Array.isArray(ai?.departmentIds) && ai.departmentIds.length
-        ? ai.departmentIds
+      Array.isArray(preview?.departmentIds) && preview.departmentIds.length
+        ? preview.departmentIds
         : departmentIds;
+    const resolvedOperations =
+      mappingOverride?.operations?.length
+        ? mappingOverride.operations
+        : Array.isArray(preview?.operationIds) && preview.operationIds.length
+        ? preview.operationIds
+        : [];
+    const resolvedFunction =
+      mappingOverride?.function
+        ? mappingOverride.function
+        : preview?.functionId || undefined;
+    const resolvedRiskDomains =
+      mappingOverride?.riskDomains?.length
+        ? mappingOverride.riskDomains
+        : Array.isArray(preview?.riskDomainIds) && preview.riskDomainIds.length
+        ? preview.riskDomainIds
+        : [];
+    const resolvedEffectiveDate =
+      overrides.effectiveDate || preview?.effectiveDate || effectiveDate || '';
+    const resolvedExpiryDate =
+      overrides.expiryDate || preview?.expiryDate || expiryDate || '';
+    const resolvedVersion =
+      overrides.version || preview?.version || version || '';
+
+    return {
+      preview,
+      resolvedEntityTypeId: entityTypeMatch?.matchedId,
+      resolvedScopeId: scopeMatch?.matchedId,
+      resolvedSectorId: sectorMatch?.matchedId,
+      resolvedEntityType,
+      resolvedScope,
+      resolvedDepartmentIds,
+      resolvedOperations,
+      resolvedFunction,
+      resolvedRiskDomains,
+      resolvedMappingConfidence: preview?.mappingConfidence,
+      resolvedNeedsReview: mappingOverride?.needsReview ?? false,
+      resolvedEffectiveDate,
+      resolvedExpiryDate,
+      resolvedVersion,
+    };
+  };
+
+  const toIsoIfValid = (value?: string) => {
+    if (!value) return undefined;
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return undefined;
+    return parsed.toISOString();
+  };
+
+  const handleSubmit = async () => {
     // Validation
     if (files.length === 0) {
       toast({
@@ -183,79 +315,147 @@ export function LibraryUploadDialog({
       return;
     }
 
-    if ((classificationType === 'DepartmentSpecific' || classificationType === 'Shared') && resolvedDepartmentIds.length === 0) {
-      toast({
-        title: 'Error',
-        description: 'Please select at least one department',
-        variant: 'destructive',
-      });
-      return;
-    }
-
     setIsUploading(true);
 
     try {
-    // Step 1: Upload files to policy-engine
-      const formData = new FormData();
-      
-      // Add files
-      files.forEach(file => {
-        formData.append('files', file);
-      });
+      if (uploadMode === 'ai' && previewResults.length > 0) {
+        for (const file of files) {
+          const resolved = getResolvedForFile(file);
+          if ((classificationType === 'DepartmentSpecific' || classificationType === 'Shared') && resolved.resolvedDepartmentIds.length === 0) {
+            throw new Error(`Please select at least one department for ${file.name}`);
+          }
 
-      // Add classification metadata
-      formData.append('entityType', resolvedEntityType);
-      formData.append('scope', resolvedScope);
-      resolvedDepartmentIds.forEach(id => formData.append('departments[]', id));
-      if (effectiveDate) formData.append('effectiveDate', effectiveDate);
-      if (expiryDate) formData.append('expiryDate', expiryDate);
-      if (version) formData.append('version', version);
-      formData.append('tagsStatus', tagsStatus);
+          const formData = new FormData();
+          formData.append('files', file);
+          formData.append('entityType', resolved.resolvedEntityType);
+          formData.append('scope', resolved.resolvedScope);
+          if (resolved.resolvedEntityTypeId) formData.append('entityTypeId', resolved.resolvedEntityTypeId);
+          if (resolved.resolvedScopeId) formData.append('scopeId', resolved.resolvedScopeId);
+          if (resolved.resolvedSectorId) formData.append('sectorId', resolved.resolvedSectorId);
+          resolved.resolvedDepartmentIds.forEach(id => formData.append('departments[]', id));
+          resolved.resolvedOperations.forEach(id => formData.append('operations[]', id));
+          if (resolved.resolvedFunction) formData.append('function', resolved.resolvedFunction);
+          resolved.resolvedRiskDomains.forEach(id => formData.append('riskDomains[]', id));
+          const effectiveIso = toIsoIfValid(resolved.resolvedEffectiveDate);
+          const expiryIso = toIsoIfValid(resolved.resolvedExpiryDate);
+          if (effectiveIso) formData.append('effectiveDate', effectiveIso);
+          if (expiryIso) formData.append('expiryDate', expiryIso);
+          if (resolved.resolvedVersion) formData.append('version', resolved.resolvedVersion);
+          formData.append('tagsStatus', tagsStatus);
 
-      const ingestResponse = await fetch('/api/sam/policy-engine/ingest', {
-        method: 'POST',
-        body: formData,
-        credentials: 'include',
-      });
-
-      if (!ingestResponse.ok) {
-        const errorData = await ingestResponse.json();
-        throw new Error(errorData.error || 'Failed to upload files');
-      }
-
-      const ingestData = await ingestResponse.json();
-      
-      // Step 2: Upsert metadata for each policy
-      if (ingestData.jobs && Array.isArray(ingestData.jobs)) {
-        const metadataPromises = ingestData.jobs.map(async (job: any) => {
-          const policyEngineId = job.policyId;
-          if (!policyEngineId) return;
-
-          const metadataResponse = await fetch('/api/sam/library/metadata', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+          const ingestResponse = await fetch('/api/sam/policy-engine/ingest', {
+            method: 'POST',
+            body: formData,
             credentials: 'include',
-            body: JSON.stringify({
-              policyEngineId,
-              metadata: {
-                title: files.find((_, i) => i === ingestData.jobs.indexOf(job))?.name.replace('.pdf', '') || '',
-                departmentIds: resolvedDepartmentIds,
-                scope: resolvedScope,
-                tagsStatus,
-                effectiveDate: effectiveDate || undefined,
-                expiryDate: expiryDate || undefined,
-                version: version || undefined,
-                entityType: resolvedEntityType,
-              },
-            }),
           });
 
-          if (!metadataResponse.ok) {
-            console.warn(`Failed to update metadata for ${policyEngineId}`);
+          if (!ingestResponse.ok) {
+            const errorData = await ingestResponse.json();
+            throw new Error(errorData.error || `Failed to upload ${file.name}`);
           }
+
+          const ingestData = await ingestResponse.json();
+          const job = ingestData?.jobs?.[0];
+          const policyEngineId = job?.policyId;
+          if (policyEngineId) {
+            const metadataResponse = await fetch('/api/sam/library/metadata', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({
+                policyEngineId,
+                metadata: {
+                  title: file.name.replace(/\.[^/.]+$/i, ''),
+                  departmentIds: resolved.resolvedDepartmentIds,
+                  scope: resolved.resolvedScope,
+                  scopeId: resolved.resolvedScopeId,
+                  tagsStatus,
+                  effectiveDate: effectiveIso,
+                  expiryDate: expiryIso,
+                  version: resolved.resolvedVersion || undefined,
+                  entityType: resolved.resolvedEntityType,
+                  entityTypeId: resolved.resolvedEntityTypeId,
+                  sectorId: resolved.resolvedSectorId,
+                  operationalMapping: {
+                    operations: resolved.resolvedOperations,
+                    function: resolved.resolvedFunction,
+                    riskDomains: resolved.resolvedRiskDomains,
+                    mappingConfidence: resolved.resolvedMappingConfidence,
+                    needsReview: resolved.resolvedNeedsReview,
+                  },
+                },
+              }),
+            });
+
+            if (!metadataResponse.ok) {
+              console.warn(`Failed to update metadata for ${policyEngineId}`);
+            }
+          }
+        }
+      } else {
+        const formData = new FormData();
+        files.forEach(file => {
+          formData.append('files', file);
         });
 
-        await Promise.all(metadataPromises);
+        if ((classificationType === 'DepartmentSpecific' || classificationType === 'Shared') && departmentIds.length === 0) {
+          throw new Error('Please select at least one department');
+        }
+
+        formData.append('entityType', entityType);
+        formData.append('scope', scope);
+        departmentIds.forEach(id => formData.append('departments[]', id));
+        const effectiveIso = toIsoIfValid(effectiveDate);
+        const expiryIso = toIsoIfValid(expiryDate);
+        if (effectiveIso) formData.append('effectiveDate', effectiveIso);
+        if (expiryIso) formData.append('expiryDate', expiryIso);
+        if (version) formData.append('version', version);
+        formData.append('tagsStatus', tagsStatus);
+
+        const ingestResponse = await fetch('/api/sam/policy-engine/ingest', {
+          method: 'POST',
+          body: formData,
+          credentials: 'include',
+        });
+
+        if (!ingestResponse.ok) {
+          const errorData = await ingestResponse.json();
+          throw new Error(errorData.error || 'Failed to upload files');
+        }
+
+        const ingestData = await ingestResponse.json();
+        if (ingestData.jobs && Array.isArray(ingestData.jobs)) {
+          const metadataPromises = ingestData.jobs.map(async (job: any) => {
+            const policyEngineId = job.policyId;
+            if (!policyEngineId) return;
+
+            const metadataResponse = await fetch('/api/sam/library/metadata', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({
+                policyEngineId,
+                metadata: {
+                  title:
+                    files.find((_, i) => i === ingestData.jobs.indexOf(job))?.name.replace(/\.[^/.]+$/i, '') || '',
+                  departmentIds,
+                  scope,
+                  tagsStatus,
+                  effectiveDate: effectiveIso,
+                  expiryDate: expiryIso,
+                  version: version || undefined,
+                  entityType,
+                },
+              }),
+            });
+
+            if (!metadataResponse.ok) {
+              console.warn(`Failed to update metadata for ${policyEngineId}`);
+            }
+          });
+
+          await Promise.all(metadataPromises);
+        }
       }
 
       toast({
@@ -318,23 +518,6 @@ export function LibraryUploadDialog({
 
         {step === 1 ? (
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Upload Mode</Label>
-              <ToggleGroup
-                type="single"
-                value={uploadMode}
-                onValueChange={(value) => {
-                  if (value) {
-                    setUploadMode(value as 'manual' | 'ai');
-                  }
-                }}
-                className="justify-start"
-              >
-                <ToggleGroupItem value="manual">Manual</ToggleGroupItem>
-                <ToggleGroupItem value="ai">AI Assisted</ToggleGroupItem>
-              </ToggleGroup>
-            </div>
-
             {/* Classification Type */}
             <div className="space-y-2">
               <Label>Classification Type *</Label>
@@ -426,7 +609,7 @@ export function LibraryUploadDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="policy">Policy</SelectItem>
+                  <SelectItem value="policy">Document</SelectItem>
                   <SelectItem value="sop">SOP</SelectItem>
                   <SelectItem value="workflow">Workflow</SelectItem>
                   <SelectItem value="playbook">Playbook</SelectItem>
@@ -481,10 +664,9 @@ export function LibraryUploadDialog({
         ) : (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Select Files (PDF)</Label>
+              <Label>Select Files (PDF, DOC/DOCX, TXT/TEXT, XLS/XLSX, PPT/PPTX, JPG/JPEG)</Label>
               <Input
                 type="file"
-                accept=".pdf"
                 multiple
                 onChange={handleFileSelect}
               />
@@ -527,35 +709,19 @@ export function LibraryUploadDialog({
               <Button variant="outline" onClick={() => setStep(1)}>
                 Back
               </Button>
-              {uploadMode === 'ai' ? (
-                <Button onClick={handleAnalyzeWithAI} disabled={isAnalyzing || isUploading || files.length === 0}>
-                  {isAnalyzing ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Analyzing...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="mr-2 h-4 w-4" />
-                      Analyze with AI
-                    </>
-                  )}
-                </Button>
-              ) : (
-                <Button onClick={handleSubmit} disabled={isUploading || files.length === 0}>
-                  {isUploading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Uploading...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="mr-2 h-4 w-4" />
-                      Upload {files.length} File(s)
-                    </>
-                  )}
-                </Button>
-              )}
+              <Button onClick={handleAnalyzeWithAI} disabled={isAnalyzing || isUploading || files.length === 0}>
+                {isAnalyzing ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Analyzing document...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="mr-2 h-4 w-4" />
+                    Analyze Document
+                  </>
+                )}
+              </Button>
             </>
           )}
         </DialogFooter>
@@ -565,8 +731,8 @@ export function LibraryUploadDialog({
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>AI Preview</DialogTitle>
-            <DialogDescription>Review AI suggestions before upload</DialogDescription>
+            <DialogTitle>Classification Preview</DialogTitle>
+            <DialogDescription>Review system recommendations before upload</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -575,21 +741,41 @@ export function LibraryUploadDialog({
             ) : (
               previewResults.map((result, index) => {
                 const suggestions = result?.suggestions || result || {};
+                const entityTypeMatch = result?.entityType;
+                const scopeMatch = result?.scope;
                 const classification = suggestions?.classification || {};
                 const fileName = result?.filename || result?.fileName || files[index]?.name || `File ${index + 1}`;
                 const title = getPreviewTitle(result);
                 const summary = getPreviewSummary(result);
+                const dateOverride = dateOverrides[fileName] || {};
+                const detectedEffectiveDate = result?.effectiveDate;
+                const detectedExpiryDate = result?.expiryDate;
+                const detectedVersion = result?.version;
+                const mappingOverride = mappingOverrides[fileName];
+                const resolvedOperations =
+                  mappingOverride?.operations?.length
+                    ? mappingOverride.operations
+                    : Array.isArray(result?.operationIds)
+                    ? result.operationIds
+                    : [];
+                const resolvedFunction = mappingOverride?.function || result?.functionId || '';
+                const resolvedRiskDomains =
+                  mappingOverride?.riskDomains?.length
+                    ? mappingOverride.riskDomains
+                    : Array.isArray(result?.riskDomainIds)
+                    ? result.riskDomainIds
+                    : [];
                 return (
                   <div key={index} className="rounded-md border p-4 space-y-3">
                     <div className="text-sm font-medium">{fileName}</div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                       <div>
                         <div className="text-xs text-muted-foreground">Entity Type</div>
-                        <div>{formatField(suggestions?.entityType)}</div>
+                        <div>{formatField(entityTypeMatch?.matchedName || entityTypeMatch?.suggestedName || suggestions?.entityType)}</div>
                       </div>
                       <div>
                         <div className="text-xs text-muted-foreground">Scope</div>
-                        <div>{formatField(suggestions?.scope)}</div>
+                        <div>{formatField(scopeMatch?.matchedName || scopeMatch?.suggestedName || suggestions?.scope)}</div>
                       </div>
                       <div>
                         <div className="text-xs text-muted-foreground">Departments</div>
@@ -614,6 +800,203 @@ export function LibraryUploadDialog({
                       <div>
                         <div className="text-xs text-muted-foreground">Stage</div>
                         <div>{formatField(suggestions?.stage)}</div>
+                      </div>
+                      <div className="md:col-span-2">
+                        <div className="text-xs text-muted-foreground">Effective Date</div>
+                        <div className="text-xs text-muted-foreground">
+                          {detectedEffectiveDate ? String(detectedEffectiveDate) : 'Not detected'}
+                        </div>
+                        <Input
+                          type="date"
+                          value={dateOverride.effectiveDate ?? detectedEffectiveDate ?? ''}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setDateOverrides(prev => ({
+                              ...prev,
+                              [fileName]: {
+                                ...prev[fileName],
+                                effectiveDate: value,
+                              },
+                            }));
+                          }}
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <div className="text-xs text-muted-foreground">Expiry Date</div>
+                        <div className="text-xs text-muted-foreground">
+                          {detectedExpiryDate ? String(detectedExpiryDate) : 'Not detected'}
+                        </div>
+                        <Input
+                          type="date"
+                          value={dateOverride.expiryDate ?? detectedExpiryDate ?? ''}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setDateOverrides(prev => ({
+                              ...prev,
+                              [fileName]: {
+                                ...prev[fileName],
+                                expiryDate: value,
+                              },
+                            }));
+                          }}
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <div className="text-xs text-muted-foreground">Version</div>
+                        <div className="text-xs text-muted-foreground">
+                          {detectedVersion ? String(detectedVersion) : 'Not detected'}
+                        </div>
+                        <Input
+                          value={dateOverride.version ?? detectedVersion ?? ''}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setDateOverrides(prev => ({
+                              ...prev,
+                              [fileName]: {
+                                ...prev[fileName],
+                                version: value,
+                              },
+                            }));
+                          }}
+                          placeholder="e.g., 1.0, 2024.1"
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <div className="rounded-md border bg-muted/30 p-3 space-y-3">
+                          <div className="text-sm font-medium">Operational Mapping</div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <div className="text-xs text-muted-foreground">Operations</div>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="outline" size="sm" className="w-full justify-between">
+                                    {resolvedOperations.length > 0
+                                      ? `${resolvedOperations.length} selected`
+                                      : 'Select operations'}
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent className="w-72 max-h-64 overflow-y-auto">
+                                  {availableOperations.length === 0 && (
+                                    <div className="px-2 py-1 text-xs text-muted-foreground">No operations available</div>
+                                  )}
+                                  {availableOperations.map((op) => (
+                                    <DropdownMenuCheckboxItem
+                                      key={op.id}
+                                      checked={resolvedOperations.includes(op.id)}
+                                      onCheckedChange={(checked) => {
+                                        setMappingOverrides((prev) => {
+                                          const current = prev[fileName]?.operations || resolvedOperations;
+                                          const next = checked
+                                            ? Array.from(new Set([...current, op.id]))
+                                            : current.filter((id) => id !== op.id);
+                                          return {
+                                            ...prev,
+                                            [fileName]: {
+                                              operations: next,
+                                              function: resolvedFunction || undefined,
+                                              riskDomains: resolvedRiskDomains,
+                                              needsReview: prev[fileName]?.needsReview ?? false,
+                                            },
+                                          };
+                                        });
+                                      }}
+                                    >
+                                      {op.name}
+                                    </DropdownMenuCheckboxItem>
+                                  ))}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                            <div className="space-y-2">
+                              <div className="text-xs text-muted-foreground">Function</div>
+                              <Select
+                                value={resolvedFunction}
+                                onValueChange={(value) => {
+                                  setMappingOverrides((prev) => ({
+                                    ...prev,
+                                    [fileName]: {
+                                      operations: resolvedOperations,
+                                      function: value || undefined,
+                                      riskDomains: resolvedRiskDomains,
+                                      needsReview: prev[fileName]?.needsReview ?? false,
+                                    },
+                                  }));
+                                }}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select function" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="">No function</SelectItem>
+                                  {availableFunctions.map((fn) => (
+                                    <SelectItem key={fn.id} value={fn.id}>
+                                      {fn.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-2 md:col-span-2">
+                              <div className="text-xs text-muted-foreground">Risk Domains</div>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="outline" size="sm" className="w-full justify-between">
+                                    {resolvedRiskDomains.length > 0
+                                      ? `${resolvedRiskDomains.length} selected`
+                                      : 'Select risk domains'}
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent className="w-72 max-h-64 overflow-y-auto">
+                                  {availableRiskDomains.length === 0 && (
+                                    <div className="px-2 py-1 text-xs text-muted-foreground">No risk domains available</div>
+                                  )}
+                                  {availableRiskDomains.map((rd) => (
+                                    <DropdownMenuCheckboxItem
+                                      key={rd.id}
+                                      checked={resolvedRiskDomains.includes(rd.id)}
+                                      onCheckedChange={(checked) => {
+                                        setMappingOverrides((prev) => {
+                                          const current = prev[fileName]?.riskDomains || resolvedRiskDomains;
+                                          const next = checked
+                                            ? Array.from(new Set([...current, rd.id]))
+                                            : current.filter((id) => id !== rd.id);
+                                          return {
+                                            ...prev,
+                                            [fileName]: {
+                                              operations: resolvedOperations,
+                                              function: resolvedFunction || undefined,
+                                              riskDomains: next,
+                                              needsReview: prev[fileName]?.needsReview ?? false,
+                                            },
+                                          };
+                                        });
+                                      }}
+                                    >
+                                      {rd.name}
+                                    </DropdownMenuCheckboxItem>
+                                  ))}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Checkbox
+                                checked={mappingOverride?.needsReview ?? false}
+                                onCheckedChange={(checked) => {
+                                  setMappingOverrides((prev) => ({
+                                    ...prev,
+                                    [fileName]: {
+                                      operations: resolvedOperations,
+                                      function: resolvedFunction || undefined,
+                                      riskDomains: resolvedRiskDomains,
+                                      needsReview: Boolean(checked),
+                                    },
+                                  }));
+                                }}
+                              />
+                              <div className="text-sm">Needs review</div>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                       <div className="md:col-span-2">
                         <div className="text-xs text-muted-foreground">Extracted Title</div>
