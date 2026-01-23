@@ -233,7 +233,7 @@ export default function SAMLibraryPage() {
   const handleRunLifecycle = async () => {
     setIsRunningLifecycle(true);
     try {
-      const response = await fetch('/api/sam/policies/lifecycle/status', {
+      const response = await fetch('/api/sam/library/lifecycle/status', {
         method: 'POST',
         credentials: 'include',
       });

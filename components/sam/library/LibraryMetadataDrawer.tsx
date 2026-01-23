@@ -24,6 +24,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { X } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface Department {
   id: string;
@@ -34,6 +35,8 @@ interface LibraryMetadataDrawerProps {
   open: boolean;
   onClose: () => void;
   policyEngineId: string;
+  tasksRefreshToken?: number;
+  onTasksUpdated?: (documentId: string, count: number) => void;
   initialMetadata: {
     title?: string;
     departmentIds?: string[];
@@ -45,14 +48,34 @@ interface LibraryMetadataDrawerProps {
     entityType?: string;
     category?: string;
     source?: string;
+    lifecycleStatus?: 'ACTIVE' | 'EXPIRING_SOON' | 'UNDER_REVIEW' | 'EXPIRED' | 'ARCHIVED';
+    nextReviewDate?: string;
+    operationalMapping?: {
+      operations?: string[];
+      function?: string;
+      riskDomains?: string[];
+      needsReview?: boolean;
+    };
   };
   onSuccess: () => void;
+}
+
+interface DocumentTask {
+  id: string;
+  title?: string;
+  taskType: 'Training' | 'Review' | 'Update' | 'Other';
+  status: 'Open' | 'In Progress' | 'Completed';
+  dueDate: string;
+  assignedTo: string;
+  createdAt: string;
 }
 
 export function LibraryMetadataDrawer({
   open,
   onClose,
   policyEngineId,
+  tasksRefreshToken,
+  onTasksUpdated,
   initialMetadata,
   onSuccess,
 }: LibraryMetadataDrawerProps) {
@@ -72,6 +95,13 @@ export function LibraryMetadataDrawer({
   const [entityType, setEntityType] = useState(initialMetadata.entityType || 'policy');
   const [category, setCategory] = useState(initialMetadata.category || '');
   const [source, setSource] = useState(initialMetadata.source || '');
+  const lifecycleStatus = initialMetadata.lifecycleStatus;
+  const nextReviewDate = initialMetadata.nextReviewDate || '';
+  const operationalMapping = initialMetadata.operationalMapping;
+  const [tasks, setTasks] = useState<DocumentTask[]>([]);
+  const [isEditTaskOpen, setIsEditTaskOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<DocumentTask | null>(null);
+  const [isLoadingTasks, setIsLoadingTasks] = useState(false);
 
   // Load departments
   useEffect(() => {
@@ -108,6 +138,129 @@ export function LibraryMetadataDrawer({
       setSource(initialMetadata.source || '');
     }
   }, [open, initialMetadata]);
+
+  const loadTasks = async () => {
+    if (!policyEngineId) return;
+    setIsLoadingTasks(true);
+    try {
+      const response = await fetch(`/api/sam/library/documents/${policyEngineId}/tasks`, {
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const nextTasks = Array.isArray(data.tasks) ? data.tasks : [];
+        setTasks(nextTasks);
+        onTasksUpdated?.(policyEngineId, nextTasks.length);
+      } else {
+        setTasks([]);
+        onTasksUpdated?.(policyEngineId, 0);
+      }
+    } catch (error) {
+      console.error('Failed to load tasks:', error);
+      setTasks([]);
+      onTasksUpdated?.(policyEngineId, 0);
+    } finally {
+      setIsLoadingTasks(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!open || !policyEngineId) return;
+    loadTasks();
+  }, [open, policyEngineId, tasksRefreshToken]);
+
+  const openEditTask = (task: DocumentTask) => {
+    setEditingTask(task);
+    setIsEditTaskOpen(true);
+  };
+
+  const handleUpdateTask = async () => {
+    if (!editingTask) return;
+    if (!editingTask.dueDate) {
+      toast({
+        title: 'Error',
+        description: 'Due date is required',
+        variant: 'destructive',
+      });
+      return;
+    }
+    try {
+      const response = await fetch(
+        `/api/sam/library/documents/${policyEngineId}/tasks/${editingTask.id}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            title: editingTask.title || 'Operational task',
+            taskType: editingTask.taskType,
+            status: editingTask.status,
+            dueDate: new Date(editingTask.dueDate).toISOString(),
+            assignedTo: editingTask.assignedTo || 'Unassigned',
+          }),
+        }
+      );
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Update failed' }));
+        throw new Error(errorData.error || 'Failed to update task');
+      }
+      toast({
+        title: 'Success',
+        description: 'Task updated successfully',
+      });
+      setIsEditTaskOpen(false);
+      setEditingTask(null);
+      await loadTasks();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to update task',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    const confirmed = window.confirm('Delete this task? This action cannot be undone.');
+    if (!confirmed) return;
+    try {
+      const response = await fetch(`/api/sam/library/documents/${policyEngineId}/tasks/${taskId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Delete failed' }));
+        throw new Error(errorData.error || 'Failed to delete task');
+      }
+      toast({
+        title: 'Success',
+        description: 'Task deleted',
+      });
+      await loadTasks();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to delete task',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const getLifecycleHelperText = () => {
+    const now = new Date();
+    if (expiryDate) {
+      const expiry = new Date(expiryDate);
+      const days = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      if (lifecycleStatus === 'EXPIRING_SOON') return `Expires in ${days} day(s)`;
+      if (lifecycleStatus === 'EXPIRED') return `Expired ${Math.abs(days)} day(s) ago`;
+    }
+    if (nextReviewDate && lifecycleStatus === 'UNDER_REVIEW') {
+      const review = new Date(nextReviewDate);
+      const days = Math.ceil((review.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      return days <= 0 ? `Review due ${Math.abs(days)} day(s) ago` : `Review due in ${days} day(s)`;
+    }
+    return '';
+  };
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -158,8 +311,9 @@ export function LibraryMetadataDrawer({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="library-metadata-drawer">
         <DialogHeader>
           <DialogTitle>Edit Metadata</DialogTitle>
           <DialogDescription>
@@ -168,20 +322,51 @@ export function LibraryMetadataDrawer({
         </DialogHeader>
 
         <div className="space-y-4 p-4">
+          {lifecycleStatus && (
+            <div className="space-y-1">
+              <Label>Status</Label>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline">{lifecycleStatus.replace('_', ' ')}</Badge>
+                {getLifecycleHelperText() && (
+                  <span className="text-xs text-muted-foreground">{getLifecycleHelperText()}</span>
+                )}
+              </div>
+            </div>
+          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="rounded-md border p-3 space-y-2">
+              <div className="text-sm font-medium">Knowledge Classification</div>
+              <div className="text-xs text-muted-foreground">
+                <div>Entity Type: {entityType || '—'}</div>
+                <div>Scope: {scope || '—'}</div>
+                <div>Departments: {departmentIds.length > 0 ? departmentIds.length : '—'}</div>
+              </div>
+            </div>
+            <div className="rounded-md border p-3 space-y-2">
+              <div className="text-sm font-medium">Operational Mapping</div>
+              <div className="text-xs text-muted-foreground">
+                <div>Operations: {operationalMapping?.operations?.length || 0}</div>
+                <div>Function: {operationalMapping?.function || '—'}</div>
+                <div>Risk Domains: {operationalMapping?.riskDomains?.length || 0}</div>
+                <div>Status: {operationalMapping?.needsReview ? 'Needs review' : '—'}</div>
+              </div>
+            </div>
+          </div>
           {/* Title */}
           <div className="space-y-2">
             <Label>Title</Label>
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Policy title"
+              placeholder="Document title"
+              data-testid="library-metadata-title"
             />
           </div>
 
           {/* Departments */}
           <div className="space-y-2">
             <Label>Departments</Label>
-            <div className="space-y-2 max-h-40 overflow-y-auto border rounded-md p-2">
+            <div className="space-y-2 max-h-40 overflow-y-auto border rounded-md p-2" data-testid="library-metadata-departments">
               {departments.map(dept => (
                 <div key={dept.id} className="flex items-center space-x-2">
                   <Checkbox
@@ -223,7 +408,7 @@ export function LibraryMetadataDrawer({
           <div className="space-y-2">
             <Label>Scope</Label>
             <Select value={scope} onValueChange={setScope}>
-              <SelectTrigger>
+              <SelectTrigger data-testid="library-metadata-scope">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -242,7 +427,7 @@ export function LibraryMetadataDrawer({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="policy">Policy</SelectItem>
+                <SelectItem value="policy">Document</SelectItem>
                 <SelectItem value="sop">SOP</SelectItem>
                 <SelectItem value="workflow">Workflow</SelectItem>
                 <SelectItem value="playbook">Playbook</SelectItem>
@@ -254,7 +439,7 @@ export function LibraryMetadataDrawer({
           <div className="space-y-2">
             <Label>Tags Status</Label>
             <Select value={tagsStatus} onValueChange={(v: any) => setTagsStatus(v)}>
-              <SelectTrigger>
+              <SelectTrigger data-testid="library-metadata-tags-status">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -314,13 +499,64 @@ export function LibraryMetadataDrawer({
               placeholder="Optional source"
             />
           </div>
+
+          {/* Operational Tasks */}
+          <div className="space-y-2 pt-2 border-t">
+          <div className="flex items-center justify-between">
+            <Label>Operational Tasks</Label>
+          </div>
+            {isLoadingTasks ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading tasks...
+              </div>
+            ) : tasks.length === 0 ? (
+              <div className="text-sm text-muted-foreground">No operational tasks yet</div>
+            ) : (
+              <div className="border rounded-md">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Task Type</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Due Date</TableHead>
+                      <TableHead>Assigned To</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {tasks.map((task) => (
+                      <TableRow key={task.id}>
+                        <TableCell>{task.taskType}</TableCell>
+                        <TableCell>{task.status}</TableCell>
+                        <TableCell>
+                          {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '—'}
+                        </TableCell>
+                        <TableCell>{task.assignedTo}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button size="sm" variant="outline" onClick={() => openEditTask(task)}>
+                              Edit
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => handleDeleteTask(task.id)}>
+                              Delete
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} data-testid="library-metadata-cancel">
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={isSaving}>
+          <Button onClick={handleSave} disabled={isSaving} data-testid="library-metadata-save">
             {isSaving ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -333,5 +569,90 @@ export function LibraryMetadataDrawer({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <Dialog open={isEditTaskOpen} onOpenChange={(open) => {
+      if (!open) {
+        setIsEditTaskOpen(false);
+        setEditingTask(null);
+      }
+    }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit Task</DialogTitle>
+          <DialogDescription>Update task details and save changes.</DialogDescription>
+        </DialogHeader>
+        {editingTask && (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Title</Label>
+              <Input
+                value={editingTask.title || ''}
+                onChange={(e) => setEditingTask({ ...editingTask, title: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Task Type</Label>
+              <Select
+                value={editingTask.taskType}
+                onValueChange={(value) => setEditingTask({ ...editingTask, taskType: value as any })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select task type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Training">Training</SelectItem>
+                  <SelectItem value="Review">Review</SelectItem>
+                  <SelectItem value="Update">Update</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select
+                value={editingTask.status}
+                onValueChange={(value) => setEditingTask({ ...editingTask, status: value as any })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Open">Open</SelectItem>
+                  <SelectItem value="In Progress">In Progress</SelectItem>
+                  <SelectItem value="Completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Due Date</Label>
+              <Input
+                type="date"
+                value={editingTask.dueDate ? editingTask.dueDate.split('T')[0] : ''}
+                onChange={(e) => setEditingTask({ ...editingTask, dueDate: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Assigned To</Label>
+              <Input
+                value={editingTask.assignedTo || ''}
+                onChange={(e) => setEditingTask({ ...editingTask, assignedTo: e.target.value })}
+              />
+            </div>
+          </div>
+        )}
+        <DialogFooter>
+          <Button variant="outline" onClick={() => {
+            setIsEditTaskOpen(false);
+            setEditingTask(null);
+          }}>
+            Cancel
+          </Button>
+          <Button onClick={handleUpdateTask} disabled={!editingTask}>
+            Save Changes
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

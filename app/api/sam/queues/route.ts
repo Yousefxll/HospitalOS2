@@ -17,7 +17,7 @@ const QUEUE_TYPES = [
 
 type QueueType = (typeof QUEUE_TYPES)[number];
 
-type QueueActionId = 'ack' | 'resolve' | 'snooze' | 'assign' | 'create_missing' | 'reuse_from_group';
+type QueueActionId = 'ack' | 'resolve' | 'snooze' | 'assign' | 'create_missing';
 
 type QueueAction = {
   id: QueueActionId;
@@ -128,8 +128,7 @@ export const GET = withAuthTenant(async (req, { tenantId, user, userId }) => {
     const tasksCollection = tasksCollectionResult;
     const operationsCollection = operationsCollectionResult;
 
-    const { orgProfile, contextRules } = await getOrgContextSnapshot(req, tenantId);
-    const canReuseFromGroup = Boolean(orgProfile?.isPartOfGroup && orgProfile?.groupId);
+    const { contextRules } = await getOrgContextSnapshot(req, tenantId);
 
     // Hard invariant:
     // If tenant has 0 policy documents, then all queues must be 0.
@@ -409,7 +408,6 @@ export const GET = withAuthTenant(async (req, { tenantId, user, userId }) => {
               href: buildQueueHref('/sam/library', 'required_missing', departmentId, opId),
               actions: [
                 { id: 'create_missing', label: 'Create missing' },
-                ...(canReuseFromGroup ? [{ id: 'reuse_from_group', label: 'Reuse from group' } as const] : []),
               ],
             });
           });
