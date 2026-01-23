@@ -66,7 +66,7 @@ export interface PolicyDocument {
   sector?: string; // Industry sector (e.g., 'healthcare', 'manufacturing', 'finance')
   sectorId?: string; // Tenant taxonomy sector ID
   country?: string; // Country code (ISO 3166-1 alpha-2)
-  status?: 'active' | 'expired' | 'draft' | 'archived' | 'ACTIVE' | 'EXPIRING_SOON' | 'UNDER_REVIEW' | 'EXPIRED' | 'ARCHIVED'; // Lifecycle status
+  status?: 'active' | 'expired' | 'draft' | 'archived' | 'under_review' | 'ACTIVE' | 'EXPIRING_SOON' | 'UNDER_REVIEW' | 'EXPIRED' | 'ARCHIVED'; // Lifecycle status
   statusUpdatedAt?: Date; // When lifecycle status last changed
   reviewCycle?: number; // Review cycle in days (legacy)
   reviewCycleMonths?: number; // Review cycle in months
