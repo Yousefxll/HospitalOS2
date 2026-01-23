@@ -748,7 +748,7 @@ export const POST = withAuthTenant(async (req, { user, tenantId, userId }) => {
               filePath: '', // Will be set by policy-engine
               fileSize: file.size,
               fileHash,
-              mimeType: file.type || 'application/octet-stream',
+              mimeType: (file.type || 'application/octet-stream') as any,
               totalPages: 0, // Will be updated by policy-engine
               processingStatus: 'pending',
               storageYear: year,
