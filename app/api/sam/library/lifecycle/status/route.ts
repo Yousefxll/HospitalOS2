@@ -36,7 +36,8 @@ export async function POST(request: NextRequest) {
       const eventsCollection = lifecycleEventsCollection instanceof NextResponse ? null : lifecycleEventsCollection;
 
       for (const policy of policies) {
-        if (policy.status === 'ARCHIVED' || policy.archivedAt) {
+        const normalizedStatus = String((policy as any).status || '').toLowerCase();
+        if (normalizedStatus === 'archived' || (policy as any).archivedAt) {
           continue;
         }
         const evaluation = evaluateLifecycle(policy, now);
