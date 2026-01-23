@@ -762,7 +762,9 @@ export const POST = withAuthTenant(async (req, { user, tenantId, userId }) => {
               contextRulesSnapshot: contextRules,
             };
             
-            if (scopeValue) newDocument.scope = scopeValue;
+            if (scopeValue === 'department' || scopeValue === 'shared' || scopeValue === 'enterprise') {
+              newDocument.scope = scopeValue;
+            }
             if (scopeId) newDocument.scopeId = scopeId as string;
             if (departmentsArray && departmentsArray.length > 0) {
               newDocument.departmentIds = departmentsArray;
