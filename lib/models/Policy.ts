@@ -17,7 +17,7 @@ export interface PolicyDocument {
   filePath: string; // storage/policies/YYYY/... (legacy, policy-engine manages files now)
   fileSize: number;
   fileHash: string; // SHA-256, unique
-  mimeType: 'application/pdf';
+  mimeType: string;
 
   totalPages: number;
   chunksCount?: number;
@@ -57,14 +57,19 @@ export interface PolicyDocument {
   hospital?: string; // Inferred from fileName prefix (TAK, WHH, etc.)
   
   // Unified Library Entity Model (Universal Knowledge & Operations Core)
-  entityType?: 'policy' | 'sop' | 'workflow' | 'playbook'; // Universal entity type
+  entityType?: 'policy' | 'sop' | 'workflow' | 'playbook' | 'manual' | 'other'; // Universal entity type
+  entityTypeId?: string; // Tenant taxonomy entity type ID
   scope?: 'department' | 'shared' | 'enterprise'; // Universal scope
+  scopeId?: string; // Tenant taxonomy scope ID
   departments?: string[]; // Multi-select departments (preferred)
   departmentIds?: string[]; // Legacy support - maps to departments
   sector?: string; // Industry sector (e.g., 'healthcare', 'manufacturing', 'finance')
+  sectorId?: string; // Tenant taxonomy sector ID
   country?: string; // Country code (ISO 3166-1 alpha-2)
-  status?: 'active' | 'expired' | 'draft' | 'archived'; // Lifecycle status
-  reviewCycle?: number; // Review cycle in days (e.g., 365 for annual review)
+  status?: 'active' | 'expired' | 'draft' | 'archived' | 'ACTIVE' | 'EXPIRING_SOON' | 'UNDER_REVIEW' | 'EXPIRED' | 'ARCHIVED'; // Lifecycle status
+  statusUpdatedAt?: Date; // When lifecycle status last changed
+  reviewCycle?: number; // Review cycle in days (legacy)
+  reviewCycleMonths?: number; // Review cycle in months
   source?: 'manual' | 'ai-generated' | string; // Document source (universal or legacy string)
   
   // Legacy classification metadata (backward compatibility)
@@ -83,6 +88,17 @@ export interface PolicyDocument {
     createdAt?: string;
   };
   tagsStatus?: 'auto-approved' | 'needs-review' | 'approved';
+  creationContext?: {
+    departmentId: string;
+    operationId: string;
+    requiredType: 'Policy' | 'SOP' | 'Workflow';
+    scope?: 'enterprise' | 'shared' | 'department';
+    source: 'gap_modal';
+  };
+
+  // Context snapshots for traceability
+  orgProfileSnapshot?: Record<string, any>;
+  contextRulesSnapshot?: Record<string, any>;
 }
 
 export interface PolicyChunk {
