@@ -5,6 +5,9 @@ import { getTenantCollection } from '@/lib/db/tenantDb';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 import { PolicyDocument } from '@/lib/models/Policy';
+import { replaceOperationLinks } from '@/lib/sam/operationLinks';
+import { buildOrgProfileRequiredResponse, getTenantContext, OrgProfileRequiredError } from '@/lib/tenant/getTenantContext';
+import { getOrgContextSnapshot } from '@/lib/sam/contextRules';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -22,10 +25,30 @@ export const POST = withAuthTenant(async (req, { user, tenantId, userId }) => {
       );
     }
 
+    try {
+      await getTenantContext(req, tenantId);
+    } catch (error) {
+      if (error instanceof OrgProfileRequiredError) {
+        return buildOrgProfileRequiredResponse();
+      }
+    }
+
     // Add metadata if provided (supporting both old and new formats)
     const scope = formData.get('scope');
+    const scopeId = formData.get('scopeId');
     const departments = formData.getAll('departments[]');
     const entityType = formData.get('entityType');
+    const entityTypeId = formData.get('entityTypeId');
+    const sectorId = formData.get('sectorId');
+    const creationContextRaw = formData.get('creationContext');
+    let creationContext: any = null;
+    if (creationContextRaw && typeof creationContextRaw === 'string') {
+      try {
+        creationContext = JSON.parse(creationContextRaw);
+      } catch (error) {
+        console.warn('[API /ingest] Invalid creationContext JSON:', error);
+      }
+    }
     
     // LOG: API route at start - log body.entityType
     console.log(`[API /ingest] 🔍 Received entityType from body:`, entityType, {
@@ -37,6 +60,8 @@ export const POST = withAuthTenant(async (req, { user, tenantId, userId }) => {
       departments: departments.length,
     });
 
+    const { orgProfile, contextRules } = await getOrgContextSnapshot(req, tenantId);
+
     // Create new FormData for policy-engine
     const policyEngineFormData = new FormData();
 
@@ -44,6 +69,8 @@ export const POST = withAuthTenant(async (req, { user, tenantId, userId }) => {
     policyEngineFormData.append('tenantId', tenantId);
     // Add uploaderUserId
     policyEngineFormData.append('uploaderUserId', userId);
+    policyEngineFormData.append('orgProfile', JSON.stringify(orgProfile));
+    policyEngineFormData.append('contextRules', JSON.stringify(contextRules));
 
     // Add files (File objects can be appended directly)
     for (const file of files) {
@@ -52,8 +79,25 @@ export const POST = withAuthTenant(async (req, { user, tenantId, userId }) => {
     const sector = formData.get('sector');
     const country = formData.get('country');
     const reviewCycle = formData.get('reviewCycle');
+    const reviewCycleMonths = formData.get('reviewCycleMonths');
+    const nextReviewDate = formData.get('nextReviewDate');
     const expiryDate = formData.get('expiryDate');
     const effectiveDate = formData.get('effectiveDate');
+    const parseDateValue = (value: FormDataEntryValue | null) => {
+      if (!value || typeof value !== 'string') return undefined;
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) return undefined;
+      return parsed;
+    };
+    const effectiveDateValue = parseDateValue(effectiveDate);
+    const expiryDateValue = parseDateValue(expiryDate);
+    
+    console.log(`[API /ingest] 📅 Dates received:`, {
+      effectiveDate,
+      expiryDate,
+      effectiveDateValue,
+      expiryDateValue,
+    });
     
     // Smart Classification fields
     const classification = formData.get('classification');
@@ -73,9 +117,14 @@ export const POST = withAuthTenant(async (req, { user, tenantId, userId }) => {
       departments.forEach(dept => policyEngineFormData.append('departments[]', dept as string));
     }
     if (entityType) policyEngineFormData.append('entityType', entityType as string);
+    if (scopeId) policyEngineFormData.append('scopeId', scopeId as string);
+    if (entityTypeId) policyEngineFormData.append('entityTypeId', entityTypeId as string);
+    if (sectorId) policyEngineFormData.append('sectorId', sectorId as string);
     if (sector) policyEngineFormData.append('sector', sector as string);
     if (country) policyEngineFormData.append('country', country as string);
     if (reviewCycle) policyEngineFormData.append('reviewCycle', reviewCycle as string);
+    if (reviewCycleMonths) policyEngineFormData.append('reviewCycleMonths', reviewCycleMonths as string);
+    if (nextReviewDate) policyEngineFormData.append('nextReviewDate', nextReviewDate as string);
     if (expiryDate) policyEngineFormData.append('expiryDate', expiryDate as string);
     if (effectiveDate) policyEngineFormData.append('effectiveDate', effectiveDate as string);
     
@@ -110,7 +159,7 @@ export const POST = withAuthTenant(async (req, { user, tenantId, userId }) => {
     } catch (fetchError) {
       console.error('Failed to connect to policy-engine:', fetchError);
       return NextResponse.json(
-        { error: 'Policy engine is not available. Please ensure policy-engine is running on port 8001.', details: fetchError instanceof Error ? fetchError.message : String(fetchError) },
+        { error: 'Document engine is not available. Please ensure the document engine is running on port 8001.', details: fetchError instanceof Error ? fetchError.message : String(fetchError) },
         { status: 503 }
       );
     }
@@ -126,9 +175,17 @@ export const POST = withAuthTenant(async (req, { user, tenantId, userId }) => {
     const data = await response.json();
     
     // CRITICAL: Extract metadata from formData FIRST (before validation)
-    const entityTypeValue = entityType as string | null;
-    const scopeValue = scope as string | null;
-    const operationsArray = operations as string[] | null;
+    const normalizeRequiredType = (value?: string | null) => {
+      if (!value) return undefined;
+      if (value === 'Policy') return 'policy';
+      if (value === 'SOP') return 'sop';
+      if (value === 'Workflow') return 'workflow';
+      return undefined;
+    };
+    let entityTypeValue = entityType as string | null;
+    let scopeValue = scope as string | null;
+    let operationsArray = operations as string[] | null;
+    const normalizeToken = (value: string) => value.trim().toLowerCase();
     
     // CRITICAL: Extract and validate departmentIds BEFORE using them
     // First, validate format (UUID/ObjectId/valid ID)
@@ -150,6 +207,34 @@ export const POST = withAuthTenant(async (req, { user, tenantId, userId }) => {
       
       return isValid;
     }) || null;
+
+    if (creationContext && creationContext.source === 'gap_modal') {
+      const pinnedEntityType = normalizeRequiredType(creationContext.requiredType);
+      if (pinnedEntityType) {
+        entityTypeValue = pinnedEntityType;
+      }
+      if (creationContext.scope) {
+        scopeValue = creationContext.scope;
+      }
+      if (creationContext.operationId) {
+        const merged = new Set([...(operationsArray || []), creationContext.operationId]);
+        operationsArray = Array.from(merged);
+      }
+      if (creationContext.departmentId) {
+        const merged = new Set([...(departmentsArray || []), creationContext.departmentId]);
+        departmentsArray = Array.from(merged);
+      }
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[API /ingest] creationContext enforced', {
+          tenantId,
+          creationContext,
+          entityTypeValue,
+          scopeValue,
+          operationsArray,
+          departmentsArray,
+        });
+      }
+    }
     
     // CRITICAL: Validate departmentIds exist and are active in the database
     // CRITICAL ARCHITECTURAL RULE: Read departments ONLY from tenant DB (syra_tenant_<tenantId>)
@@ -251,13 +336,20 @@ export const POST = withAuthTenant(async (req, { user, tenantId, userId }) => {
       
       // Resolve entityType: ONLY from body.entityType (from Step 4 resolvedContext)
       // NO filename inference - content-based classification only
-      const resolveEntityType = (fileName: string): string => {
+      type SamEntityType = 'policy' | 'sop' | 'workflow' | 'playbook';
+
+      const resolveEntityType = (fileName: string): SamEntityType => {
         // Use entityType from body (finalResolvedContext from frontend Step 4)
         // CRITICAL: Check for any truthy value, including 'manual', 'playbook', 'workflow', 'sop', etc.
         // Must check for string type and non-empty string
         if (entityTypeValue && typeof entityTypeValue === 'string' && entityTypeValue.trim() !== '') {
-          console.log(`[resolveEntityType] ✅ Using body.entityType: "${entityTypeValue}" for ${fileName}`);
-          return entityTypeValue.trim();
+          const raw = entityTypeValue.trim().toLowerCase();
+          if (raw === 'policy' || raw === 'sop' || raw === 'workflow' || raw === 'playbook') {
+            console.log(`[resolveEntityType] ✅ Using body.entityType: "${raw}" for ${fileName}`);
+            return raw;
+          }
+          console.warn(`[resolveEntityType] ⚠️ Unknown entityType "${raw}" for ${fileName}. Falling back to 'policy'.`);
+          return 'policy';
         }
         
         // Log if entityTypeValue is invalid
@@ -276,19 +368,80 @@ export const POST = withAuthTenant(async (req, { user, tenantId, userId }) => {
         return 'policy';
       };
       
+      // Resolve operationIds from incoming tokens (ids/names/codes)
+      const resolveOperationIds = async (tokens: string[] | null) => {
+        if (!tokens || tokens.length === 0) return { resolvedIds: [], unresolvedCount: 0 };
+        const operationsCollectionResult = await getTenantCollection(req, 'taxonomy_operations', 'sam');
+        if (operationsCollectionResult instanceof NextResponse) {
+          return { resolvedIds: [], unresolvedCount: tokens.length };
+        }
+        const operationsCollection = operationsCollectionResult;
+        const operations = await operationsCollection.find({ tenantId, isActive: true }).toArray();
+        const operationsById = new Map<string, any>();
+        const operationsByNormalizedName = new Map<string, any>();
+        const operationsByCode = new Map<string, any>();
+        const operationsByName = new Map<string, any>();
+        operations.forEach((op: any) => {
+          if (!op) return;
+          const opId = op.id || op._id?.toString();
+          if (opId) operationsById.set(opId, op);
+          if (op.normalizedName) operationsByNormalizedName.set(op.normalizedName, op);
+          if (op.code) operationsByCode.set(op.code, op);
+          if (op.name) operationsByName.set(op.name.toLowerCase(), op);
+        });
+
+        const resolvedIds: string[] = [];
+        let unresolvedCount = 0;
+        tokens.forEach((token) => {
+          if (!token || typeof token !== 'string') return;
+          if (operationsById.has(token)) {
+            resolvedIds.push(token);
+            return;
+          }
+          const normalized = normalizeToken(token);
+          if (operationsByNormalizedName.has(normalized)) {
+            resolvedIds.push(operationsByNormalizedName.get(normalized).id);
+            return;
+          }
+          if (operationsByCode.has(token)) {
+            resolvedIds.push(operationsByCode.get(token).id);
+            return;
+          }
+          if (operationsByName.has(normalized)) {
+            resolvedIds.push(operationsByName.get(normalized).id);
+            return;
+          }
+          unresolvedCount += 1;
+        });
+
+        return {
+          resolvedIds: Array.from(new Set(resolvedIds)),
+          unresolvedCount,
+        };
+      };
+
       // Helper function to update document with retries
       const updateDocumentWithRetries = async (
         fileName: string,
-        resolvedEntityType: string,
+        resolvedEntityType: SamEntityType,
         policyId?: string,
         maxRetries: number = 5
       ): Promise<boolean> => {
         const updateData: any = { 
           updatedAt: new Date(),
           entityType: resolvedEntityType,
+          orgProfileSnapshot: orgProfile,
+          contextRulesSnapshot: contextRules,
         };
+      
+      if (creationContext && creationContext.source === 'gap_modal') {
+        updateData.creationContext = creationContext;
+      }
+        
+        if (entityTypeId) updateData.entityTypeId = entityTypeId;
         
         if (scopeValue) updateData.scope = scopeValue;
+        if (scopeId) updateData.scopeId = scopeId;
         if (departmentsArray && departmentsArray.length > 0) {
           updateData.departmentIds = departmentsArray;
           // LOG: Log persisted departmentIds
@@ -298,8 +451,44 @@ export const POST = withAuthTenant(async (req, { user, tenantId, userId }) => {
             tenantId: tenantId,
           });
         }
+        let resolvedOperationIds: string[] = [];
         if (operationsArray && operationsArray.length > 0) {
-          updateData.classification = { operations: operationsArray };
+          const { resolvedIds, unresolvedCount } = await resolveOperationIds(operationsArray);
+          resolvedOperationIds = resolvedIds;
+          if (resolvedIds.length > 0) {
+            updateData.operationIds = resolvedIds;
+            updateData['classification.operations'] = resolvedIds;
+          } else {
+            updateData['classification.operations'] = operationsArray;
+          }
+          if (unresolvedCount > 0) {
+            updateData.operationalMappingNeedsReview = true;
+            updateData['classification.needsReview'] = true;
+          } else {
+            updateData.operationalMappingNeedsReview = false;
+            updateData['classification.needsReview'] = false;
+          }
+          if (process.env.NODE_ENV !== 'production') {
+            console.log('[ingest] operations resolved', {
+              tenantId,
+              fileName,
+              input: operationsArray,
+              resolvedIds,
+              unresolvedCount,
+            });
+          }
+        }
+        if (effectiveDateValue) updateData.effectiveDate = effectiveDateValue;
+        if (expiryDateValue) updateData.expiryDate = expiryDateValue;
+        if (sectorId) updateData.sectorId = sectorId;
+        if (reviewCycleMonths) updateData.reviewCycleMonths = Number(reviewCycleMonths);
+        if (nextReviewDate) updateData.nextReviewDate = nextReviewDate as string;
+        
+        if (effectiveDateValue || expiryDateValue) {
+          console.log(`[API /ingest] 📅 Persisting dates for ${fileName}:`, {
+            effectiveDate: effectiveDateValue,
+            expiryDate: expiryDateValue,
+          });
         }
         
         // Try immediate update first
@@ -349,7 +538,7 @@ export const POST = withAuthTenant(async (req, { user, tenantId, userId }) => {
         
         // Strategy 4: If still not found, try matching by title
         if (updateResult.matchedCount === 0) {
-          const fileNameWithoutExt = fileName.replace(/\.pdf$/i, '');
+          const fileNameWithoutExt = fileName.replace(/\.[^/.]+$/i, '');
           tenantQuery = {
             $or: [
               { title: { $regex: fileNameWithoutExt.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' } },
@@ -366,6 +555,12 @@ export const POST = withAuthTenant(async (req, { user, tenantId, userId }) => {
         
         if (updateResult.modifiedCount > 0) {
           console.log(`✅ Updated MongoDB metadata for ${fileName}: entityType="${resolvedEntityType}"`);
+          if (resolvedOperationIds.length > 0 || (operationsArray && operationsArray.length > 0)) {
+            const currentDoc = await policiesCollection.findOne(tenantQuery, { projection: { policyEngineId: 1, id: 1 } });
+            const documentId = currentDoc?.policyEngineId || currentDoc?.id || policyId || fileName;
+            const linkDepartmentId = creationContext?.departmentId || (departmentsArray && departmentsArray.length > 0 ? departmentsArray[0] : undefined);
+            await replaceOperationLinks(req, tenantId, documentId, resolvedOperationIds, resolvedEntityType, linkDepartmentId);
+          }
           return true;
         } else if (updateResult.matchedCount > 0) {
           // Verify the current entityType in the document
@@ -381,10 +576,20 @@ export const POST = withAuthTenant(async (req, { user, tenantId, userId }) => {
               );
               if (forceUpdateResult.modifiedCount > 0) {
                 console.log(`✅ Force-updated entityType to "${resolvedEntityType}" for ${fileName}`);
+                if (resolvedOperationIds.length > 0 || (operationsArray && operationsArray.length > 0)) {
+                  const documentId = currentDoc?.policyEngineId || currentDoc?.id || policyId || fileName;
+                  const linkDepartmentId = creationContext?.departmentId || (departmentsArray && departmentsArray.length > 0 ? departmentsArray[0] : undefined);
+                  await replaceOperationLinks(req, tenantId, documentId, resolvedOperationIds, resolvedEntityType, linkDepartmentId);
+                }
                 return true;
               }
             } else {
               console.log(`ℹ️ Document found for ${fileName} and entityType already correct ("${resolvedEntityType}")`);
+              if (resolvedOperationIds.length > 0 || (operationsArray && operationsArray.length > 0)) {
+                const documentId = currentDoc?.policyEngineId || currentDoc?.id || policyId || fileName;
+                const linkDepartmentId = creationContext?.departmentId || (departmentsArray && departmentsArray.length > 0 ? departmentsArray[0] : undefined);
+                await replaceOperationLinks(req, tenantId, documentId, resolvedOperationIds, resolvedEntityType, linkDepartmentId);
+              }
               return true;
             }
           }
@@ -537,13 +742,13 @@ export const POST = withAuthTenant(async (req, { user, tenantId, userId }) => {
               id: mongoPolicyId,
               documentId,
               policyEngineId: policyId, // CRITICAL: Link to policy-engine (source of truth)
-              title: fileName.replace('.pdf', '').replace(/_/g, ' '),
+              title: fileName.replace(/\.[^/.]+$/i, '').replace(/_/g, ' '),
               originalFileName: fileName,
               storedFileName: `${documentId}-${fileName}`,
               filePath: '', // Will be set by policy-engine
               fileSize: file.size,
               fileHash,
-              mimeType: 'application/pdf',
+              mimeType: file.type || 'application/octet-stream',
               totalPages: 0, // Will be updated by policy-engine
               processingStatus: 'pending',
               storageYear: year,
@@ -553,9 +758,12 @@ export const POST = withAuthTenant(async (req, { user, tenantId, userId }) => {
               tenantId,
               isActive: true,
               entityType: resolvedEntityType, // CRITICAL: Set entityType immediately
+              orgProfileSnapshot: orgProfile,
+              contextRulesSnapshot: contextRules,
             };
             
             if (scopeValue) newDocument.scope = scopeValue;
+            if (scopeId) newDocument.scopeId = scopeId as string;
             if (departmentsArray && departmentsArray.length > 0) {
               newDocument.departmentIds = departmentsArray;
               // LOG: Log persisted departmentIds
@@ -568,11 +776,17 @@ export const POST = withAuthTenant(async (req, { user, tenantId, userId }) => {
             if (operationsArray && operationsArray.length > 0) {
               newDocument.classification = { operations: operationsArray };
             }
+            if (effectiveDateValue) newDocument.effectiveDate = effectiveDateValue;
+            if (expiryDateValue) newDocument.expiryDate = expiryDateValue;
             if (sector) newDocument.sector = sector as string;
+            if (sectorId) newDocument.sectorId = sectorId as string;
             if (country) newDocument.country = country as string;
             if (status) newDocument.status = status as string;
+            if (reviewCycleMonths) newDocument.reviewCycleMonths = Number(reviewCycleMonths);
+            if (nextReviewDate) newDocument.nextReviewDate = nextReviewDate as string;
             if (version) newDocument.version = version as string;
             if (source) newDocument.source = source as string;
+            if (entityTypeId) newDocument.entityTypeId = entityTypeId as string;
             
             try {
               await policiesCollection.insertOne(newDocument as any);
@@ -607,6 +821,26 @@ export const POST = withAuthTenant(async (req, { user, tenantId, userId }) => {
       }
     }
     
+    // Trigger continuous integrity run (best-effort)
+    try {
+      const documentIds = (data.jobs || [])
+        .map((job: any) => job.policyId || job.id)
+        .filter(Boolean);
+      if (documentIds.length > 0) {
+        await fetch(new URL('/api/sam/integrity/runs', req.url), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', cookie: req.headers.get('cookie') || '' },
+          body: JSON.stringify({
+            type: 'issues',
+            documentIds,
+            scope: { type: 'selection' },
+          }),
+        });
+      }
+    } catch (integrityError) {
+      console.warn('Failed to trigger integrity run on ingest:', integrityError);
+    }
+
     return NextResponse.json(data);
 
   } catch (error) {
