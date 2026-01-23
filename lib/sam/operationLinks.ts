@@ -1,8 +1,8 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getTenantCollection } from '@/lib/db/tenantDb';
 
 export async function replaceOperationLinks(
-  req: Request,
+  req: NextRequest,
   tenantId: string,
   documentId: string,
   operationIds: string[],
@@ -48,7 +48,7 @@ export async function replaceOperationLinks(
 }
 
 export async function getOperationLinks(
-  req: Request,
+  req: NextRequest,
   tenantId: string,
   operationId: string
 ) {
@@ -61,7 +61,7 @@ export async function getOperationLinks(
 }
 
 export async function getLinksByDocumentIds(
-  req: Request,
+  req: NextRequest,
   tenantId: string,
   documentIds: string[]
 ) {
