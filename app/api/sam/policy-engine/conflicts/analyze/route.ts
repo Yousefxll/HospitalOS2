@@ -8,6 +8,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAuthTenant } from '@/lib/core/guards/withAuthTenant';
 import { env } from '@/lib/env';
 import type { ConflictAnalysisRequest, ConflictAnalysisResponse } from '@/lib/models/ConflictAnalysis';
+import { buildOrgProfileRequiredResponse, getTenantContext, OrgProfileRequiredError } from '@/lib/tenant/getTenantContext';
+import { getOrgContextSnapshot } from '@/lib/sam/contextRules';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -24,6 +26,17 @@ export const POST = withAuthTenant(async (req, { user, tenantId }) => {
       );
     }
 
+    let tenantContext: any = null;
+    try {
+      tenantContext = await getTenantContext(req, tenantId);
+    } catch (error) {
+      if (error instanceof OrgProfileRequiredError) {
+        return buildOrgProfileRequiredResponse();
+      }
+    }
+
+    const { orgProfile, contextRules } = await getOrgContextSnapshot(req, tenantId);
+
     // Forward to policy-engine with enhanced analysis
     const policyEngineUrl = `${env.POLICY_ENGINE_URL}/v1/conflicts/analyze`;
     
@@ -34,6 +47,9 @@ export const POST = withAuthTenant(async (req, { user, tenantId }) => {
       },
       body: JSON.stringify({
         tenantId: tenantId,
+        tenantContext,
+        orgProfile,
+        contextRules,
         ...body,
       }),
     });
@@ -48,12 +64,10 @@ export const POST = withAuthTenant(async (req, { user, tenantId }) => {
 
     const data: ConflictAnalysisResponse = await response.json();
     
-    // Include analysisId in response if available
-    if (data.metadata?.analysisId) {
-      return NextResponse.json({
-        ...data,
-        analysisId: data.metadata.analysisId,
-      });
+    // Include analysisId in response if available (policy-engine may include it)
+    const analysisId = (data as any)?.metadata?.analysisId;
+    if (analysisId) {
+      return NextResponse.json({ ...data, analysisId });
     }
     
     return NextResponse.json(data);
