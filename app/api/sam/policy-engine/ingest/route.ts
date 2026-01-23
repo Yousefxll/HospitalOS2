@@ -783,9 +783,14 @@ export const POST = withAuthTenant(async (req, { user, tenantId, userId }) => {
             if (sector) newDocument.sector = sector as string;
             if (sectorId) newDocument.sectorId = sectorId as string;
             if (country) newDocument.country = country as string;
-            if (status) newDocument.status = status as string;
+            if (status) newDocument.status = status as any;
             if (reviewCycleMonths) newDocument.reviewCycleMonths = Number(reviewCycleMonths);
-            if (nextReviewDate) newDocument.nextReviewDate = nextReviewDate as string;
+            if (nextReviewDate) {
+              const parsed = new Date(String(nextReviewDate));
+              if (!Number.isNaN(parsed.getTime())) {
+                newDocument.nextReviewDate = parsed;
+              }
+            }
             if (version) newDocument.version = version as string;
             if (source) newDocument.source = source as string;
             if (entityTypeId) newDocument.entityTypeId = entityTypeId as string;
