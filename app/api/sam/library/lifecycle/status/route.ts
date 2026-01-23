@@ -49,16 +49,18 @@ export async function POST(request: NextRequest) {
             needsUpdate = true;
         }
 
-        if (evaluation.status && policy.status !== evaluation.status) {
-          updates.status = evaluation.status;
+        const currentStatus = String((policy as any).status || '');
+        const nextStatus = evaluation.status ? String(evaluation.status) : '';
+        if (nextStatus && currentStatus !== nextStatus) {
+          updates.status = evaluation.status as any;
           updates.statusUpdatedAt = now;
             updates.updatedAt = now;
           needsUpdate = true;
           transitions.push({
             itemId: policy.id,
-            from: policy.status || 'ACTIVE',
-            to: evaluation.status,
-            message: `Lifecycle update: ${policy.title || policy.originalFileName || policy.id} ${policy.status || 'ACTIVE'} → ${evaluation.status}`,
+            from: currentStatus || 'ACTIVE',
+            to: nextStatus,
+            message: `Lifecycle update: ${policy.title || policy.originalFileName || policy.id} ${currentStatus || 'ACTIVE'} → ${nextStatus}`,
           });
         }
 
