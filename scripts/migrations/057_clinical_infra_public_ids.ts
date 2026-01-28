@@ -48,6 +48,11 @@ async function run() {
     );
   }
 
+  await db.collection(CLINICAL_INFRA_COLLECTIONS.providers).createIndex(
+    { tenantId: 1, staffId: 1 },
+    { unique: true, partialFilterExpression: { staffId: { $type: 'string' } } }
+  );
+
   await db.collection('users').createIndex(
     { tenantId: 1, employeeNo: 1 },
     { unique: true, partialFilterExpression: { employeeNo: { $type: 'string' } } }

@@ -32,6 +32,16 @@ export const POST = withAuthTenant(async (req: NextRequest, { tenantId, userId, 
   const clientRequestId = String(body.clientRequestId || '').trim() || null;
   const displayName = String(body.displayName || '').trim();
   if (!displayName) return NextResponse.json({ error: 'displayName is required' }, { status: 400 });
+  if (body.staffId !== undefined) {
+    const staffId = String(body.staffId || '').trim();
+    if (!staffId) return NextResponse.json({ error: 'staffId cannot be empty' }, { status: 400 });
+    const existing = await admin.db
+      .collection(CLINICAL_INFRA_COLLECTIONS.providers)
+      .findOne({ tenantId, staffId }, { projection: { _id: 0, id: 1 } });
+    if (existing) {
+      return NextResponse.json({ error: 'staffId already exists' }, { status: 409 });
+    }
+  }
 
   return withIdempotency({
     db: admin.db,
@@ -49,7 +59,7 @@ export const POST = withAuthTenant(async (req: NextRequest, { tenantId, userId, 
         doc: {
           displayName,
           email: String(body.email || '').trim() || undefined,
-          staffId: String(body.staffId || '').trim() || undefined,
+          staffId: body.staffId !== undefined ? String(body.staffId || '').trim() : undefined,
         },
         ip: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
         path: req.nextUrl.pathname,
@@ -66,7 +76,17 @@ export const PUT = withAuthTenant(async (req: NextRequest, { tenantId, userId, u
   const patch: any = {};
   if (body.displayName !== undefined) patch.displayName = String(body.displayName || '').trim();
   if (body.email !== undefined) patch.email = String(body.email || '').trim() || undefined;
-  if (body.staffId !== undefined) patch.staffId = String(body.staffId || '').trim() || undefined;
+  if (body.staffId !== undefined) {
+    const staffId = String(body.staffId || '').trim();
+    if (!staffId) return NextResponse.json({ error: 'staffId cannot be empty' }, { status: 400 });
+    const existing = await admin.db
+      .collection(CLINICAL_INFRA_COLLECTIONS.providers)
+      .findOne({ tenantId, staffId, id: { $ne: id } }, { projection: { _id: 0, id: 1 } });
+    if (existing) {
+      return NextResponse.json({ error: 'staffId already exists' }, { status: 409 });
+    }
+    patch.staffId = staffId;
+  }
 
   return withIdempotency({
     db: admin.db,
