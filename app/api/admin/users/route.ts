@@ -24,7 +24,7 @@ const createUserSchema = z.object({
   groupId: z.string().trim().optional(), // Optional - can be custom text or UUID
   hospitalId: z.string().trim().optional().nullable(), // Optional - can be custom text or UUID
   department: z.string().max(100).trim().optional().nullable(), // Optional - free text
-  staffId: z.string().max(50).optional().nullable(), // Employee/Staff ID number
+  staffId: z.string().max(50).optional().nullable(), // Employee/Staff ID number (required via runtime validation)
   employeeNo: z.string().max(50).optional().nullable(), // HR Employee Number
   permissions: z.array(z.string()).optional(), // Array of permission keys
   platformAccess: z.object({
@@ -310,6 +310,19 @@ export async function POST(request: NextRequest) {
     }
     let { data } = validation;
 
+    const rawStaffId = String(data.staffId ?? '').trim();
+    const loweredStaffId = rawStaffId.toLowerCase();
+    if (!rawStaffId || loweredStaffId === 'null' || loweredStaffId === 'undefined') {
+      return addSecurityHeaders(
+        NextResponse.json(
+          { error: 'Staff ID required', code: 'STAFF_ID_REQUIRED' },
+          { status: 400 }
+        )
+      );
+    }
+    const normalizedStaffId = rawStaffId.toUpperCase();
+    data.staffId = normalizedStaffId;
+
     // groupId and hospitalId are now optional free text fields (custom text)
     // Users can enter any text - no validation against database
     // If empty, will be stored as empty string or null
@@ -359,6 +372,19 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const existingStaffId = await usersCollection.findOne({
+      staffId: normalizedStaffId,
+      tenantId,
+    });
+    if (existingStaffId) {
+      return addSecurityHeaders(
+        NextResponse.json(
+          { error: 'Staff ID already exists', code: 'STAFF_ID_ALREADY_EXISTS' },
+          { status: 409 }
+        )
+      );
+    }
+
     // Hash password
     const hashedPassword = await hashPassword(data.password);
 
@@ -396,7 +422,7 @@ export async function POST(request: NextRequest) {
       groupId: data.groupId,
       hospitalId: data.hospitalId || null,
       department: data.department || null,
-      staffId: data.staffId || null,
+      staffId: normalizedStaffId,
       employeeNo: data.employeeNo || null,
       permissions: permissions,
       isActive: true,

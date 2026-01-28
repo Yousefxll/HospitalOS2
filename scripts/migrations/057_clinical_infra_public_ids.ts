@@ -70,6 +70,10 @@ async function run() {
     { tenantId: 1, employeeNo: 1 },
     { unique: true, partialFilterExpression: { employeeNo: { $type: 'string' } } }
   );
+  await db.collection('users').createIndex(
+    { tenantId: 1, staffId: 1 },
+    { unique: true, partialFilterExpression: { staffId: { $type: 'string' } } }
+  );
 
   for (const { entityType, collection } of ENTITY_MAP) {
     const col = db.collection(collection);

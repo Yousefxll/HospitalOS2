@@ -194,7 +194,27 @@ export async function PATCH(
     }
 
     if (data.staffId !== undefined) {
-      updateData.staffId = data.staffId;
+      const rawStaffId = String(data.staffId ?? '').trim();
+      const loweredStaffId = rawStaffId.toLowerCase();
+      if (!rawStaffId || loweredStaffId === 'null' || loweredStaffId === 'undefined') {
+        return NextResponse.json(
+          { error: 'Staff ID required', code: 'STAFF_ID_REQUIRED' },
+          { status: 400 }
+        );
+      }
+      const normalizedStaffId = rawStaffId.toUpperCase();
+      const existingStaffId = await usersCollection.findOne({
+        ...tenantQuery,
+        staffId: normalizedStaffId,
+        id: { $ne: id },
+      });
+      if (existingStaffId) {
+        return NextResponse.json(
+          { error: 'Staff ID already exists', code: 'STAFF_ID_ALREADY_EXISTS' },
+          { status: 409 }
+        );
+      }
+      updateData.staffId = normalizedStaffId;
     }
 
     if (data.employeeNo !== undefined) {

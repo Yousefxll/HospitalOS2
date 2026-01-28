@@ -66,7 +66,21 @@ Expected: request is rejected with 409/400 and `shortCode` remains unchanged.
 
 Expected: normalization is applied; invalid staffId yields 400.
 
-## Test 7: Employee No (Users)
+## Test 7: User staffId required + uniqueness
+1. Create user without `staffId` → must be blocked (400 STAFF_ID_REQUIRED).
+2. Create user with `staffId` → success.
+3. Create another user with same `staffId` in same tenant → 409 STAFF_ID_ALREADY_EXISTS.
+
+Expected: staffId is mandatory and unique per tenant.
+
+## Test 8: /api/me/provider contract
+1. With valid `user.staffId`, call `/api/me/provider` → success.
+2. With missing `user.staffId`, call `/api/me/provider` → 400 STAFF_ID_REQUIRED.
+3. With non-linked staffId, call `/api/me/provider` → 404 PROVIDER_NOT_LINKED.
+
+Expected: resolver uses normalized staffId and returns explicit error codes.
+
+## Test 9: Employee No (Users)
 1. Create user with `employeeNo`.
 2. Attempt to create another user with same `employeeNo` in same tenant.
 
