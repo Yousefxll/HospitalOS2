@@ -521,6 +521,9 @@ export default function UsersPage() {
                 <p className="text-xs text-muted-foreground">
                   Operational Staff ID (used for clinical linkage)
                 </p>
+                {!isStaffIdValid ? (
+                  <p className="text-xs text-destructive">Staff ID is required.</p>
+                ) : null}
               </div>
               
               <div className="space-y-4 border-t pt-4">
@@ -748,6 +751,9 @@ export default function UsersPage() {
                     <p className="text-xs text-muted-foreground">
                       Operational Staff ID (used for clinical linkage)
                     </p>
+                    {!isStaffIdValid ? (
+                      <p className="text-xs text-destructive">Staff ID is required.</p>
+                    ) : null}
                   </div>
                   {/* Permissions section - simplified for mobile */}
                   <div className="space-y-4 border-t pt-4">

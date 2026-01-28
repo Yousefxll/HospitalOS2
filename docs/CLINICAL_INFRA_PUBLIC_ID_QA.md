@@ -64,6 +64,7 @@ Expected: request is rejected with 409/400 and `shortCode` remains unchanged.
 5. Set `user.staffId = undefined` → `/api/me/provider` returns 400.
 6. Set `user.staffId = "null"` → `/api/me/provider` returns 400.
 7. Set `user.staffId = "undefined"` → `/api/me/provider` returns 400.
+8. Set `user.staffId = "ZZ-999"` (no matching provider) → `/api/me/provider` returns 404.
 
 Expected: normalization is applied; invalid staffId yields 400.
 

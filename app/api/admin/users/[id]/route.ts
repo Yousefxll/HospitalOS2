@@ -22,6 +22,15 @@ const updateUserSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
+const normalizeStaffId = (value: unknown) => {
+  const raw = String(value ?? '').trim();
+  const lowered = raw.toLowerCase();
+  if (!raw || lowered === 'null' || lowered === 'undefined') {
+    return { error: 'Staff ID required', code: 'STAFF_ID_REQUIRED' as const };
+  }
+  return { value: raw.toUpperCase() };
+};
+
 /**
  * PATCH /api/admin/users/:id
  * Update user permissions and other fields
@@ -194,18 +203,16 @@ export async function PATCH(
     }
 
     if (data.staffId !== undefined) {
-      const rawStaffId = String(data.staffId ?? '').trim();
-      const loweredStaffId = rawStaffId.toLowerCase();
-      if (!rawStaffId || loweredStaffId === 'null' || loweredStaffId === 'undefined') {
+      const normalizedStaffId = normalizeStaffId(data.staffId);
+      if ('error' in normalizedStaffId) {
         return NextResponse.json(
-          { error: 'Staff ID required', code: 'STAFF_ID_REQUIRED' },
+          { error: normalizedStaffId.error, code: normalizedStaffId.code },
           { status: 400 }
         );
       }
-      const normalizedStaffId = rawStaffId.toUpperCase();
       const existingStaffId = await usersCollection.findOne({
         ...tenantQuery,
-        staffId: normalizedStaffId,
+        staffId: normalizedStaffId.value,
         id: { $ne: id },
       });
       if (existingStaffId) {
@@ -214,7 +221,7 @@ export async function PATCH(
           { status: 409 }
         );
       }
-      updateData.staffId = normalizedStaffId;
+      updateData.staffId = normalizedStaffId.value;
     }
 
     if (data.employeeNo !== undefined) {
