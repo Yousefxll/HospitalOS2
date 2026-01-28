@@ -56,7 +56,17 @@ Expected: bed shortCodes are sequential (e.g., `BED-0001` to `BED-0010`) within 
 
 Expected: request is rejected with 409/400 and `shortCode` remains unchanged.
 
-## Test 6: Employee No (Users)
+## Test 6: staffId normalization (Provider linkage)
+1. Set `user.staffId = " ab-123 "` (note spacing and lowercase).
+2. Set `provider.staffId = "AB-123"`.
+3. Call `/api/me/provider` → must succeed and return provider.
+4. Set `user.staffId = null` → `/api/me/provider` returns 400.
+5. Set `user.staffId = undefined` → `/api/me/provider` returns 400.
+6. Set `user.staffId = "null"` → `/api/me/provider` returns 400.
+
+Expected: normalization is applied; invalid staffId yields 400.
+
+## Test 7: Employee No (Users)
 1. Create user with `employeeNo`.
 2. Attempt to create another user with same `employeeNo` in same tenant.
 
