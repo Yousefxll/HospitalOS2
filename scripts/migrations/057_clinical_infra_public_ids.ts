@@ -53,6 +53,19 @@ async function run() {
     { unique: true, partialFilterExpression: { staffId: { $type: 'string' } } }
   );
 
+  const providersCol = db.collection(CLINICAL_INFRA_COLLECTIONS.providers);
+  const providersWithStaffId = await providersCol
+    .find({ tenantId: TENANT_ID, staffId: { $type: 'string' } }, { projection: { _id: 0, id: 1, staffId: 1 } })
+    .toArray();
+  for (const provider of providersWithStaffId) {
+    const normalized = String(provider.staffId || '').trim().toUpperCase();
+    if (!normalized || normalized === provider.staffId) continue;
+    await providersCol.updateOne(
+      { tenantId: TENANT_ID, id: provider.id },
+      { $set: { staffId: normalized } }
+    );
+  }
+
   await db.collection('users').createIndex(
     { tenantId: 1, employeeNo: 1 },
     { unique: true, partialFilterExpression: { employeeNo: { $type: 'string' } } }

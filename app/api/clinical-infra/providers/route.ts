@@ -9,6 +9,18 @@ import { archiveDoc, createDoc, listDocs, updateDoc } from '@/lib/clinicalInfra/
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+const normalizeStaffId = (value: unknown) => {
+  const raw = String(value ?? '').trim();
+  const lowered = raw.toLowerCase();
+  if (!raw) {
+    return { error: 'staffId cannot be empty' };
+  }
+  if (lowered === 'null' || lowered === 'undefined') {
+    return { error: 'staffId cannot be null' };
+  }
+  return { value: raw.toUpperCase() };
+};
+
 export const GET = withAuthTenant(async (req: NextRequest, { tenantId, userId, user }) => {
   const admin = await requireClinicalInfraAdmin(req, { tenantId, userId, user });
   if (admin instanceof NextResponse) return admin;
@@ -32,12 +44,15 @@ export const POST = withAuthTenant(async (req: NextRequest, { tenantId, userId, 
   const clientRequestId = String(body.clientRequestId || '').trim() || null;
   const displayName = String(body.displayName || '').trim();
   if (!displayName) return NextResponse.json({ error: 'displayName is required' }, { status: 400 });
-  if (body.staffId !== undefined) {
-    const staffId = String(body.staffId || '').trim();
-    if (!staffId) return NextResponse.json({ error: 'staffId cannot be empty' }, { status: 400 });
+  const hasStaffId = body.staffId !== undefined && body.staffId !== null;
+  const normalizedStaffId = hasStaffId ? normalizeStaffId(body.staffId) : null;
+  if (normalizedStaffId && 'error' in normalizedStaffId) {
+    return NextResponse.json({ error: normalizedStaffId.error }, { status: 400 });
+  }
+  if (normalizedStaffId && 'value' in normalizedStaffId) {
     const existing = await admin.db
       .collection(CLINICAL_INFRA_COLLECTIONS.providers)
-      .findOne({ tenantId, staffId }, { projection: { _id: 0, id: 1 } });
+      .findOne({ tenantId, staffId: normalizedStaffId.value }, { projection: { _id: 0, id: 1 } });
     if (existing) {
       return NextResponse.json({ error: 'staffId already exists' }, { status: 409 });
     }
@@ -59,7 +74,7 @@ export const POST = withAuthTenant(async (req: NextRequest, { tenantId, userId, 
         doc: {
           displayName,
           email: String(body.email || '').trim() || undefined,
-          staffId: body.staffId !== undefined ? String(body.staffId || '').trim() : undefined,
+          staffId: normalizedStaffId && 'value' in normalizedStaffId ? normalizedStaffId.value : undefined,
         },
         ip: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
         path: req.nextUrl.pathname,
@@ -76,16 +91,18 @@ export const PUT = withAuthTenant(async (req: NextRequest, { tenantId, userId, u
   const patch: any = {};
   if (body.displayName !== undefined) patch.displayName = String(body.displayName || '').trim();
   if (body.email !== undefined) patch.email = String(body.email || '').trim() || undefined;
-  if (body.staffId !== undefined) {
-    const staffId = String(body.staffId || '').trim();
-    if (!staffId) return NextResponse.json({ error: 'staffId cannot be empty' }, { status: 400 });
+  if (body.staffId !== undefined && body.staffId !== null) {
+    const normalized = normalizeStaffId(body.staffId);
+    if ('error' in normalized) {
+      return NextResponse.json({ error: normalized.error }, { status: 400 });
+    }
     const existing = await admin.db
       .collection(CLINICAL_INFRA_COLLECTIONS.providers)
-      .findOne({ tenantId, staffId, id: { $ne: id } }, { projection: { _id: 0, id: 1 } });
+      .findOne({ tenantId, staffId: normalized.value, id: { $ne: id } }, { projection: { _id: 0, id: 1 } });
     if (existing) {
       return NextResponse.json({ error: 'staffId already exists' }, { status: 409 });
     }
-    patch.staffId = staffId;
+    patch.staffId = normalized.value;
   }
 
   return withIdempotency({
