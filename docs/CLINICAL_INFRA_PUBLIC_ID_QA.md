@@ -8,6 +8,8 @@
 ## Setup
 - Ensure tenant has admin access.
 - Use tenant key in API calls and QA sessions.
+- Run users staffId index migration (idempotent):
+  `npx -y tsx scripts/migrations/058_users_staffid_unique.ts`
 
 ## Test 1: Create N entities (shortCode generation)
 1. Create 3 Facilities, Units, Floors, Rooms, Beds, Clinics, Specialties, Providers.

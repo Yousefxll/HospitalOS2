@@ -123,6 +123,11 @@ SYRA is an enterprise-grade policy and procedure management system built with Ne
    curl -X POST http://localhost:3000/api/init
    ```
 
+6. **Staff ID index migration (idempotent)**
+   ```bash
+   npx -y tsx scripts/migrations/058_users_staffid_unique.ts
+   ```
+
 6. **Start development server**
    ```bash
    yarn dev
