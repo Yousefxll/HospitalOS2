@@ -86,13 +86,12 @@ export default function UsersPage() {
     employeeNo: '',
     permissions: [] as string[],
   });
-  const normalizeStaffId = (value: string) => {
-    const raw = String(value ?? '').trim();
-    const lowered = raw.toLowerCase();
-    if (!raw || lowered === 'null' || lowered === 'undefined') return '';
-    return raw.toUpperCase();
-  };
-  const staffIdValid = Boolean(normalizeStaffId(formData.staffId));
+  const staffIdNormalized = String(formData.staffId || '').trim();
+  const staffIdLower = staffIdNormalized.toLowerCase();
+  const isStaffIdValid =
+    staffIdNormalized.length > 0 &&
+    staffIdLower !== 'null' &&
+    staffIdLower !== 'undefined';
 
   const { platform: platformData } = usePlatform();
   const platform = platformData?.platform === 'sam' || platformData?.platform === 'health' 
@@ -197,15 +196,21 @@ export default function UsersPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!staffIdValid) return;
+    if (!isStaffIdValid) {
+      toast({
+        title: t.common.error,
+        description: 'Staff ID is required.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setIsLoading(true);
 
     try {
-      const normalizedStaffId = normalizeStaffId(formData.staffId);
       const response = await fetch('/api/admin/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, staffId: normalizedStaffId }),
+        body: JSON.stringify(formData),
       });
 
       if (response.ok) {
@@ -292,11 +297,9 @@ export default function UsersPage() {
     setIsLoading(true);
 
     try {
-      const normalizedStaffId = normalizeStaffId(formData.staffId);
-      if (!normalizedStaffId) return;
       const updateData: any = {
         permissions: formData.permissions,
-        staffId: normalizedStaffId,
+        staffId: formData.staffId || undefined,
         employeeNo: formData.employeeNo || undefined,
       };
       
@@ -505,21 +508,19 @@ export default function UsersPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="staffId">
-                  {(t.users as any).staffId || 'Staff ID'} <span className="text-destructive">*</span>
-                </Label>
+                <Label htmlFor="staffId">{(t.users as any).staffId || 'Staff ID'}</Label>
                 <Input
                   id="staffId"
                   value={formData.staffId}
                   onChange={(e) =>
                     setFormData({ ...formData, staffId: e.target.value })
                   }
-                  placeholder={(t.users as any).staffIdPlaceholder || 'Enter staff ID'}
                   required
+                  placeholder={(t.users as any).staffIdPlaceholder || 'Enter staff ID'}
                 />
-                <div className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   Operational Staff ID (used for clinical linkage)
-                </div>
+                </p>
               </div>
               
               <div className="space-y-4 border-t pt-4">
@@ -602,7 +603,7 @@ export default function UsersPage() {
             </form>
             </div>
             <DialogFooter className="flex-shrink-0 border-t px-6 py-4 relative z-10 bg-background">
-            <Button type="submit" form="create-user-form" disabled={isLoading || !staffIdValid}>
+              <Button type="submit" form="create-user-form" disabled={isLoading || !isStaffIdValid}>
                 {isLoading ? t.users.creating : t.users.createUser}
               </Button>
             </DialogFooter>
@@ -733,22 +734,20 @@ export default function UsersPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="mobile-staffId">
-                      {(t.users as any).staffId || 'Staff ID'} <span className="text-destructive">*</span>
-                    </Label>
+                    <Label htmlFor="mobile-staffId">{(t.users as any).staffId || 'Staff ID'}</Label>
                     <Input
                       id="mobile-staffId"
                       value={formData.staffId}
                       onChange={(e) =>
                         setFormData({ ...formData, staffId: e.target.value })
                       }
+                      required
                       placeholder={(t.users as any).staffIdPlaceholder || 'Enter staff ID'}
                       className="h-11 w-full"
-                      required
                     />
-                    <div className="text-xs text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       Operational Staff ID (used for clinical linkage)
-                    </div>
+                    </p>
                   </div>
                   {/* Permissions section - simplified for mobile */}
                   <div className="space-y-4 border-t pt-4">
@@ -830,7 +829,7 @@ export default function UsersPage() {
                 </form>
                 </div>
                 <DialogFooter className="flex-shrink-0 border-t px-4 py-3 relative z-10 bg-background">
-                  <Button type="submit" form="create-user-form" disabled={isLoading || !staffIdValid} className="w-full min-h-[44px]">
+                  <Button type="submit" form="create-user-form" disabled={isLoading || !isStaffIdValid} className="w-full min-h-[44px]">
                     {isLoading ? t.users.creating : t.users.createUser}
                   </Button>
                 </DialogFooter>
@@ -890,9 +889,7 @@ export default function UsersPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-staffId">
-                  {(t.users as any).staffId || 'Staff ID'} <span className="text-destructive">*</span>
-                </Label>
+                <Label htmlFor="edit-staffId">{(t.users as any).staffId || 'Staff ID'}</Label>
                 <Input
                   id="edit-staffId"
                   value={formData.staffId}
@@ -900,11 +897,7 @@ export default function UsersPage() {
                     setFormData({ ...formData, staffId: e.target.value })
                   }
                   placeholder={(t.users as any).staffIdPlaceholder || 'Enter staff ID'}
-                  required
                 />
-                <div className="text-xs text-muted-foreground">
-                  Operational Staff ID (used for clinical linkage)
-                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-employeeNo">{(t.users as any).employeeNo || 'Employee No'}</Label>
