@@ -45,6 +45,7 @@ import { MobileSearchBar } from '@/components/mobile/MobileSearchBar';
 import { MobileCardList } from '@/components/mobile/MobileCardList';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useRouter } from 'next/navigation';
+import TenantAccessPanel from '@/components/admin/TenantAccessPanel';
 
 interface User {
   id: string;
@@ -54,6 +55,7 @@ interface User {
   role: string;
   department?: string;
   staffId?: string;
+  employeeNo?: string;
   permissions?: string[];
   isActive: boolean;
   groupId?: string;
@@ -81,6 +83,7 @@ export default function UsersPage() {
     role: 'staff',
     department: '',
     staffId: '',
+    employeeNo: '',
     permissions: [] as string[],
   });
 
@@ -99,7 +102,7 @@ export default function UsersPage() {
     }
 
     // Define platform-specific permission categories
-    const SAM_CATEGORIES = ['Policy System', 'Account', 'Admin'];
+    const SAM_CATEGORIES = ['Document System', 'Account', 'Admin'];
     const HEALTH_CATEGORIES = ['Dashboard', 'Notifications', 'OPD', 'Scheduling', 'ER', 'Patient Experience', 'IPD', 'Equipment (OPD)', 'Equipment (IPD)', 'Manpower & Nursing', 'Account', 'Admin'];
 
     const targetCategories = platform === 'sam' ? SAM_CATEGORIES : HEALTH_CATEGORIES;
@@ -126,7 +129,8 @@ export default function UsersPage() {
       user.firstName.toLowerCase().includes(query) ||
       user.lastName.toLowerCase().includes(query) ||
       (user.department && user.department.toLowerCase().includes(query)) ||
-      (user.staffId && user.staffId.toLowerCase().includes(query))
+      (user.staffId && user.staffId.toLowerCase().includes(query)) ||
+      (user.employeeNo && user.employeeNo.toLowerCase().includes(query))
     );
   }, [users, searchQuery]);
 
@@ -211,6 +215,7 @@ export default function UsersPage() {
           role: 'staff',
           department: '',
           staffId: '',
+          employeeNo: '',
           permissions: getDefaultPermissionsForRole('staff'),
         });
       } else {
@@ -265,6 +270,7 @@ export default function UsersPage() {
       role: user.role,
       department: user.department || '',
       staffId: user.staffId || '',
+      employeeNo: user.employeeNo || '',
       permissions: user.permissions || getDefaultPermissionsForRole(user.role),
     });
     setIsEditDialogOpen(true);
@@ -280,6 +286,7 @@ export default function UsersPage() {
       const updateData: any = {
         permissions: formData.permissions,
         staffId: formData.staffId || undefined,
+        employeeNo: formData.employeeNo || undefined,
       };
       
       // Only include password if provided
@@ -309,6 +316,7 @@ export default function UsersPage() {
           role: 'staff',
           department: '',
           staffId: '',
+          employeeNo: '',
           permissions: getDefaultPermissionsForRole('staff'),
         });
       } else {
@@ -348,6 +356,7 @@ export default function UsersPage() {
     ],
     metadata: [
       { label: t.users.department, value: user.department || '-' },
+      { label: (t.users as any).employeeNo || 'Employee No', value: user.employeeNo || '-' },
       { label: t.users.permissions, value: `${user.permissions?.length || 0} ${language === 'ar' ? 'صلاحية' : 'permissions'}` },
     ],
     actions: [
@@ -368,6 +377,7 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-4 md:space-y-6">
+      <TenantAccessPanel />
       {/* Header - Hidden on mobile (MobileTopBar shows it) */}
       <div className="hidden md:flex justify-between items-center">
         <div>
@@ -470,6 +480,28 @@ export default function UsersPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, department: e.target.value })
                   }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="employeeNo">{(t.users as any).employeeNo || 'Employee No'}</Label>
+                <Input
+                  id="employeeNo"
+                  value={formData.employeeNo}
+                  onChange={(e) =>
+                    setFormData({ ...formData, employeeNo: e.target.value })
+                  }
+                  placeholder={(t.users as any).employeeNoPlaceholder || 'Enter employee number'}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="staffId">{(t.users as any).staffId || 'Staff ID'}</Label>
+                <Input
+                  id="staffId"
+                  value={formData.staffId}
+                  onChange={(e) =>
+                    setFormData({ ...formData, staffId: e.target.value })
+                  }
+                  placeholder={(t.users as any).staffIdPlaceholder || 'Enter staff ID'}
                 />
               </div>
               
@@ -671,6 +703,30 @@ export default function UsersPage() {
                       className="h-11 w-full"
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="mobile-employeeNo">{(t.users as any).employeeNo || 'Employee No'}</Label>
+                    <Input
+                      id="mobile-employeeNo"
+                      value={formData.employeeNo}
+                      onChange={(e) =>
+                        setFormData({ ...formData, employeeNo: e.target.value })
+                      }
+                      placeholder={(t.users as any).employeeNoPlaceholder || 'Enter employee number'}
+                      className="h-11 w-full"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="mobile-staffId">{(t.users as any).staffId || 'Staff ID'}</Label>
+                    <Input
+                      id="mobile-staffId"
+                      value={formData.staffId}
+                      onChange={(e) =>
+                        setFormData({ ...formData, staffId: e.target.value })
+                      }
+                      placeholder={(t.users as any).staffIdPlaceholder || 'Enter staff ID'}
+                      className="h-11 w-full"
+                    />
+                  </div>
                   {/* Permissions section - simplified for mobile */}
                   <div className="space-y-4 border-t pt-4">
                     <div className="flex items-center justify-between">
@@ -819,6 +875,17 @@ export default function UsersPage() {
                     setFormData({ ...formData, staffId: e.target.value })
                   }
                   placeholder={(t.users as any).staffIdPlaceholder || 'Enter staff ID'}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-employeeNo">{(t.users as any).employeeNo || 'Employee No'}</Label>
+                <Input
+                  id="edit-employeeNo"
+                  value={formData.employeeNo}
+                  onChange={(e) =>
+                    setFormData({ ...formData, employeeNo: e.target.value })
+                  }
+                  placeholder={(t.users as any).employeeNoPlaceholder || 'Enter employee number'}
                 />
               </div>
               
@@ -972,7 +1039,10 @@ export default function UsersPage() {
                 filteredUsers.map((user) => (
                   <TableRow key={user.id}>
                     <TableCell className="font-medium">
-                      {user.firstName} {user.lastName}
+                      <div>{user.firstName} {user.lastName}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {user.employeeNo ? `employeeNo=${user.employeeNo}` : user.staffId ? `staffId=${user.staffId}` : ''}
+                      </div>
                     </TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell>

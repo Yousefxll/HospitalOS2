@@ -6,7 +6,7 @@ import { MobileBottomNav } from '@/components/nav/MobileBottomNav';
 import { Toaster } from '@/components/ui/toaster';
 import { useTranslation } from '@/hooks/use-translation';
 import { useApiError } from '@/lib/hooks/useApiError';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Sidebar from '@/components/Sidebar';
 import { appConfig } from '@/lib/config';
 
@@ -44,6 +44,37 @@ export function MobileShell({ children }: MobileShellProps) {
   const pathname = usePathname();
   const { t } = useTranslation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const isHiddenNavPage = useMemo(() => {
+    const hiddenPrefixes = [
+      '/patient-experience',
+      '/equipment',
+      '/ipd-equipment',
+      '/opd/manpower',
+      '/opd/dashboard',
+      '/opd/clinic-daily-census',
+      '/opd/dept-view',
+      '/opd/clinic-utilization',
+      '/opd/daily-data-entry',
+      '/opd/import-data',
+      '/opd/manpower-overview',
+      '/opd/manpower-overview-new',
+      '/nursing/operations',
+      '/scheduling',
+      '/dashboard',
+      '/notifications',
+      '/admin',
+      '/library',
+      '/integrity',
+      '/builder',
+      '/assistant',
+      '/creator',
+      '/alignment',
+    ];
+    if (pathname.startsWith('/admin/clinical-infra')) {
+      return false;
+    }
+    return hiddenPrefixes.some((prefix) => pathname.startsWith(prefix));
+  }, [pathname]);
   
   // Handle API errors globally (including session expiration)
   useApiError();
@@ -54,6 +85,7 @@ export function MobileShell({ children }: MobileShellProps) {
       window.history.scrollRestoration = 'auto';
     }
   }, []);
+
 
   // Smooth scrolling for anchor links
   useEffect(() => {
@@ -102,6 +134,11 @@ export function MobileShell({ children }: MobileShellProps) {
         }}
       >
         <div className="px-4 py-4">
+          {isHiddenNavPage ? (
+            <div className="mb-4 rounded-md border border-muted-foreground/20 bg-muted/30 px-4 py-2 text-sm text-muted-foreground">
+              {t.common?.hiddenInNav ?? 'Hidden in navigation (out of current scope).'}
+            </div>
+          ) : null}
           {children}
         </div>
       </main>

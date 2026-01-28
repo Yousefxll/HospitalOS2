@@ -13,6 +13,7 @@ export interface User {
   hospitalId?: string; // Optional - required for hospital-admin and staff roles, optional (null) for group-admin
   department?: string;
   staffId?: string; // Employee/Staff ID number
+  employeeNo?: string; // HR Employee Number
   permissions?: string[]; // Array of permission keys (e.g., ['dashboard.view', 'opd.dashboard.view'])
   isActive: boolean;
   activeSessionId?: string; // Current active session ID (for single session enforcement)

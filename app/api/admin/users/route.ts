@@ -25,6 +25,7 @@ const createUserSchema = z.object({
   hospitalId: z.string().trim().optional().nullable(), // Optional - can be custom text or UUID
   department: z.string().max(100).trim().optional().nullable(), // Optional - free text
   staffId: z.string().max(50).optional().nullable(), // Employee/Staff ID number
+  employeeNo: z.string().max(50).optional().nullable(), // HR Employee Number
   permissions: z.array(z.string()).optional(), // Array of permission keys
   platformAccess: z.object({
     sam: z.boolean().optional(),
@@ -343,6 +344,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (data.employeeNo) {
+      const existingEmployeeNo = await usersCollection.findOne({
+        employeeNo: data.employeeNo,
+        tenantId,
+      });
+      if (existingEmployeeNo) {
+        return addSecurityHeaders(
+          NextResponse.json(
+            { error: 'User with this employee number already exists' },
+            { status: 400 }
+          )
+        );
+      }
+    }
+
     // Hash password
     const hashedPassword = await hashPassword(data.password);
 
@@ -381,6 +397,7 @@ export async function POST(request: NextRequest) {
       hospitalId: data.hospitalId || null,
       department: data.department || null,
       staffId: data.staffId || null,
+      employeeNo: data.employeeNo || null,
       permissions: permissions,
       isActive: true,
       tenantId, // ALWAYS from session - required for all non-syra-owner users

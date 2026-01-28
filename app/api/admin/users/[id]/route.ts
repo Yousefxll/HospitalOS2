@@ -18,6 +18,7 @@ const updateUserSchema = z.object({
   hospitalId: z.string().optional().nullable(),
   department: z.string().optional(),
   staffId: z.string().optional(), // Employee/Staff ID number
+  employeeNo: z.string().optional(), // HR Employee Number
   isActive: z.boolean().optional(),
 });
 
@@ -194,6 +195,26 @@ export async function PATCH(
 
     if (data.staffId !== undefined) {
       updateData.staffId = data.staffId;
+    }
+
+    if (data.employeeNo !== undefined) {
+      const employeeNo = String(data.employeeNo || '').trim();
+      if (employeeNo) {
+        const existingEmployeeNo = await usersCollection.findOne({
+          ...tenantQuery,
+          employeeNo,
+          id: { $ne: id },
+        });
+        if (existingEmployeeNo) {
+          return NextResponse.json(
+            { error: 'User with this employee number already exists' },
+            { status: 400 }
+          );
+        }
+        updateData.employeeNo = employeeNo;
+      } else {
+        updateData.employeeNo = null;
+      }
     }
 
     if (data.isActive !== undefined) {
